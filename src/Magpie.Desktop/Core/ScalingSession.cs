@@ -249,8 +249,10 @@ internal sealed partial class ScalingSession
         var row = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { modes, effect,graphParameters, screenshot, stop,profiler } };
         _toolbarActions=row;
         _powerStatus=new TextBlock { Name="OutputPowerStatus",IsVisible=false,Foreground=Brushes.Goldenrod,TextWrapping=TextWrapping.Wrap };
-        _toolbar = new Border { Background = Brush.Parse("#D0202020"), Padding = new Thickness(12), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Child = new ScrollViewer { Content=new StackPanel { Spacing = 6, Children = { _statistics,row, parameters, fsrParameters,ssimParameters,_gpuPanel,_powerStatus, _message } } } };
+        _inputStatus=new TextBlock { Name="OutputInputStatus",IsVisible=false,Foreground=Brushes.Goldenrod,TextWrapping=TextWrapping.Wrap };
+        _toolbar = new Border { Background = Brush.Parse("#D0202020"), Padding = new Thickness(12), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Child = new ScrollViewer { Content=new StackPanel { Spacing = 6, Children = { _statistics,row, parameters, fsrParameters,ssimParameters,_gpuPanel,_powerStatus,_inputStatus, _message } } } };
         var content = new Grid { ClipToBounds = true, Children = { image, _toolbar } };
+        content.LayoutUpdated+=(_,_)=>ConfigureMacInput();
         InitialWindowSize? initial=null;double initialScale=owner.RenderScaling;
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)
         {
@@ -289,12 +291,13 @@ internal sealed partial class ScalingSession
             else if (args.Key == Key.F12) { Interlocked.Exchange(ref _screenshotPending, 1); args.Handled = true; }
             else if (!GlobalToolbarShortcutActive() && args.Key==Enum.Parse<Key>(RuntimeSettings.Current.ToolbarShortcut.Key) && args.KeyModifiers==RuntimeSettings.Current.ToolbarShortcut.AvaloniaModifiers) { ToggleToolbar(); args.Handled = true; }
         };
-        _output.Closing += (_, _) => Stop();
+        _output.Closing += (_, _) => { _inputPoll?.Dispose();_inputPoll=null;Stop(); };
         SetSourceGeometry(sourceWidth,sourceHeight);
         if(fullscreen)_output.WindowState=WindowState.FullScreen;
         else if(sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner);
         // The output must survive the main window being hidden to the tray.
         _output.Show();
+        StartMacInputPolling();
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner,true);
         UpdateSize();
     }

@@ -32,6 +32,7 @@
     <DxcPath Condition="'$(DxcPath)' == ''">$(MSBuildProjectDirectory)/../../.tools/dxc/bin/dxc</DxcPath>
     <NativePython Condition="'$(NativePython)' == ''">python3</NativePython>
     <MoltenVkPath>$(MAGPIE_MOLTENVK_LIBRARY)</MoltenVkPath>
+    <AppleMinOSVersion Condition="$([MSBuild]::IsOSPlatform('OSX'))">14.0</AppleMinOSVersion>
     <VulkanSdkRoot>$(VULKAN_SDK)</VulkanSdkRoot>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">

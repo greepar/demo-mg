@@ -183,9 +183,14 @@ int main(int argc,char** argv) {
             require(bool(engine),mp_last_error());
             VkApplicationInfo application{VK_STRUCTURE_TYPE_APPLICATION_INFO};application.apiVersion=VK_API_VERSION_1_1;
             VkInstanceCreateInfo info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};info.pApplicationInfo=&application;
-#ifdef __APPLE__
-            const char* portability=VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;info.enabledExtensionCount=1;info.ppEnabledExtensionNames=&portability;info.flags=VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#endif
+            uint32_t extensionCount=0;
+            require(vkEnumerateInstanceExtensionProperties(nullptr,&extensionCount,nullptr)==VK_SUCCESS,"Sampler fixture extension enumeration failed");
+            std::vector<VkExtensionProperties> extensions(extensionCount);
+            require(vkEnumerateInstanceExtensionProperties(nullptr,&extensionCount,extensions.data())==VK_SUCCESS,"Sampler fixture extension enumeration failed");
+            const char* portability=VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+            if(std::any_of(extensions.begin(),extensions.end(),[&](const auto& extension){return std::strcmp(extension.extensionName,portability)==0;})) {
+                info.enabledExtensionCount=1;info.ppEnabledExtensionNames=&portability;info.flags=VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+            }
             VkInstance instance{};require(vkCreateInstance(&info,nullptr,&instance)==VK_SUCCESS,"Sampler fixture instance failed");
             uint32_t count=0;vkEnumeratePhysicalDevices(instance,&count,nullptr);std::vector<VkPhysicalDevice> devices(count);vkEnumeratePhysicalDevices(instance,&count,devices.data());
             bool found=false;

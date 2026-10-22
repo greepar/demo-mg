@@ -2,11 +2,13 @@
 
 完整目标仍为全部 Magpie 功能复刻及三平台测试；下表是当前路径和证据，不表示目标完成。
 
+2026-10-22 macOS 最新本机证据见 [macOS 实测记录](macos-testing.md)，已知交互缺口及输入阶段代码限制见 [交互清单](interaction-gaps.md)。后文各轮历史记录中的“仅 Linux / macOS 未实测”按各轮发生时的范围理解。
+
 | 路径 | 实现 | 当前证据 | 仍需验证 |
 | --- | --- | --- | --- |
 | Linux | 原生 Avalonia Wayland；ScreenCast Portal/PipeWire；Vulkan；核心静态链接 | 本机 AOT 发布/执行、GPU 数值回归、验证层、随机链、隔离图形回归；历史 QQ 选源实时画面确认 | 最新版本真实授权/撤销/窗口变化、输入、完整原版效果和剩余功能 |
 | Windows | Avalonia Win32；初始 GDI 前台窗口客户端捕获；Vulkan | Windows 目标 MinGW 严格语法检查覆盖捕获、engine 和 tests；MSVC 构建与 AOT 链接分支已编写 | Windows/MSVC 实际编译、GPU 数值、授权/窗口切换、AOT 单文件；WGC/DXGI、光标、游戏输入等仍缺 |
-| macOS 14+ | Avalonia 原生 Cocoa；ScreenCaptureKit 系统选源与帧回调；静态 MoltenVK | Apple 官方 API 声明核对；Objective-C++、ARC、框架链接和 Vulkan portability 分支已编写 | macOS SDK 实际编译、签名/应用身份、系统权限、选源/取消/停止、GPU 数值与 AOT 打包；本机无 Apple SDK，尚不能宣称通过 |
+| macOS 14+ | Avalonia 原生 Cocoa；ScreenCaptureKit 系统选源与帧回调；静态 MoltenVK；15.2+ 单窗口输入阶段代码 | Apple M4/macOS 27.0.1 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/单文件、app 本机签名与 Cocoa 渲染通过 | 系统权限与捕获生命周期、真实输入/单光标回归、全屏/焦点、多屏/DPI、Intel 与最低 macOS 14 兼容性 |
 
 ## 公共要求
 
@@ -50,7 +52,7 @@ python3 scripts/verify-platform.py --rid osx-arm64
 
 ## CI
 
-`.github/workflows/desktop-port.yml` 只允许手动触发；需要已配置工具链/GPU 的 self-hosted 标签 `magpie-linux-x64`、`magpie-win-x64`、`magpie-osx-arm64`。目前只是补齐可执行的验收路径，**未触发 CI，也没有 Windows/macOS 通过记录**。捕获、真实输入和图形行为要由独立平台测试证明，核心命令通过不能代替。
+`.github/workflows/desktop-port.yml` 只允许手动触发；需要已配置工具链/GPU 的 self-hosted 标签 `magpie-linux-x64`、`magpie-win-x64`、`magpie-osx-arm64`。**未触发 CI，Windows 尚无本机通过记录**；macOS 本机记录见上表。macOS CI runner 仍需预先准备 MoltenVK、GLM 和配套 SDK，或另外接入 `test-macos.py`。捕获、真实输入和图形行为要由独立平台测试证明，核心命令通过不能代替。
 
 Apple API 依据：[ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit)、[系统选源回调](https://developer.apple.com/documentation/screencapturekit/sccontentsharingpickerobserver)。
 
