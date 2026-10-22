@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.NewProfileFlyoutContent">
+  <StackPanel Name="CandidateForm" Width="310" Spacing="12">
+    <TextBlock Text="{c:Loc Root_NewProfileFlyout_Title.Text}" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,8" />
+    <TextBlock Text="Executable" />
+    <Grid ColumnDefinitions="*,Auto"><TextBox Name="ExecutableInput" TextChanged="Input_Changed" MaxLength="4096" /><Button Grid.Column="1" Content="Browse" Click="Browse_Click" Margin="8,0,0,0" /></Grid>
+    <TextBlock Text="{c:Loc Root_NewProfileFlyout_Name.Text}" /><TextBox Name="NameInput" TextChanged="Input_Changed" MaxLength="128" />
+    <TextBlock Text="{c:Loc Root_NewProfileFlyout_CopyFrom.Text}" /><ComboBox Name="CopySource" SelectedIndex="0" HorizontalAlignment="Stretch"><ComboBoxItem Content="{c:Loc Root_Defaults.Content}" /></ComboBox>
+    <TextBlock Name="ErrorText" IsVisible="False" Foreground="#C42B1C" TextWrapping="Wrap" />
+    <Button Name="CreateButton" Content="{c:Loc Root_NewProfileFlyout_Create.Content}" Classes="accent" IsEnabled="False" HorizontalAlignment="Right" Click="Create_Click" />
+  </StackPanel>
+</UserControl>

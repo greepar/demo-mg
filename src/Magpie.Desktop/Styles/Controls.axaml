@@ -1,0 +1,325 @@
+<!-- Ported from PageFrame.xaml, SettingsCard.Resource.xaml, SettingsGroup.Resource.xaml,
+     SettingsExpander.Resource.xaml and KeyVisual.Resource.xaml in ../Magpie. -->
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Magpie.Desktop.Controls">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="InfoFill">#F3F3F3</SolidColorBrush>
+          <SolidColorBrush x:Key="SuccessFill">#DFF6DD</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningFill">#FFF4CE</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorFill">#FDE7E9</SolidColorBrush>
+          <SolidColorBrush x:Key="BlueInfoFill">#D3E7F7</SolidColorBrush>
+
+          <SolidColorBrush x:Key="CardFill">#CCFFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="CardStroke">#0F000000</SolidColorBrush>
+          <SolidColorBrush x:Key="SecondaryText">#9E000000</SolidColorBrush>
+          <SolidColorBrush x:Key="PrimaryText">#1B1B1B</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonFill">#B3FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonStroke">#14000000</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogFill">#FBFBFB</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogFooterFill">#F3F3F3</SolidColorBrush>
+          <SolidColorBrush x:Key="FlyoutFill">#FCFCFC</SolidColorBrush>
+          <SolidColorBrush x:Key="PaneSelection">#08000000</SolidColorBrush>
+          <SolidColorBrush x:Key="PaneFill">#F3F3F3</SolidColorBrush>
+          <SolidColorBrush x:Key="PageFill">#FAFAFA</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="InfoFill">#343434</SolidColorBrush>
+          <SolidColorBrush x:Key="SuccessFill">#393D1B</SolidColorBrush>
+          <SolidColorBrush x:Key="WarningFill">#433519</SolidColorBrush>
+          <SolidColorBrush x:Key="ErrorFill">#442726</SolidColorBrush>
+          <SolidColorBrush x:Key="BlueInfoFill">#34424D</SolidColorBrush>
+
+          <SolidColorBrush x:Key="CardFill">#0DFFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="CardStroke">#19000000</SolidColorBrush>
+          <SolidColorBrush x:Key="SecondaryText">#C5FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="PrimaryText">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonFill">#10FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="ButtonStroke">#30000000</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogFill">#2B2B2B</SolidColorBrush>
+          <SolidColorBrush x:Key="DialogFooterFill">#202020</SolidColorBrush>
+          <SolidColorBrush x:Key="FlyoutFill">#2C2C2C</SolidColorBrush>
+          <SolidColorBrush x:Key="PaneSelection">#12FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="PaneFill">#202020</SolidColorBrush>
+          <SolidColorBrush x:Key="PageFill">#272727</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <c:ContentIsVisibleConverter x:Key="HasContent" />
+    </ResourceDictionary>
+  </Styles.Resources>
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{StaticResource ContentControlThemeFontFamily}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+  </Style>
+  <Style Selector="TextBlock.secondary">
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryText}" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Background" Value="{DynamicResource ButtonFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ButtonStroke}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="11,4" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Popup">
+    <Setter Property="InheritsTransform" Value="True" />
+  </Style>
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="#0067C0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="c|InfoBar">
+    <Setter Property="Background" Value="{DynamicResource InfoFill}" />
+    <Setter Property="MinHeight" Value="48" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" CornerRadius="4" Padding="16,12">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <c:SymbolIcon Name="PART_SeverityIcon" Kind="Info" Width="16" Height="16" Margin="0,2,12,0" VerticalAlignment="Top" />
+            <StackPanel Grid.Column="1" Spacing="8">
+              <TextBlock FontWeight="SemiBold" Text="{TemplateBinding Title}" TextWrapping="Wrap" />
+              <ContentPresenter Content="{TemplateBinding Content}" IsVisible="{TemplateBinding Content, Converter={StaticResource HasContent}}" />
+            </StackPanel>
+            <Button Name="PART_Close" Grid.Column="2" Classes="subtle" Width="20" Height="20" MinHeight="0" Padding="0" Margin="12,0,0,0" VerticalAlignment="Top" IsVisible="{TemplateBinding IsClosable}" ToolTip.Tip="Close"><c:SymbolIcon Kind="Close" Width="12" Height="12" /></Button>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|InfoBar.success"><Setter Property="Background" Value="{DynamicResource SuccessFill}" /></Style>
+  <Style Selector="c|InfoBar.warning"><Setter Property="Background" Value="{DynamicResource WarningFill}" /></Style>
+  <Style Selector="c|InfoBar.error"><Setter Property="Background" Value="{DynamicResource ErrorFill}" /></Style>
+  <Style Selector="c|InfoBar.blue"><Setter Property="Background" Value="{DynamicResource BlueInfoFill}" /></Style>
+  <Style Selector="c|InfoBar.warning /template/ c|SymbolIcon#PART_SeverityIcon"><Setter Property="Foreground" Value="#9D5D00" /></Style>
+  <Style Selector="c|InfoBar.error /template/ c|SymbolIcon#PART_SeverityIcon"><Setter Property="Foreground" Value="#C42B1C" /></Style>
+  <Style Selector="c|InfoBar.success /template/ c|SymbolIcon#PART_SeverityIcon"><Setter Property="Foreground" Value="#0F7B0F" /></Style>
+  <Style Selector="c|InfoBar.blue /template/ c|SymbolIcon#PART_SeverityIcon"><Setter Property="Foreground" Value="#0063B1" /></Style>
+  <Style Selector="c|KeyVisual">
+    <Setter Property="MinWidth" Value="40" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="12,0,12,2" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="#0067C0" BorderBrush="#18000000" BorderThickness="0,0,0,1" CornerRadius="4">
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|KeyVisual.large">
+    <Setter Property="MinWidth" Value="56" />
+    <Setter Property="Height" Value="56" />
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="Padding" Value="16,8" />
+  </Style>
+  <Style Selector="Button.subtle">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.nav">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="10.667,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid>
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                            Padding="{TemplateBinding Padding}" CornerRadius="4"
+                            Background="{TemplateBinding Background}" VerticalContentAlignment="Center"
+                            HorizontalContentAlignment="Stretch" />
+          <Border Name="PART_Indicator" IsVisible="False" Background="#0078D4" Width="3" Height="16"
+                  CornerRadius="2" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.nav.selected">
+    <Setter Property="Background" Value="{DynamicResource PaneSelection}" />
+  </Style>
+  <Style Selector="Button.nav.selected /template/ Border#PART_Indicator">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+  <Style Selector="c|PageFrame">
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid RowDefinitions="Auto,*">
+          <Grid Name="PART_Header" ColumnDefinitions="Auto,*,Auto" MaxWidth="1000">
+            <ContentPresenter Grid.Column="0" Content="{TemplateBinding Icon}" Margin="0,5,16,0" IsVisible="{TemplateBinding Icon, Converter={StaticResource HasContent}}" />
+            <TextBlock Grid.Column="1" FontSize="28" FontWeight="SemiBold" Text="{TemplateBinding Title}" TextTrimming="CharacterEllipsis" />
+            <ContentPresenter Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding HeaderAction}" />
+          </Grid>
+          <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ContentPresenter Name="PART_ContentPresenter"
+                              MaxWidth="1000" HorizontalAlignment="Stretch"
+                              Content="{TemplateBinding Content}" />
+          </ScrollViewer>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|PageFrame /template/ Grid#PART_Header"><Setter Property="Margin" Value="40,20,41.333,18" /></Style>
+  <Style Selector="c|PageFrame /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Margin" Value="40.667,0,41.333,14" /></Style>
+  <Style Selector="c|PageFrame:narrow /template/ Grid#PART_Header"><Setter Property="Margin" Value="25,20,25,18" /></Style>
+  <Style Selector="c|PageFrame:narrow /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Margin" Value="25,0,25,14" /></Style>
+  <Style Selector="c|SettingsGroup">
+    <Setter Property="ItemsPanel"><ItemsPanelTemplate><StackPanel Spacing="2" /></ItemsPanelTemplate></Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel>
+          <TextBlock Margin="0.667,0,0,0" LineHeight="19" FontWeight="SemiBold" Text="{TemplateBinding Header}" />
+          <TextBlock Margin="0.667,0,0,0" FontSize="13.9" LineHeight="19" IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{TemplateBinding Description}" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryText}" />
+          <ItemsPresenter Name="PART_ItemsPresenter" Margin="0,8,0,0" ItemsPanel="{TemplateBinding ItemsPanel}" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|SettingsCard">
+    <Setter Property="MinHeight" Value="70" />
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="Background" Value="{DynamicResource CardFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStroke}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="HorizontalContentAlignment" Value="Right" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+          <c:SettingsCardLayout IsWrapEnabled="{TemplateBinding IsWrapEnabled}">
+            <c:SymbolIcon Kind="{TemplateBinding Icon}" Width="20" Height="20" Margin="2,0,20,0" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+              <TextBlock Text="{TemplateBinding Header}" TextWrapping="Wrap" />
+              <ContentPresenter IsVisible="{TemplateBinding Description, Converter={StaticResource HasContent}}" Content="{TemplateBinding Description}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryText}" />
+            </StackPanel>
+            <ContentPresenter Name="PART_ContentPresenter" Grid.Column="2" VerticalAlignment="Center" Content="{TemplateBinding Content}" />
+          </c:SettingsCardLayout>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="c|SettingsExpander">
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel>
+          <Border Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" CornerRadius="4">
+            <c:SettingsExpanderLayout IsWrapEnabled="{TemplateBinding IsWrapEnabled}" HasIcon="{TemplateBinding Icon, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" MinHeight="69">
+              <ToggleButton Name="PART_toggle" Classes="expander-header" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Background="Transparent" BorderThickness="0" Padding="16">
+                <Grid ColumnDefinitions="Auto,*">
+                  <c:SymbolIcon Kind="{TemplateBinding Icon}" IsVisible="{TemplateBinding Icon, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Width="20" Height="20" HorizontalAlignment="Left" Margin="2,0,20,0" />
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{TemplateBinding Header}" TextWrapping="Wrap" />
+                    <TextBlock IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{TemplateBinding Description}" FontSize="12" Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Grid>
+              </ToggleButton>
+              <ContentPresenter Grid.Column="1" Content="{TemplateBinding Action}" VerticalAlignment="Center" />
+              <ToggleButton Grid.Column="2" Classes="expander-header" IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <c:SymbolIcon Name="PART_Chevron" Kind="ChevronDown" Width="12" Height="12" />
+              </ToggleButton>
+            </c:SettingsExpanderLayout>
+          </Border>
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" IsVisible="{TemplateBinding IsExpanded}" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleButton.expander-header:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+  </Style>
+  <Style Selector="ToggleButton.expander-header:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource PaneSelection}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+  </Style>
+  <Style Selector="c|SettingsExpander:expanded /template/ c|SymbolIcon#PART_Chevron">
+    <Setter Property="RenderTransform" Value="rotate(180deg)" />
+  </Style>
+  <Style Selector="TextBlock.combo-description"><Setter Property="IsVisible" Value="False" /></Style>
+  <Style Selector="ComboBoxItem TextBlock.combo-description"><Setter Property="IsVisible" Value="True" /></Style>
+  <!-- WinUI DefaultComboBoxStyle uses a 504 DIP drop-down limit. -->
+  <Style Selector="ComboBox">
+    <Setter Property="MaxDropDownHeight" Value="504" />
+    <Setter Property="MinWidth" Value="130" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource ButtonFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ButtonStroke}" />
+    <Setter Property="CornerRadius" Value="4" />
+  </Style>
+  <Style Selector="ComboBox.inline">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="MinWidth" Value="110" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryText}" />
+  </Style>
+  <!-- WinUI 2 uses an inset selected row with an accent indicator, rather than a blue fill. -->
+  <Style Selector="ComboBoxItem">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid Margin="4,1">
+          <Border Name="PART_Row" Background="Transparent" CornerRadius="4" />
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Padding="{TemplateBinding Padding}" VerticalContentAlignment="Center" />
+          <Border Name="PART_Selection" Background="#0067C0" Width="3" Height="16" CornerRadius="2" IsVisible="False" HorizontalAlignment="Left" VerticalAlignment="Center" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ComboBoxItem:selected /template/ Border#PART_Row"><Setter Property="Background" Value="{DynamicResource PaneSelection}" /></Style>
+  <Style Selector="ComboBoxItem:selected /template/ Border#PART_Selection"><Setter Property="IsVisible" Value="True" /></Style>
+  <Style Selector="ComboBoxItem:pointerover /template/ Border#PART_Row"><Setter Property="Background" Value="{DynamicResource PaneSelection}" /></Style>
+  <Style Selector="ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+  </Style>
+  <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryText}" />
+  </Style>
+  <Style Selector="Border#PopupBorder">
+    <Setter Property="Background" Value="{DynamicResource FlyoutFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStroke}" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="ComboBox /template/ Border#PopupBorder">
+    <Setter Property="Background" Value="{DynamicResource FlyoutFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStroke}" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource FlyoutFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStroke}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource FlyoutFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStroke}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+</Styles>

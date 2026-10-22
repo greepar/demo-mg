@@ -1,0 +1,12 @@
+<!-- ScalingModesPage.xaml: mode removal confirmation port. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls"
+             x:Class="Magpie.Desktop.Controls.ScalingModeDeleteFlyoutContent">
+  <StackPanel MaxWidth="280">
+    <TextBlock Text="{c:Loc ScalingModes_DeleteFlyout_Title.Text}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,15" />
+    <StackPanel Name="LinkedProfiles" Spacing="8" Margin="0,0,0,10">
+      <TextBlock Text="{c:Loc ScalingModes_DeleteFlyout_Description.Text}" />
+      <TextBlock Text="Defaults" />
+    </StackPanel>
+    <Button Name="DeleteButton" Background="#C42B1C" Foreground="White" HorizontalAlignment="Right" Click="Delete_Click"><StackPanel Orientation="Horizontal" Spacing="8"><c:SymbolIcon Kind="Delete" Width="14" Height="14" VerticalAlignment="Center" /><TextBlock Text="{c:Loc ScalingModes_DeleteFlyout_Delete.Text}" /></StackPanel></Button>
+  </StackPanel>
+</UserControl>

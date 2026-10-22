@@ -1,0 +1,16 @@
+<!-- Window-contained counterpart of WinUI ContentDialog. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Magpie.Desktop.Controls.ContentDialog" Focusable="True">
+  <Border Background="{DynamicResource DialogFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" CornerRadius="8" BoxShadow="0 8 32 0 #33000000">
+    <Grid RowDefinitions="Auto,Auto,Auto">
+      <TextBlock Name="TitleLabel" FontSize="20" FontWeight="SemiBold" Margin="24,24,24,12" />
+      <ContentControl Name="Body" Grid.Row="1" Margin="24,0,24,24" HorizontalContentAlignment="Stretch" />
+      <Border Grid.Row="2" Background="{DynamicResource DialogFooterFill}" Padding="24" CornerRadius="0,0,8,8">
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+          <Button Name="PrimaryButton" Content="Save" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Save_Click" />
+          <Button Grid.Column="1" Content="Cancel" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="Cancel_Click" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

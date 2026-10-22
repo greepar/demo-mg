@@ -1,0 +1,9 @@
+<!-- Shared port of the identical profile/mode rename flyouts. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.RenameFlyoutContent">
+  <StackPanel>
+    <TextBlock Text="{c:Loc Profile_MoreOptions_RenameFlyout_Title.Text}" />
+    <TextBox Name="NameInput" Width="280" Height="32" Margin="0,8,0,20" TextChanged="Name_Changed" />
+    <Button Name="ConfirmButton" IsEnabled="False" Content="{c:Loc Profile_MoreOptions_RenameFlyout_OK.Content}" MinWidth="80" HorizontalAlignment="Right" Classes="accent" Click="Confirm_Click" />
+  </StackPanel>
+</UserControl>

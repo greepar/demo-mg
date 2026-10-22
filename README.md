@@ -1,3 +1,5 @@
+> **Experimental cross-platform port:** Avalonia / NativeAOT UI with a statically linked C++ / Vulkan core. Start with the [macOS local test guide](docs/macos-testing.md) or [desktop port README](src/Magpie.Desktop/README.md). Linux has runtime coverage; Windows/macOS acceptance and full feature parity are still pending. The original upstream documentation follows.
+
 <br>
 <p align="center">
   <img src="./src/Magpie/Icons/SVG/Magpie Icon Full Disabled.svg" width="150px" height="150px" alt="Logo">

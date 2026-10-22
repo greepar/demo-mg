@@ -1,0 +1,10 @@
+<!-- Ported from DeleteConfirmationFlyoutContent.xaml. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls"
+             x:Class="Magpie.Desktop.Controls.DeleteConfirmationFlyoutContent">
+  <StackPanel Spacing="12">
+    <TextBlock Name="MessageLabel" MaxWidth="260" TextWrapping="Wrap" />
+    <Button Name="ConfirmButton" HorizontalAlignment="Right" Background="#C42B1C" Foreground="White" Click="Delete_Click">
+      <StackPanel Orientation="Horizontal" Spacing="8"><c:SymbolIcon Kind="Delete" Width="14" Height="14" VerticalAlignment="Center" /><TextBlock Text="{c:Loc DeleteConfirmationFlyoutContent_Delete.Text}" /></StackPanel>
+    </Button>
+  </StackPanel>
+</UserControl>

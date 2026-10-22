@@ -1,0 +1,11 @@
+{
+  "scalingModes": [
+    {"name":"Lanczos","effects":[{"name":"Lanczos","scalingType":1,"scale":{"x":1,"y":1}}]},
+    {"name":"FSR","effects":[{"name":"FSR\\FSR_EASU","scalingType":1,"scale":{"x":1,"y":1}},{"name":"FSR\\FSR_RCAS","parameters":{"sharpness":0.87}}]},
+    {"name":"FSRCNNX","effects":[{"name":"FSRCNNX\\FSRCNNX"}]},
+    {"name":"CuNNy","effects":[{"name":"CuNNy2\\CuNNy-4x12-NVL"}]},
+    {"name":"Anime4K","effects":[{"name":"Anime4K\\Anime4K_Upscale_Denoise_L"}]},
+    {"name":"CRT-Geom","effects":[{"name":"CRT\\CRT_Geom","scalingType":1,"scale":{"x":1,"y":1},"parameters":{"curvature":0,"cornerSize":0.001,"CRTGamma":1.5,"monitorGamma":2.2,"interlace":0}}]},
+    {"name":"Integer Scale 2x","effects":[{"name":"Nearest","scalingType":0,"scale":{"x":2,"y":2}}]}
+  ]
+}

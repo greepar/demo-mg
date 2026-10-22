@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Magpie.Desktop</AssemblyName>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <PublishAot>true</PublishAot>
+    <StripSymbols>true</StripSymbols>
+    <DebugType>none</DebugType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/**" />
+    <EmbeddedResource Include="../../tests/fixtures/original-scaling-modes.json" LogicalName="Magpie.Fixtures.OriginalScalingModes.json" />
+    <EmbeddedResource Include="../Magpie/Resources.language-*.resw" LogicalName="Magpie.Strings.%(Filename).xml" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Wayland" Version="12.1.1" />
+    <PackageReference Include="StaticLink.Avalonia" Version="4.150.1-7922.1" />
+    <!-- Keep dotnet run's dynamic graphics backend aligned with the static AOT backend. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.150.1" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
+    <PackageReference Include="StaticLink.Avalonia.Native" Version="12.1.1.1" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+  </ItemGroup>
+  <PropertyGroup>
+    <NativeRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</NativeRid>
+    <NativeRid Condition="'$(NativeRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</NativeRid>
+    <NativeBuildDir>$(MSBuildProjectDirectory)/../../artifacts/native/$(NativeRid)/$(Configuration)</NativeBuildDir>
+    <NativeArchive>$(NativeBuildDir)/libmagpie_native.a</NativeArchive>
+    <DxcPath Condition="'$(DxcPath)' == ''">$(MSBuildProjectDirectory)/../../.tools/dxc/bin/dxc</DxcPath>
+    <NativePython Condition="'$(NativePython)' == ''">python3</NativePython>
+    <MoltenVkPath>$(MAGPIE_MOLTENVK_LIBRARY)</MoltenVkPath>
+    <VulkanSdkRoot>$(VULKAN_SDK)</VulkanSdkRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <NativeArchive>$(NativeBuildDir)/$(Configuration)/magpie_native.lib</NativeArchive>
+    <NativePython Condition="'$(NativePython)' == 'python3'">python</NativePython>
+  </PropertyGroup>
+  <Target Name="VerifyOriginalEffectCatalog" BeforeTargets="BeforeBuild">
+    <Exec Command="&quot;$(NativePython)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/generate-effect-catalog.py&quot;" />
+  </Target>
+  <Target Name="BuildMagpieCore" BeforeTargets="CoreCompile">
+    <Exec Command="&quot;$(NativePython)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/build-native.py&quot; --rid &quot;$(NativeRid)&quot; --configuration $(Configuration) --build-dir &quot;$(NativeBuildDir)&quot; --dxc &quot;$(DxcPath)&quot;" />
+  </Target>
+  <Target Name="CopyDevelopmentCore" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Linux'))" SourceFiles="$(NativeBuildDir)/libmagpie_native.so" DestinationFolder="$(OutDir)" />
+    <Copy Condition="$([MSBuild]::IsOSPlatform('Windows'))" SourceFiles="$(NativeBuildDir)/Debug/magpie_native.dll" DestinationFolder="$(OutDir)" />
+    <Copy Condition="$([MSBuild]::IsOSPlatform('OSX'))" SourceFiles="$(NativeBuildDir)/libmagpie_native.dylib" DestinationFolder="$(OutDir)" />
+  </Target>
+  <ItemGroup>
+    <DirectPInvoke Include="magpie_native" />
+    <NativeLibrary Include="$(NativeArchive)" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <LinkerArg Include="-lvulkan" />
+    <LinkerArg Include="-lpipewire-0.3" />
+    <LinkerArg Include="-lgio-2.0" />
+    <LinkerArg Include="-lgobject-2.0" />
+    <LinkerArg Include="-lglib-2.0" />
+    <LinkerArg Include="-lstdc++" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <NativeLibrary Include="$(VulkanSdkRoot)/Lib/vulkan-1.lib" />
+    <LinkerArg Include="user32.lib" />
+    <LinkerArg Include="gdi32.lib" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <NativeLibrary Include="$(MoltenVkPath)" />
+    <LinkerArg Include="-lc++" />
+    <LinkerArg Include="-lobjc" />
+    <LinkerArg Include="-Wl,-framework,Foundation" />
+    <LinkerArg Include="-Wl,-framework,CoreGraphics" />
+    <LinkerArg Include="-Wl,-framework,AppKit" />
+    <LinkerArg Include="-Wl,-framework,ScreenCaptureKit" />
+    <LinkerArg Include="-Wl,-framework,CoreMedia" />
+    <LinkerArg Include="-Wl,-framework,CoreVideo" />
+    <LinkerArg Include="-Wl,-framework,Metal" />
+    <LinkerArg Include="-Wl,-framework,QuartzCore" />
+    <LinkerArg Include="-Wl,-framework,IOSurface" />
+    <LinkerArg Include="-Wl,-framework,IOKit" />
+  </ItemGroup>
+</Project>

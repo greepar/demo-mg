@@ -1,0 +1,21 @@
+<!-- ScalingModesPage.xaml: ScalingModes_ScaleFlyout port. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.ScaleFlyoutContent"
+             x:DataType="c:ScaleFlyoutContent" Width="260">
+  <StackPanel Spacing="15" Margin="0,0,0,4">
+    <StackPanel Spacing="8">
+      <TextBlock Text="{c:Loc ScalingModes_ScaleFlyout_Type.Text}" />
+      <ComboBox Name="TypeSelector" ItemsSource="{Binding Choices}" SelectedIndex="1" HorizontalAlignment="Stretch" SelectionChanged="Type_Changed">
+        <ComboBox.ItemTemplate><DataTemplate x:DataType="c:ScalingTypeChoice"><StackPanel><TextBlock Text="{Binding Name}" /><TextBlock Classes="combo-description" Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap" MaxWidth="230" /></StackPanel></DataTemplate></ComboBox.ItemTemplate>
+      </ComboBox>
+    </StackPanel>
+    <StackPanel Name="FactorPanel" Spacing="15">
+      <StackPanel Spacing="8"><TextBlock Text="{c:Loc ScalingModes_ScaleFlyout_WidthFactor.Text}" /><NumericUpDown Name="WidthFactor" Value="1" Increment="0.1" Minimum="0.1" Maximum="100" /></StackPanel>
+      <StackPanel Spacing="8"><TextBlock Text="{c:Loc ScalingModes_ScaleFlyout_HeightFactor.Text}" /><NumericUpDown Name="HeightFactor" Value="1" Increment="0.1" Minimum="0.1" Maximum="100" /></StackPanel>
+    </StackPanel>
+    <StackPanel Name="PixelPanel" Spacing="15" IsVisible="False">
+      <StackPanel Spacing="8"><TextBlock Text="{c:Loc ScalingModes_ScaleFlyout_WidthPixels.Text}" /><NumericUpDown Name="WidthPixels" Value="1920" Increment="1" Minimum="1" Maximum="16384" /></StackPanel>
+      <StackPanel Spacing="8"><TextBlock Text="{c:Loc ScalingModes_ScaleFlyout_HeightPixels.Text}" /><NumericUpDown Name="HeightPixels" Value="1080" Increment="1" Minimum="1" Maximum="16384" /></StackPanel>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

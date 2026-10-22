@@ -1,0 +1,13 @@
+<!-- ScalingModesPage.xaml: NewScalingModeFlyout port. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls"
+             x:Class="Magpie.Desktop.Controls.NewScalingModeFlyoutContent">
+  <StackPanel>
+    <TextBlock Text="{c:Loc ScalingModes_NewScalingModeFlyout_Title.Text}" Margin="0,5,0,20" FontSize="18" FontWeight="SemiBold" />
+    <StackPanel MinWidth="250" Spacing="15">
+      <StackPanel Spacing="8"><TextBlock Text="{c:Loc ScalingModes_NewScalingModeFlyout_Name.Text}" /><TextBox Name="NameInput" TextChanged="Name_Changed" /></StackPanel>
+      <StackPanel Spacing="8"><TextBlock Text="{c:Loc ScalingModes_NewScalingModeFlyout_CopyFrom.Text}" /><ComboBox Name="CopyFrom" HorizontalAlignment="Stretch" SelectedIndex="0"><ComboBoxItem Content="{c:Loc ScalingModes_NewScalingModeFlyout_CopyFrom_None}" /><ComboBoxItem Content="Lanczos" /><ComboBoxItem Content="FSR" /><ComboBoxItem Content="FSRCNNX" /><ComboBoxItem Content="CuNNy" /><ComboBoxItem Content="Anime4K" /><ComboBoxItem Content="CRT-Geom" /><ComboBoxItem Content="Integer Scale 2x" /></ComboBox></StackPanel>
+      <TextBlock Name="ErrorLabel" Foreground="#C42B1C" TextWrapping="Wrap" IsVisible="False" />
+      <Button Name="CreateButton" Click="Create_Click" Content="{c:Loc ScalingModes_NewScalingModeFlyout_Create.Content}" MinWidth="100" Margin="0,15,0,0" HorizontalAlignment="Right" Classes="accent" IsEnabled="False" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

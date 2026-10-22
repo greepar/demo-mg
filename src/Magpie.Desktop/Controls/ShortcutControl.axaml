@@ -1,0 +1,13 @@
+<!-- Ported from ShortcutControl.xaml / KeyVisual.Resource.xaml. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.ShortcutControl" x:DataType="c:ShortcutControl">
+  <Button Classes="subtle" Padding="4,0" Margin="0,0,-4,0" Click="Edit_Click" ToolTip.Tip="Edit shortcut">
+    <StackPanel Orientation="Horizontal" Spacing="16">
+      <ItemsControl ItemsSource="{Binding Keys, RelativeSource={RelativeSource AncestorType=c:ShortcutControl}}" VerticalAlignment="Center">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><c:KeyVisual Content="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <c:SymbolIcon Kind="Edit" Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,6,0" />
+    </StackPanel>
+  </Button>
+</UserControl>

@@ -1,0 +1,21 @@
+<!-- Ported from AboutPage.xaml. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Views.AboutPage">
+  <UserControl.Styles><Style Selector="Button.link"><Setter Property="Padding" Value="8,4" /></Style></UserControl.Styles>
+  <c:PageFrame Title="{c:Loc About_PageFrame.Title}"><StackPanel Spacing="32" Margin="0,4,0,0">
+    <StackPanel Spacing="16" Margin="0,8,0,0">
+      <StackPanel Orientation="Horizontal" Spacing="20"><Image Source="/Assets/Magpie.ico" Width="64" Height="64" /><StackPanel VerticalAlignment="Center" Spacing="4"><TextBlock Text="Magpie" FontSize="24" /><TextBlock Text="0.13.0" DoubleTapped="Version_DoubleTapped" Classes="secondary" FontSize="12" /></StackPanel></StackPanel>
+      <Button Name="CheckButton" Content="{c:Loc About_Version_CheckForUpdates.Text}" Classes="accent" />
+      <c:UpdateCard Name="UpdateNotice" IsVisible="False" />
+    </StackPanel>
+    <c:SettingsGroup Header="{c:Loc About_Version_UpdateSettings.Header}">
+      <c:SettingsCard Header="{c:Loc About_Version_UpdateSettings_AutoCheckForUpdates.Header}" Icon="Power"><ToggleSwitch IsChecked="True" /></c:SettingsCard>
+      <c:SettingsCard Header="{c:Loc About_Version_UpdateSettings_CheckForPreviewUpdates.Header}" Icon="Sparkles"><ToggleSwitch /></c:SettingsCard>
+    </c:SettingsGroup>
+    <c:SettingsGroup Header="{c:Loc About_Feedback.Header}">
+      <c:SettingsCard Header="{c:Loc About_Feedback_ReportBug.Header}" Icon="Info"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard>
+      <c:SettingsCard Header="{c:Loc About_Feedback_RequestFeature.Header}" Icon="Sparkles"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard>
+      <c:SettingsCard Header="{c:Loc About_Feedback_Discussion.Header}" Icon="Window"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard>
+    </c:SettingsGroup>
+    <c:SettingsGroup Header="{c:Loc About_OtherLinks.Header}"><WrapPanel><Button Classes="link" Content="Repository" /><Button Classes="link" Content="FAQ" /><Button Classes="link" Content="Contribution guidelines" /><Button Classes="link" Content="License" /></WrapPanel></c:SettingsGroup>
+  </StackPanel></c:PageFrame>
+</UserControl>

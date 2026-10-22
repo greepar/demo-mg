@@ -1,0 +1,53 @@
+<!-- HomePage.xaml port. Toolbar rows follow the supplied reference (newer WinUI versions moved these into ProfilePage.xaml). -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Views.HomePage">
+  <c:PageFrame Title="{c:Loc Home_PageFrame.Title}">
+    <StackPanel Spacing="32" Margin="0,4,0,0">
+      <c:UpdateCard Name="UpdateNotice" IsVisible="False" />
+      <c:SettingsCard Name="ActiveProfileCard" IsVisible="False" IsWrapEnabled="True" Header="Application profile" Icon="Window"><ComboBox Name="ActiveProfileSelector" SelectionChanged="ActiveProfile_Changed" MinWidth="180" MaxWidth="300" /></c:SettingsCard>
+      <StackPanel Spacing="8"><WrapPanel Orientation="Horizontal"><Button Name="ShortcutSetupButton" Click="ShortcutSetup_Click" Margin="0,0,8,8" /><Button Name="ShortcutStopButton" Click="ShortcutStop_Click" Margin="0,0,0,8" /></WrapPanel><TextBlock Name="ShortcutSystemStatus" TextWrapping="Wrap" /></StackPanel>
+      <c:SettingsGroup Header="{c:Loc Home_Activation.Header}" Description="{c:Loc Home_Activation.Description}">
+        <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Activation_FullscreenScaling.Header}" Icon="Scale">
+          <c:ShortcutControl Name="FullscreenShortcut" Key="A" Title="{c:Loc Home_Activation_FullscreenScaling_ShortcutControl.Title}" />
+        </c:SettingsCard>
+        <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Activation_WindowedScaling.Header}" Icon="Window">
+          <c:ShortcutControl Name="WindowedShortcut" Key="Q" Title="{c:Loc Home_Activation_WindowedScaling_ShortcutControl.Title}" />
+        </c:SettingsCard>
+        <c:SettingsExpander Name="DelayedScaling" IsWrapEnabled="True" Header="{c:Loc Home_Activation_Timer.Header}" Icon="Timer">
+          <c:SettingsExpander.Action>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Name="FullscreenStart" Click="FullscreenStart_Click"><StackPanel Orientation="Horizontal" Spacing="8"><c:SymbolIcon Kind="Scale" Width="14" Height="14" VerticalAlignment="Center" /><TextBlock Text="{c:Loc Home_Activation_Timer_Start}" /></StackPanel></Button>
+              <Button Name="WindowedStart" Click="WindowedStart_Click"><StackPanel Orientation="Horizontal" Spacing="8"><c:SymbolIcon Kind="Window" Width="14" Height="14" VerticalAlignment="Center" /><TextBlock Text="{c:Loc Home_Activation_Timer_Start}" /></StackPanel></Button>
+            </StackPanel>
+          </c:SettingsExpander.Action>
+          <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Activation_Timer_Delay.Header}">
+            <StackPanel Orientation="Horizontal" Spacing="12"><Slider Name="DelaySeconds" Width="150" Minimum="1" Maximum="5" Value="3" TickFrequency="1" IsSnapToTickEnabled="True" /><TextBlock Text="{Binding #DelaySeconds.Value, StringFormat={}{0:0}}" VerticalAlignment="Center" /></StackPanel>
+          </c:SettingsCard>
+        </c:SettingsExpander>
+      </c:SettingsGroup>
+      <c:SettingsGroup Header="{c:Loc Home_Toolbar.Header}" Description="{c:Loc Home_Toolbar.Description}">
+        <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Toolbar_StateToggle.Header}" Icon="Toolbar"><c:ShortcutControl Name="ToolbarShortcut" Key="D" Title="{c:Loc Home_Toolbar_StateToggle_ShortcutControl.Title}" /></c:SettingsCard>
+        <c:SettingsCard Header="{c:Loc Profile_Toolbar_InitialState.Header}" Icon="Eye">
+          <ComboBox Classes="inline" SelectedIndex="1"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /></ComboBox>
+        </c:SettingsCard>
+        <c:SettingsCard Header="{c:Loc Profile_Toolbar_ScreenshotSaveDirectory.Header}" Name="ScreenshotDirectoryCard" Icon="Folder">
+          <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="{c:Loc Profile_Toolbar_ScreenshotSaveDirectory_Change.Content}" Click="ScreenshotDirectory_Click" /><Button Classes="subtle" Padding="6" ToolTip.Tip="Open screenshot directory" Click="OpenScreenshotDirectory_Click"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></Button></StackPanel>
+        </c:SettingsCard>
+      </c:SettingsGroup>
+      <c:SettingsGroup Header="{c:Loc Home_TouchSupport.Header}" Description="{c:Loc Home_TouchSupport.Description}">
+        <c:SettingsCard Name="TouchCard" Header="{c:Loc Home_TouchSupport_EnableTouchSupport.Header}" Icon="Touch"><c:SettingsCard.Description><StackPanel><TextBlock FontSize="12" Text="{c:Loc Home_TouchSupport_EnableTouchSupport_Description.Text}" /><Button Classes="link" FontSize="12" Content="{c:Loc Home_TouchSupport_EnableTouchSupport_LearnMore.Content}" /></StackPanel></c:SettingsCard.Description><ToggleSwitch Name="TouchToggle" IsChecked="False" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsCard>
+      <c:InfoBar Classes="blue" Title="{c:Loc Home_TouchSupport_Info.Title}" IsClosable="False" IsOpen="{Binding #TouchToggle.IsChecked}" />
+        <c:InfoBar Severity="Warning" Title="{c:Loc Home_TouchSupport_Warn.Title}" IsClosable="False" IsOpen="{Binding #TouchToggle.IsChecked}" />
+      </c:SettingsGroup>
+      <c:SettingsGroup Header="{c:Loc Home_Advanced.Header}">
+        <c:SettingsCard Header="{c:Loc Home_Advanced_AllowScalingMaximized.Header}" Description="{c:Loc Home_Advanced_AllowScalingMaximized.Description}" Icon="Scale"><ToggleSwitch /></c:SettingsCard>
+        <c:SettingsCard Header="{c:Loc Home_Advanced_KeepScreenOn.Header}" Icon="Monitor"><ToggleSwitch Name="KeepScreenOnToggle" IsCheckedChanged="DynamicStatistics_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsCard>
+        <c:SettingsCard Name="ExclusiveCard" Header="{c:Loc Home_Advanced_SimulateExclusiveFullscreen.Header}" Description="{c:Loc Home_Advanced_SimulateExclusiveFullscreen.Description}" Icon="Window"><ToggleSwitch Name="ExclusiveToggle" IsChecked="False" /></c:SettingsCard>
+        <c:InfoBar Severity="Warning" Title="{c:Loc Home_Advanced_SimulateExclusiveFullscreen_InfoBar.Title}" IsClosable="False" IsOpen="{Binding #ExclusiveToggle.IsChecked}" />
+        <c:SettingsCard Header="{c:Loc Home_Advanced_InlineParams.Header}" Description="{c:Loc Home_Advanced_InlineParams.Description}" Icon="Settings"><ToggleSwitch /></c:SettingsCard>
+        <c:SettingsCard Header="{c:Loc Home_Advanced_DeveloperOptions_DisableFP16.Content}" Icon="Settings"><CheckBox Name="DisableFP16Toggle" IsCheckedChanged="DynamicStatistics_Changed" /></c:SettingsCard>
+        <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Advanced_MinFrameRate.Header}" Description="{c:Loc Home_Advanced_MinFrameRate.Description}" Icon="Monitor"><StackPanel Orientation="Horizontal" Spacing="8"><ComboBox Name="MinimumFrameRateSelector" SelectionChanged="PerformanceSetting_Changed" MinWidth="80" /><TextBlock Text="FPS" VerticalAlignment="Center" /></StackPanel></c:SettingsCard>
+      <c:SettingsExpander Name="DeveloperOptions" Header="{c:Loc Home_Advanced_DeveloperOptions.Header}" Description="{c:Loc Home_Advanced_DeveloperOptions.Description}" Icon="Terminal" IsVisible="False" IsExpanded="True"><c:SettingsExpander.Action><ToggleSwitch IsChecked="True" /></c:SettingsExpander.Action><StackPanel Spacing="2"><c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Advanced_DeveloperOptions_LocateLogs.Header}"><StackPanel Orientation="Horizontal" Spacing="4"><Button Content="Magpie" /><Button Content="TouchHelper" /><Button Content="Updater" /></StackPanel></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_DebugMode.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_BenchmarkMode.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_DisableTopmost.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_DisableEffectCache.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_SaveEffectSources.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_WarningsAreErrors.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Content="{c:Loc Home_Advanced_DeveloperOptions_DisableFontCache.Content}" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Name="GpuProfilingToggle" Content="{c:Loc Overlay_Profiler}" IsCheckedChanged="DynamicStatistics_Changed" /></c:SettingsCard><c:SettingsCard Header=""><CheckBox Name="DynamicDetectionStatistics" IsCheckedChanged="DynamicStatistics_Changed" Content="{c:Loc Home_Advanced_DeveloperOptions_EnableStatisticsForDynamicDetection.Content}" /></c:SettingsCard><c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Advanced_DeveloperOptions_DuplicateFrameDetection.Header}"><ComboBox Name="DuplicateFrameSelector" SelectedIndex="1" SelectionChanged="PerformanceSetting_Changed"><ComboBoxItem Content="{c:Loc Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Always.Content}" /><ComboBoxItem Content="{c:Loc Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Dynamic.Content}" /><ComboBoxItem Content="{c:Loc Home_Advanced_DeveloperOptions_DuplicateFrameDetection_Never.Content}" /></ComboBox></c:SettingsCard></StackPanel></c:SettingsExpander></c:SettingsGroup>
+    </StackPanel>
+  </c:PageFrame>
+</UserControl>

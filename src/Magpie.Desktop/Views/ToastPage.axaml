@@ -1,0 +1,7 @@
+<!-- Ported from ToastPage.xaml's centered TeachingTip content. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Views.ToastPage">
+  <StackPanel Orientation="Horizontal">
+    <c:SymbolIcon Name="Logo" Kind="Feather" Foreground="#007FC4" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+    <StackPanel MaxWidth="330"><TextBlock Name="TitleLabel" FontWeight="SemiBold" TextWrapping="Wrap" /><TextBlock Name="MessageLabel" TextWrapping="Wrap" /></StackPanel>
+  </StackPanel>
+</UserControl>

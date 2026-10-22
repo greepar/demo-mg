@@ -432,3 +432,7 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+# Local downloaded build tools
+.tools/
+# Generated shader source is distributed as a verified deterministic gzip archive.
+src/Magpie.Native/shaders/kernel.precompiled.h

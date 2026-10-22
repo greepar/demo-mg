@@ -1,0 +1,17 @@
+<!-- Ported from ShortcutDialogContent.xaml. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.ShortcutDialogContent" x:DataType="c:ShortcutDialogContent"
+             MinWidth="498" MinHeight="220">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <TextBlock Text="{c:Loc ShortcutDialogContent_Description.Text}" />
+    <ItemsControl Grid.Row="1" ItemsSource="{Binding Keys, RelativeSource={RelativeSource AncestorType=c:ShortcutDialogContent}}"
+                  Height="56" Margin="0,64,0,0" HorizontalAlignment="Center" VerticalAlignment="Top">
+      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><c:KeyVisual Classes="large" Content="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Grid.Row="2" Margin="0,24,0,0" Spacing="8">
+      <Grid Height="36"><Border Name="WarningBanner" IsVisible="False" Background="#FDE7E9" CornerRadius="4" Padding="8"><TextBlock Text="Invalid shortcut" Foreground="#C42B1C" FontWeight="SemiBold" /></Border></Grid>
+      <TextBlock Text="{c:Loc ShortcutDialogContent_Tip.Text}" FontSize="12" Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap" />
+    </StackPanel>
+  </Grid>
+</UserControl>

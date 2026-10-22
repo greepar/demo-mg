@@ -1,0 +1,194 @@
+<!-- Ported from src/Magpie/ProfilePage.xaml. Resource strings are shared with WinUI. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Views.ProfilePage">
+<c:PageFrame Name="ProfileFrame" Title="{c:Loc Root_Defaults.Content}">
+<c:PageFrame.HeaderAction><StackPanel Name="ProfileActions" Orientation="Horizontal" Spacing="2" IsVisible="False">
+<Button Classes="subtle" Width="36" Height="36" Padding="0" ToolTip.Tip="Launch" Click="Launch_Click"><c:SymbolIcon Kind="Play" Width="18" Height="18" /></Button>
+<Button Name="ProfileMore" Classes="subtle" Width="36" Height="36" Padding="0" ToolTip.Tip="More options"><c:SymbolIcon Kind="More" Width="18" Height="18" /><Button.Flyout><MenuFlyout Placement="Bottom"><MenuItem Header="{c:Loc Profile_MoreOptions_OpenProgramLocation.Text}" Click="ProgramAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Folder" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="Change the executable file for launching" Tag="ChangeExecutable" Click="ProgramAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Window" Width="16" Height="16" /></MenuItem.Icon></MenuItem><Separator /><MenuItem Header="{c:Loc Profile_MoreOptions_Rename.Text}" Tag="Rename" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Edit" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="Reorder" Tag="Reorder" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Reorder" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="{c:Loc Profile_MoreOptions_Delete.Text}" Tag="Delete" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Delete" Width="16" Height="16" /></MenuItem.Icon></MenuItem></MenuFlyout></Button.Flyout></Button>
+</StackPanel></c:PageFrame.HeaderAction>
+<StackPanel Spacing="32" Margin="0,4,0,0">
+<!-- Profile_General -->
+<c:SettingsGroup Header="{c:Loc Profile_General.Header}">
+<!-- Profile_General_ScalingMode -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_General_ScalingMode.Header}" Icon="Sparkles">
+
+<StackPanel Orientation="Horizontal" Spacing="8"><ComboBox Name="ScalingModeSelector" SelectionChanged="ScalingMode_SelectionChanged" SelectedIndex="0"><ComboBoxItem Content="Lanczos" /><ComboBoxItem Content="FSR" /><ComboBoxItem Content="FSRCNNX" /><ComboBoxItem Content="CuNNy" /><ComboBoxItem Content="Anime4K" /><ComboBoxItem Content="CRT-Geom" /><ComboBoxItem Content="Integer Scale 2x" /><ComboBoxItem Content="FSRCNNX LineArt" /><ComboBoxItem Content="NNEDI3 nns16 win8x4" /><ComboBoxItem Content="SSimDownscaler" /><ComboBoxItem Content="Anime4K_Upscale_L" /><ComboBoxItem Content="Anime4K_Upscale_VL" /><ComboBoxItem Content="Anime4K_Upscale_Denoise_S" /><ComboBoxItem Content="Anime4K_Upscale_Denoise_VL" /><ComboBoxItem Content="RAVU Lite R2" /><ComboBoxItem Content="SMAA Low" /><ComboBoxItem Content="SMAA Medium" /><ComboBoxItem Content="SMAA High" /><ComboBoxItem Content="SMAA Ultra" /><ComboBoxItem Content="Jinc" /><ComboBoxItem Content="Anime4K Denoise Bilateral Mean" /></ComboBox><Button Name="CrtSettingsButton" Content="{c:Loc Desktop.Parameters}" Click="CrtSettings_Click" IsVisible="False" /></StackPanel>
+</c:SettingsCard>
+
+<c:SettingsCard Name="SsimParametersCard" Header="SSimDownscaler · Oversharp" IsVisible="False" IsWrapEnabled="True" Icon="Effects"><NumericUpDown Name="ProfileSsimOversharp" Width="150" Minimum="1" Maximum="3" Increment="0.1" Value="1" ValueChanged="SsimOversharp_Changed" /></c:SettingsCard>
+
+<!-- Profile_General_CaptureMethod -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_General_CaptureMethod.Header}" Icon="Capture">
+
+<ComboBox Name="CaptureMethod" SelectedIndex="0" SelectionChanged="CaptureMethod_SelectionChanged"><ComboBoxItem Content="Graphics Capture" /><ComboBoxItem Content="Desktop Duplication" /><ComboBoxItem Content="GDI" /><ComboBoxItem Content="DwmSharedSurface" /></ComboBox>
+</c:SettingsCard>
+
+
+<c:InfoBar Name="CaptureWarning" Severity="Warning" IsClosable="False" IsOpen="False" Title="{c:Loc Profile_General_DesktopDuplicationWarning.Title}" />
+<!-- Profile_General_AutoScale -->
+<c:SettingsCard Name="AutoScaleCard" IsVisible="False" IsWrapEnabled="True" Header="{c:Loc Profile_General_AutoScale.Header}" Icon="Scale">
+
+<ComboBox SelectedIndex="0"><ComboBoxItem Content="Disabled" /><ComboBoxItem Content="Fullscreen scaling" /><ComboBoxItem Content="Windowed scaling" /></ComboBox>
+</c:SettingsCard>
+
+<!-- Profile_General_3DGameMode -->
+<c:SettingsCard Header="{c:Loc Profile_General_3DGameMode.Header}" Description="{c:Loc Profile_General_3DGameMode.Description}" Icon="Gamepad">
+
+<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+<!-- Profile_General_Multimonitor -->
+<c:SettingsCard Name="MultimonitorCard" IsVisible="False" IsWrapEnabled="True" Header="{c:Loc Profile_General_Multimonitor.Header}" Description="{c:Loc Profile_General_Multimonitor.Description}" Icon="Monitors">
+
+<ComboBox SelectedIndex="0"><ComboBoxItem Content="Monitor closest to the source window" /><ComboBoxItem Content="Monitors intersected by the source window" /><ComboBoxItem Content="All monitors" /></ComboBox>
+</c:SettingsCard>
+
+</c:SettingsGroup>
+
+<!-- Profile_WindowedScaling -->
+<c:SettingsGroup Header="{c:Loc Profile_WindowedScaling.Header}">
+<!-- Profile_WindowedScaling_InitialScaleFactor -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_WindowedScaling_InitialScaleFactor.Header}" Icon="Scale">
+
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><ComboBox Name="WindowScale" SelectedIndex="0" SelectionChanged="Scale_SelectionChanged"><ComboBoxItem Content="{c:Loc Profile_WindowedScaling_InitialScaleFactor_Auto.Content}" /><ComboBoxItem Content="1.25x" /><ComboBoxItem Content="1.5x" /><ComboBoxItem Content="1.75x" /><ComboBoxItem Content="2x" /><ComboBoxItem Content="3x" /><ComboBoxItem Content="{c:Loc Profile_WindowedScaling_InitialScaleFactor_Custom.Content}" /></ComboBox><NumericUpDown Name="WindowCustomScale" IsVisible="False" Width="130" Minimum="1.1" Maximum="10" Value="1.25" Increment="0.1" ValueChanged="WindowCustomScale_Changed" /></StackPanel>
+</c:SettingsCard>
+
+</c:SettingsGroup>
+
+<!-- Profile_Toolbar -->
+<c:SettingsGroup Header="{c:Loc Profile_Toolbar.Header}">
+<!-- Profile_Toolbar_InitialState -->
+<c:SettingsExpander Header="{c:Loc Profile_Toolbar_InitialState.Header}" Icon="Eye">
+<c:SettingsExpander.Action></c:SettingsExpander.Action>
+<StackPanel Spacing="2"><!-- Profile_Toolbar_InitialState_Fullscreen -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_InitialState_Fullscreen.Header}" Icon="">
+<ComboBox SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox>
+</c:SettingsCard>
+<!-- Profile_Toolbar_InitialState_Windowed -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_InitialState_Windowed.Header}" Icon="">
+<ComboBox SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox>
+</c:SettingsCard>
+</StackPanel>
+</c:SettingsExpander>
+
+<!-- Profile_Toolbar_ScreenshotSaveDirectory -->
+<c:SettingsCard Name="ScreenshotDirectoryCard" Header="{c:Loc Profile_Toolbar_ScreenshotSaveDirectory.Header}" Icon="Folder">
+
+
+<Button Name="ScreenshotDirectoryButton" Content="{c:Loc Profile_Toolbar_ScreenshotSaveDirectory_Change.Content}" Click="ScreenshotDirectory_Click" />
+</c:SettingsCard>
+
+<!-- Profile_Toolbar_ScreenshotFilenameTemplate -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_ScreenshotFilenameTemplate.Header}" Description="{c:Loc Profile_Toolbar_ScreenshotFilenameTemplate.Description}" Icon="Edit">
+
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><StackPanel Spacing="4"><TextBox Name="ScreenshotTemplateInput" MinWidth="180" MaxWidth="300" MaxLength="1024" TextChanged="ScreenshotTemplate_Changed" /><TextBlock Name="ScreenshotTemplateError" Text="Invalid filename template" Foreground="#C42B1C" IsVisible="False" /></StackPanel><Button Classes="subtle" Padding="6" ToolTip.Tip="Show available parameters"><c:SymbolIcon Kind="Info" Width="16" Height="16" /><Button.Flyout><Flyout><StackPanel Spacing="4"><TextBlock Text="Available parameters" FontWeight="Bold" Margin="0,0,0,12" /><TextBlock Text="%WT% - Window title" /><TextBlock Text="%WT:n% - Window title, limited to n characters" /><TextBlock Text="%PN% - Process name" /><TextBlock Text="%PN:n% - Process name, limited to n characters" /><TextBlock Text="%Y% - Year" /><TextBlock Text="%y% - Last two digits of year" /><TextBlock Text="%m% - Month" /><TextBlock Text="%D% - Day" /><TextBlock Text="%H% - Hour (24-hour)" /><TextBlock Text="%M% - Minute" /><TextBlock Text="%S% - Second" /><TextBlock Text="%MS% - Millisecond" /><TextBlock Text="\% - Literal percent sign (%)" /></StackPanel></Flyout></Button.Flyout></Button></StackPanel>
+</c:SettingsCard>
+
+
+</c:SettingsGroup>
+
+<!-- Profile_Performance -->
+<c:SettingsGroup Header="{c:Loc Profile_Performance.Header}">
+<!-- Profile_Performance_GraphicsCard -->
+<c:SettingsCard Name="GraphicsCard" IsWrapEnabled="True" Header="{c:Loc Profile_Performance_GraphicsCard.Header}" Icon="Graphics">
+
+<StackPanel Spacing="6" MaxWidth="360"><WrapPanel><ComboBox Name="GraphicsDeviceSelector" MinWidth="200" MaxWidth="310" SelectionChanged="GraphicsDevice_SelectionChanged" /><Button Name="RefreshGraphicsDevices" Content="{c:Loc Desktop.Refresh}" Click="RefreshGraphicsDevices_Click" Margin="6,0,0,0" /></WrapPanel><TextBlock Name="GraphicsDeviceStatus" Text="Applies to the next scaling session." TextWrapping="Wrap" /></StackPanel>
+</c:SettingsCard>
+
+
+<!-- Profile_Performance_FrameRateLimiter -->
+<c:SettingsExpander Name="FrameLimiterExpander" Header="{c:Loc Profile_Performance_FrameRateLimiter.Header}" Icon="Gauge">
+<c:SettingsExpander.Action><ToggleSwitch Name="FrameLimiterToggle" IsCheckedChanged="FrameLimiter_Changed" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=c:SettingsExpander}, Mode=TwoWay}" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsExpander.Action>
+<StackPanel Spacing="2"><!-- Profile_Performance_FrameRateLimiter_MaxFrameRate -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Performance_FrameRateLimiter_MaxFrameRate.Header}" Icon="">
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><NumericUpDown Name="MaximumFrameRateInput" Width="130" Minimum="10" Maximum="1000" Value="60" ValueChanged="MaximumFrameRate_Changed" /><TextBlock Text="FPS" VerticalAlignment="Center" /></StackPanel>
+</c:SettingsCard>
+</StackPanel>
+</c:SettingsExpander>
+
+</c:SettingsGroup>
+
+<!-- Profile_SourceWindow -->
+<c:SettingsGroup Header="{c:Loc Profile_SourceWindow.Header}">
+<!-- Profile_SourceWindow_CaptureTitleBar -->
+<c:SettingsCard Name="CaptureTitleBarCard" Header="{c:Loc Profile_SourceWindow_CaptureTitleBar.Header}" Description="{c:Loc Profile_SourceWindow_CaptureTitleBar.Description}" Icon="Window">
+
+<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+<!-- Profile_SourceWindow_CustomCropping -->
+<c:SettingsExpander Name="CroppingExpander" Header="{c:Loc Profile_SourceWindow_CustomCropping.Header}" Icon="Crop">
+<c:SettingsExpander.Action><ToggleSwitch Name="CroppingToggle" IsCheckedChanged="CroppingToggle_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsExpander.Action>
+<StackPanel Spacing="2"><!-- Profile_SourceWindow_CustomCropping_Left -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_SourceWindow_CustomCropping_Left.Header}" Icon="">
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><NumericUpDown Name="CroppingLeftInput" Width="150" Minimum="0" Maximum="16384" Value="0" Increment="1" ValueChanged="CroppingValue_Changed" /><TextBlock Text="px" VerticalAlignment="Center" /></StackPanel>
+</c:SettingsCard>
+<!-- Profile_SourceWindow_CustomCropping_Right -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_SourceWindow_CustomCropping_Right.Header}" Icon="">
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><NumericUpDown Name="CroppingRightInput" Width="150" Minimum="0" Maximum="16384" Value="0" Increment="1" ValueChanged="CroppingValue_Changed" /><TextBlock Text="px" VerticalAlignment="Center" /></StackPanel>
+</c:SettingsCard>
+<!-- Profile_SourceWindow_CustomCropping_Top -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_SourceWindow_CustomCropping_Top.Header}" Icon="">
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><NumericUpDown Name="CroppingTopInput" Width="150" Minimum="0" Maximum="16384" Value="0" Increment="1" ValueChanged="CroppingValue_Changed" /><TextBlock Text="px" VerticalAlignment="Center" /></StackPanel>
+</c:SettingsCard>
+<!-- Profile_SourceWindow_CustomCropping_Bottom -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_SourceWindow_CustomCropping_Bottom.Header}" Icon="">
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><NumericUpDown Name="CroppingBottomInput" Width="150" Minimum="0" Maximum="16384" Value="0" Increment="1" ValueChanged="CroppingValue_Changed" /><TextBlock Text="px" VerticalAlignment="Center" /></StackPanel>
+</c:SettingsCard>
+</StackPanel>
+</c:SettingsExpander>
+
+</c:SettingsGroup>
+
+<!-- Profile_Cursor -->
+<c:SettingsGroup Header="{c:Loc Profile_Cursor.Header}">
+<!-- Profile_Cursor_DrawCursor_ScaleFactor -->
+<c:SettingsExpander IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_DrawCursor_ScaleFactor.Header}" Icon="Cursor">
+<c:SettingsExpander.Action><StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><ComboBox Name="CursorScale" SelectedIndex="2" SelectionChanged="Scale_SelectionChanged"><ComboBoxItem Content="0.5x" /><ComboBoxItem Content="0.75x" /><ComboBoxItem Content="No scaling" /><ComboBoxItem Content="1.25x" /><ComboBoxItem Content="1.5x" /><ComboBoxItem Content="2x" /><ComboBoxItem Content="Same as source window" /><ComboBoxItem Content="Custom" /></ComboBox><NumericUpDown Name="CursorCustomScale" IsVisible="False" Width="80" Minimum="0.1" Maximum="10" Value="1" Increment="0.1" /></StackPanel></c:SettingsExpander.Action>
+<StackPanel Spacing="2"><!-- Profile_Cursor_DrawCursor_Interpolation -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_DrawCursor_Interpolation.Header}" Icon="">
+<ComboBox SelectedIndex="0"><ComboBoxItem Content="Nearest-neighbor" /><ComboBoxItem Content="Bilinear" /></ComboBox>
+</c:SettingsCard>
+</StackPanel>
+</c:SettingsExpander>
+
+<!-- Profile_Cursor_AutoHide -->
+<c:SettingsExpander Header="{c:Loc Profile_Cursor_AutoHide.Header}" Icon="Cursor">
+<c:SettingsExpander.Action><ToggleSwitch IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=c:SettingsExpander}, Mode=TwoWay}" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsExpander.Action>
+<StackPanel Spacing="2"><!-- Profile_Cursor_AutoHide_Delay -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_AutoHide_Delay.Header}" Icon="">
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><Slider Width="140" Minimum="1" Maximum="5" Value="3" /></StackPanel>
+</c:SettingsCard>
+</StackPanel>
+</c:SettingsExpander>
+
+<!-- Profile_Cursor_DrawCursor_AdjustCursorSpeed -->
+<c:SettingsCard Header="{c:Loc Profile_Cursor_DrawCursor_AdjustCursorSpeed.Header}" Icon="Cursor">
+
+<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+</c:SettingsGroup>
+
+<!-- Profile_Advanced -->
+<c:SettingsGroup Header="{c:Loc Profile_Advanced.Header}">
+<!-- Profile_Advanced_LaunchParameters -->
+<c:SettingsCard Name="LaunchParametersCard" IsVisible="False" IsWrapEnabled="True" Header="{c:Loc Profile_Advanced_LaunchParameters.Header}" Icon="Terminal">
+
+<TextBox Name="LaunchArgumentsInput" MinWidth="180" MaxWidth="300" MaxHeight="160" AcceptsReturn="True" PlaceholderText="One argument per line" TextChanged="LaunchArguments_Changed" />
+</c:SettingsCard>
+
+<!-- Profile_Advanced_OutputAlignment -->
+<c:SettingsCard Header="{c:Loc Profile_Advanced_OutputAlignment.Header}" Description="{c:Loc Profile_Advanced_OutputAlignment.Description}" Icon="Align">
+
+<ComboBox Name="OutputAlignmentSelector" SelectedIndex="4" SelectionChanged="OutputAlignment_Changed"><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_TopLeft.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_TopCenter.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_TopRight.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_Left.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_Center.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_Right.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_BottomLeft.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_BottomCenter.Content}" /><ComboBoxItem Content="{c:Loc Profile_Advanced_OutputAlignment_BottomRight.Content}" /></ComboBox>
+</c:SettingsCard>
+
+<!-- Profile_Advanced_DisableDirectFlip -->
+<c:SettingsCard Header="{c:Loc Profile_Advanced_DisableDirectFlip.Header}" Description="{c:Loc Profile_Advanced_DisableDirectFlip.Description}" Icon="Monitor">
+
+<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+</c:SettingsGroup>
+
+</StackPanel></c:PageFrame></UserControl>

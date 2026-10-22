@@ -1,0 +1,827 @@
+{
+  "version": 1,
+  "reserved_ids": {
+    "6": "Managed FSR composite"
+  },
+  "effects": [
+    {
+      "id": 0,
+      "path": "Nearest",
+      "backend": "scalar",
+      "order": 0,
+      "registered": true
+    },
+    {
+      "id": 1,
+      "path": "Lanczos",
+      "backend": "scalar",
+      "order": 1,
+      "registered": true
+    },
+    {
+      "id": 2,
+      "path": "Bilinear",
+      "backend": "scalar",
+      "order": 2,
+      "registered": true
+    },
+    {
+      "id": 3,
+      "path": "Bicubic",
+      "backend": "scalar",
+      "order": 3,
+      "registered": true
+    },
+    {
+      "id": 4,
+      "path": "FSR/FSR_EASU",
+      "backend": "scalar",
+      "order": 4,
+      "registered": true
+    },
+    {
+      "id": 5,
+      "path": "FSR/FSR_RCAS",
+      "backend": "scalar",
+      "order": 5,
+      "registered": true
+    },
+    {
+      "id": 7,
+      "path": "Anime4K/Anime4K_Upscale_S",
+      "backend": "graph",
+      "order": 0,
+      "registered": true
+    },
+    {
+      "id": 8,
+      "path": "Anime4K/Anime4K_Upscale_Denoise_L",
+      "backend": "graph",
+      "order": 1,
+      "registered": true
+    },
+    {
+      "id": 9,
+      "path": "FSRCNNX/FSRCNNX",
+      "backend": "graph",
+      "order": 2,
+      "registered": true
+    },
+    {
+      "id": 10,
+      "path": "FSRCNNX/FSRCNNX_LineArt",
+      "backend": "graph",
+      "order": 3,
+      "registered": true
+    },
+    {
+      "id": 11,
+      "path": "CuNNy2/CuNNy-4x12-NVL",
+      "backend": "graph",
+      "order": 4,
+      "registered": true
+    },
+    {
+      "id": 12,
+      "path": "CRT/CRT_Geom",
+      "backend": "graph",
+      "order": 16,
+      "registered": true
+    },
+    {
+      "id": 13,
+      "path": "NNEDI3/NNEDI3_nns16_win8x4",
+      "backend": "graph",
+      "order": 5,
+      "registered": true
+    },
+    {
+      "id": 14,
+      "path": "SSimDownscaler",
+      "backend": "graph",
+      "order": 6,
+      "registered": true
+    },
+    {
+      "id": 15,
+      "path": "Anime4K/Anime4K_Upscale_L",
+      "backend": "graph",
+      "order": 7,
+      "registered": true
+    },
+    {
+      "id": 16,
+      "path": "Anime4K/Anime4K_Upscale_VL",
+      "backend": "graph",
+      "order": 8,
+      "registered": true
+    },
+    {
+      "id": 17,
+      "path": "Anime4K/Anime4K_Upscale_Denoise_S",
+      "backend": "graph",
+      "order": 9,
+      "registered": true
+    },
+    {
+      "id": 18,
+      "path": "Anime4K/Anime4K_Upscale_Denoise_VL",
+      "backend": "graph",
+      "order": 10,
+      "registered": true
+    },
+    {
+      "id": 19,
+      "path": "RAVU/RAVU_Lite_R2",
+      "backend": "graph",
+      "order": 11,
+      "registered": true
+    },
+    {
+      "id": 20,
+      "path": "SMAA/SMAA_Low",
+      "backend": "graph",
+      "order": 12,
+      "registered": true
+    },
+    {
+      "id": 21,
+      "path": "SMAA/SMAA_Medium",
+      "backend": "graph",
+      "order": 13,
+      "registered": true
+    },
+    {
+      "id": 22,
+      "path": "SMAA/SMAA_High",
+      "backend": "graph",
+      "order": 14,
+      "registered": true
+    },
+    {
+      "id": 23,
+      "path": "SMAA/SMAA_Ultra",
+      "backend": "graph",
+      "order": 15,
+      "registered": true
+    },
+    {
+      "id": 24,
+      "path": "Jinc",
+      "backend": "graph",
+      "order": 17,
+      "registered": true
+    },
+    {
+      "id": 25,
+      "path": "Anime4K/Anime4K_Denoise_Bilateral_Mean",
+      "backend": "graph",
+      "order": 18,
+      "registered": true
+    },
+    {
+      "id": 26,
+      "path": "ACNet",
+      "backend": "graph",
+      "order": 19,
+      "registered": true
+    },
+    {
+      "id": 27,
+      "path": "Ani4Kv2_ArtCNN_C4F32_i2",
+      "backend": "graph",
+      "order": 20,
+      "registered": true
+    },
+    {
+      "id": 28,
+      "path": "Anime4K/Anime4K_3D_AA_Upscale_US",
+      "backend": "graph",
+      "order": 21,
+      "registered": true
+    },
+    {
+      "id": 29,
+      "path": "Anime4K/Anime4K_3D_Upscale_US",
+      "backend": "graph",
+      "order": 22,
+      "registered": true
+    },
+    {
+      "id": 30,
+      "path": "Anime4K/Anime4K_Denoise_Bilateral_Median",
+      "backend": "graph",
+      "order": 23,
+      "registered": true
+    },
+    {
+      "id": 31,
+      "path": "Anime4K/Anime4K_Denoise_Bilateral_Mode",
+      "backend": "graph",
+      "order": 24,
+      "registered": true
+    },
+    {
+      "id": 32,
+      "path": "Anime4K/Anime4K_Restore_L",
+      "backend": "graph",
+      "order": 25,
+      "registered": true
+    },
+    {
+      "id": 33,
+      "path": "Anime4K/Anime4K_Restore_M",
+      "backend": "graph",
+      "order": 26,
+      "registered": true
+    },
+    {
+      "id": 34,
+      "path": "Anime4K/Anime4K_Restore_S",
+      "backend": "graph",
+      "order": 27,
+      "registered": true
+    },
+    {
+      "id": 35,
+      "path": "Anime4K/Anime4K_Restore_Soft_L",
+      "backend": "graph",
+      "order": 28,
+      "registered": true
+    },
+    {
+      "id": 36,
+      "path": "Anime4K/Anime4K_Restore_Soft_M",
+      "backend": "graph",
+      "order": 29,
+      "registered": true
+    },
+    {
+      "id": 37,
+      "path": "Anime4K/Anime4K_Restore_Soft_S",
+      "backend": "graph",
+      "order": 30,
+      "registered": true
+    },
+    {
+      "id": 38,
+      "path": "Anime4K/Anime4K_Restore_Soft_UL",
+      "backend": "graph",
+      "order": 31,
+      "registered": true
+    },
+    {
+      "id": 39,
+      "path": "Anime4K/Anime4K_Restore_Soft_VL",
+      "backend": "graph",
+      "order": 32,
+      "registered": true
+    },
+    {
+      "id": 40,
+      "path": "Anime4K/Anime4K_Restore_UL",
+      "backend": "graph",
+      "order": 33,
+      "registered": true
+    },
+    {
+      "id": 41,
+      "path": "Anime4K/Anime4K_Restore_VL",
+      "backend": "graph",
+      "order": 34,
+      "registered": true
+    },
+    {
+      "id": 42,
+      "path": "Anime4K/Anime4K_Thin_HQ",
+      "backend": "graph",
+      "order": 35,
+      "registered": true
+    },
+    {
+      "id": 43,
+      "path": "Anime4K/Anime4K_Upscale_Denoise_UL",
+      "backend": "graph",
+      "order": 36,
+      "registered": true
+    },
+    {
+      "id": 44,
+      "path": "Anime4K/Anime4K_Upscale_GAN_x2_M",
+      "backend": "graph",
+      "order": 37,
+      "registered": true
+    },
+    {
+      "id": 45,
+      "path": "Anime4K/Anime4K_Upscale_GAN_x2_S",
+      "backend": "graph",
+      "order": 38,
+      "registered": true
+    },
+    {
+      "id": 46,
+      "path": "Anime4K/Anime4K_Upscale_GAN_x3_L",
+      "backend": "graph",
+      "order": 39,
+      "registered": true
+    },
+    {
+      "id": 47,
+      "path": "Anime4K/Anime4K_Upscale_UL",
+      "backend": "graph",
+      "order": 40,
+      "registered": true
+    },
+    {
+      "id": 48,
+      "path": "CAS/CAS",
+      "backend": "graph",
+      "order": 41,
+      "registered": true
+    },
+    {
+      "id": 49,
+      "path": "CAS/CAS_Scaling",
+      "backend": "graph",
+      "order": 42,
+      "registered": true
+    },
+    {
+      "id": 50,
+      "path": "CRT/CRT_Easymode",
+      "backend": "graph",
+      "order": 43,
+      "registered": true
+    },
+    {
+      "id": 51,
+      "path": "CRT/CRT_Hyllian",
+      "backend": "graph",
+      "order": 44,
+      "registered": true
+    },
+    {
+      "id": 52,
+      "path": "CRT/CRT_Lottes",
+      "backend": "graph",
+      "order": 45,
+      "registered": true
+    },
+    {
+      "id": 53,
+      "path": "CRT/GTU_v050",
+      "backend": "graph",
+      "order": 46,
+      "registered": true
+    },
+    {
+      "id": 54,
+      "path": "CuNNy2/CuNNy-3x12-NVL",
+      "backend": "graph",
+      "order": 47,
+      "registered": true
+    },
+    {
+      "id": 55,
+      "path": "CuNNy2/CuNNy-4x16-NVL",
+      "backend": "graph",
+      "order": 48,
+      "registered": true
+    },
+    {
+      "id": 56,
+      "path": "CuNNy2/CuNNy-4x24-NVL",
+      "backend": "graph",
+      "order": 49,
+      "registered": true
+    },
+    {
+      "id": 57,
+      "path": "CuNNy2/CuNNy-4x32-NVL",
+      "backend": "graph",
+      "order": 50,
+      "registered": true
+    },
+    {
+      "id": 58,
+      "path": "CuNNy2/CuNNy-8x32-NVL",
+      "backend": "graph",
+      "order": 51,
+      "registered": true
+    },
+    {
+      "id": 59,
+      "path": "CuNNy2/CuNNy-fast-NVL",
+      "backend": "graph",
+      "order": 52,
+      "registered": true
+    },
+    {
+      "id": 60,
+      "path": "CuNNy2/CuNNy-faster-NVL",
+      "backend": "graph",
+      "order": 53,
+      "registered": true
+    },
+    {
+      "id": 61,
+      "path": "CuNNy2/CuNNy-veryfast-NVL",
+      "backend": "graph",
+      "order": 54,
+      "registered": true
+    },
+    {
+      "id": 62,
+      "path": "Deband",
+      "backend": "graph",
+      "order": 55,
+      "registered": true
+    },
+    {
+      "id": 63,
+      "path": "FXAA/FXAA_High",
+      "backend": "graph",
+      "order": 56,
+      "registered": true
+    },
+    {
+      "id": 64,
+      "path": "FXAA/FXAA_Medium",
+      "backend": "graph",
+      "order": 57,
+      "registered": true
+    },
+    {
+      "id": 65,
+      "path": "FXAA/FXAA_Ultra",
+      "backend": "graph",
+      "order": 58,
+      "registered": true
+    },
+    {
+      "id": 66,
+      "path": "ImageAdjustment",
+      "backend": "graph",
+      "order": 59,
+      "registered": true
+    },
+    {
+      "id": 67,
+      "path": "NIS/NIS",
+      "backend": "graph",
+      "order": 60,
+      "registered": true
+    },
+    {
+      "id": 68,
+      "path": "NIS/NVSharpen",
+      "backend": "graph",
+      "order": 61,
+      "registered": true
+    },
+    {
+      "id": 69,
+      "path": "NNEDI3/NNEDI3_nns128_win8x4",
+      "backend": "graph",
+      "order": 62,
+      "registered": true
+    },
+    {
+      "id": 70,
+      "path": "NNEDI3/NNEDI3_nns128_win8x6",
+      "backend": "graph",
+      "order": 63,
+      "registered": true
+    },
+    {
+      "id": 71,
+      "path": "NNEDI3/NNEDI3_nns16_win8x6",
+      "backend": "graph",
+      "order": 64,
+      "registered": true
+    },
+    {
+      "id": 72,
+      "path": "NNEDI3/NNEDI3_nns256_win8x4",
+      "backend": "graph",
+      "order": 65,
+      "registered": true
+    },
+    {
+      "id": 73,
+      "path": "NNEDI3/NNEDI3_nns256_win8x6",
+      "backend": "graph",
+      "order": 66,
+      "registered": true
+    },
+    {
+      "id": 74,
+      "path": "NNEDI3/NNEDI3_nns32_win8x4",
+      "backend": "graph",
+      "order": 67,
+      "registered": true
+    },
+    {
+      "id": 75,
+      "path": "NNEDI3/NNEDI3_nns32_win8x6",
+      "backend": "graph",
+      "order": 68,
+      "registered": true
+    },
+    {
+      "id": 76,
+      "path": "NNEDI3/NNEDI3_nns64_win8x4",
+      "backend": "graph",
+      "order": 69,
+      "registered": true
+    },
+    {
+      "id": 77,
+      "path": "NNEDI3/NNEDI3_nns64_win8x6",
+      "backend": "graph",
+      "order": 70,
+      "registered": true
+    },
+    {
+      "id": 78,
+      "path": "Pixel Art/MMPX",
+      "backend": "graph",
+      "order": 71,
+      "registered": true
+    },
+    {
+      "id": 79,
+      "path": "Pixel Art/Pixellate",
+      "backend": "graph",
+      "order": 72,
+      "registered": true
+    },
+    {
+      "id": 80,
+      "path": "Pixel Art/SharpBilinear",
+      "backend": "graph",
+      "order": 73,
+      "registered": true
+    },
+    {
+      "id": 81,
+      "path": "RAVU/RAVU_3x_R2",
+      "backend": "graph",
+      "order": 74,
+      "registered": true
+    },
+    {
+      "id": 82,
+      "path": "RAVU/RAVU_3x_R2_RGB",
+      "backend": "graph",
+      "order": 75,
+      "registered": true
+    },
+    {
+      "id": 83,
+      "path": "RAVU/RAVU_3x_R3",
+      "backend": "graph",
+      "order": 76,
+      "registered": true
+    },
+    {
+      "id": 84,
+      "path": "RAVU/RAVU_3x_R3_RGB",
+      "backend": "graph",
+      "order": 77,
+      "registered": true
+    },
+    {
+      "id": 85,
+      "path": "RAVU/RAVU_3x_R4",
+      "backend": "graph",
+      "order": 78,
+      "registered": true
+    },
+    {
+      "id": 86,
+      "path": "RAVU/RAVU_3x_R4_RGB",
+      "backend": "graph",
+      "order": 79,
+      "registered": true
+    },
+    {
+      "id": 87,
+      "path": "RAVU/RAVU_Lite_AR_R2",
+      "backend": "graph",
+      "order": 80,
+      "registered": true
+    },
+    {
+      "id": 88,
+      "path": "RAVU/RAVU_Lite_AR_R3",
+      "backend": "graph",
+      "order": 81,
+      "registered": true
+    },
+    {
+      "id": 89,
+      "path": "RAVU/RAVU_Lite_AR_R4",
+      "backend": "graph",
+      "order": 82,
+      "registered": true
+    },
+    {
+      "id": 90,
+      "path": "RAVU/RAVU_Lite_R3",
+      "backend": "graph",
+      "order": 83,
+      "registered": true
+    },
+    {
+      "id": 91,
+      "path": "RAVU/RAVU_Lite_R4",
+      "backend": "graph",
+      "order": 84,
+      "registered": true
+    },
+    {
+      "id": 92,
+      "path": "RAVU/RAVU_R2",
+      "backend": "graph",
+      "order": 85,
+      "registered": true
+    },
+    {
+      "id": 93,
+      "path": "RAVU/RAVU_R2_RGB",
+      "backend": "graph",
+      "order": 86,
+      "registered": true
+    },
+    {
+      "id": 94,
+      "path": "RAVU/RAVU_R3",
+      "backend": "graph",
+      "order": 87,
+      "registered": true
+    },
+    {
+      "id": 95,
+      "path": "RAVU/RAVU_R3_RGB",
+      "backend": "graph",
+      "order": 88,
+      "registered": true
+    },
+    {
+      "id": 96,
+      "path": "RAVU/RAVU_R4",
+      "backend": "graph",
+      "order": 89,
+      "registered": true
+    },
+    {
+      "id": 97,
+      "path": "RAVU/RAVU_R4_RGB",
+      "backend": "graph",
+      "order": 90,
+      "registered": true
+    },
+    {
+      "id": 98,
+      "path": "RAVU/RAVU_Zoom_AR_R2",
+      "backend": "graph",
+      "order": 91,
+      "registered": true
+    },
+    {
+      "id": 99,
+      "path": "RAVU/RAVU_Zoom_AR_R2_RGB",
+      "backend": "graph",
+      "order": 92,
+      "registered": true
+    },
+    {
+      "id": 100,
+      "path": "RAVU/RAVU_Zoom_AR_R3",
+      "backend": "graph",
+      "order": 93,
+      "registered": true
+    },
+    {
+      "id": 101,
+      "path": "RAVU/RAVU_Zoom_AR_R3_RGB",
+      "backend": "graph",
+      "order": 94,
+      "registered": true
+    },
+    {
+      "id": 102,
+      "path": "RAVU/RAVU_Zoom_R2",
+      "backend": "graph",
+      "order": 95,
+      "registered": true
+    },
+    {
+      "id": 103,
+      "path": "RAVU/RAVU_Zoom_R2_RGB",
+      "backend": "graph",
+      "order": 96,
+      "registered": true
+    },
+    {
+      "id": 104,
+      "path": "RAVU/RAVU_Zoom_R3",
+      "backend": "graph",
+      "order": 97,
+      "registered": true
+    },
+    {
+      "id": 105,
+      "path": "RAVU/RAVU_Zoom_R3_RGB",
+      "backend": "graph",
+      "order": 98,
+      "registered": true
+    },
+    {
+      "id": 106,
+      "path": "SGSR",
+      "backend": "graph",
+      "order": 99,
+      "registered": true
+    },
+    {
+      "id": 107,
+      "path": "Sharpen/AdaptiveSharpen",
+      "backend": "graph",
+      "order": 100,
+      "registered": true
+    },
+    {
+      "id": 108,
+      "path": "Sharpen/FineSharp",
+      "backend": "graph",
+      "order": 101,
+      "registered": true
+    },
+    {
+      "id": 109,
+      "path": "Sharpen/LCAS",
+      "backend": "graph",
+      "order": 102,
+      "registered": true
+    },
+    {
+      "id": 110,
+      "path": "Sharpen/LumaSharpen",
+      "backend": "graph",
+      "order": 103,
+      "registered": true
+    },
+    {
+      "id": 111,
+      "path": "k7_modernAnime_FHD_x2",
+      "backend": "graph",
+      "order": 104,
+      "registered": true
+    },
+    {
+      "id": 112,
+      "path": "xBRZ/xBRZ_2x",
+      "backend": "graph",
+      "order": 105,
+      "registered": true
+    },
+    {
+      "id": 113,
+      "path": "xBRZ/xBRZ_3x",
+      "backend": "graph",
+      "order": 106,
+      "registered": true
+    },
+    {
+      "id": 114,
+      "path": "xBRZ/xBRZ_4x",
+      "backend": "graph",
+      "order": 107,
+      "registered": true
+    },
+    {
+      "id": 115,
+      "path": "xBRZ/xBRZ_5x",
+      "backend": "graph",
+      "order": 108,
+      "registered": true
+    },
+    {
+      "id": 116,
+      "path": "xBRZ/xBRZ_6x",
+      "backend": "graph",
+      "order": 109,
+      "registered": true
+    },
+    {
+      "id": 117,
+      "path": "xBRZ/xBRZ_Freescale",
+      "backend": "graph",
+      "order": 110,
+      "registered": true
+    }
+  ]
+}

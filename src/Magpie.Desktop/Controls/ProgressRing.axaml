@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.ProgressRing" Foreground="#0067C0" Width="16" Height="16">
+  <Viewbox><Grid Width="16" Height="16">
+    <Ellipse Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=c:ProgressRing}}" Opacity="0.2" StrokeThickness="2" Margin="1" />
+    <Path Name="Arc" Data="M8,1 A7,7 0 1 1 1,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=c:ProgressRing}}" StrokeThickness="2" RenderTransform="rotate(0deg)" RenderTransformOrigin="50%,50%">
+
+    </Path>
+  </Grid></Viewbox>
+</UserControl>

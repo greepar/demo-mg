@@ -1,3 +1,5 @@
+> **实验性跨平台移植分支：** Avalonia / NativeAOT 界面、静态链接 C++ / Vulkan 核心。请先看 [macOS 本机测试](docs/macos-testing.md) 和 [移植项目说明](src/Magpie.Desktop/README.md)。Linux 已做实际运行验证，Windows/macOS 验收及完整功能复刻仍未完成。以下保留上游原版说明。
+
 <br>
 <p align="center">
   <img src="./src/Magpie/Icons/SVG/Magpie Icon Full Disabled.svg" width="150px" height="150px" alt="Logo">

@@ -1,0 +1,60 @@
+<!-- Ported from src/Magpie/SettingsPage.xaml. Resource strings are shared with WinUI. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" xmlns:v="using:Magpie.Desktop.Views" x:DataType="v:SettingsPage" x:Class="Magpie.Desktop.Views.SettingsPage">
+<UserControl.Resources>
+<ResourceDictionary><ResourceDictionary.ThemeDictionaries>
+<ResourceDictionary x:Key="Default"><SolidColorBrush x:Key="StartupErrorBrush" Color="#C42B1C" /></ResourceDictionary>
+<ResourceDictionary x:Key="Dark"><SolidColorBrush x:Key="StartupErrorBrush" Color="#FF99A4" /></ResourceDictionary>
+</ResourceDictionary.ThemeDictionaries></ResourceDictionary>
+</UserControl.Resources>
+<c:PageFrame Title="{c:Loc Desktop.Settings}"><StackPanel Spacing="32" Margin="0,4,0,0">
+<!-- Settings_General -->
+<c:SettingsGroup Header="{c:Loc Settings_General.Header}">
+<!-- Settings_General_Language -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Settings_General_Language.Header}" Icon="Language">
+
+<ComboBox Name="LanguageSelector" MaxWidth="340" ItemsSource="{Binding Languages}" SelectedIndex="0" SelectionChanged="Language_SelectionChanged" />
+</c:SettingsCard>
+
+
+<c:InfoBar Name="RestartNotice" Title="{c:Loc Settings_General_RequireRestart.Title}" Severity="Warning" IsOpen="False" IsClosable="False"><Button Name="RestartLanguageButton" Click="Restart_Click" Content="{c:Loc Settings_General_RequireRestart_ActionButton.Content}" HorizontalAlignment="Right" /></c:InfoBar>
+<TextBlock Name="LanguageError" Foreground="#C42B1C" TextWrapping="Wrap" IsVisible="False" />
+<!-- Settings_General_Theme -->
+<c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Settings_General_Theme.Header}" Icon="Theme">
+
+<ComboBox SelectionChanged="Theme_SelectionChanged" SelectedIndex="0"><ComboBoxItem Content="{c:Loc Settings_General_Theme_System.Content}" /><ComboBoxItem Content="{c:Loc Settings_General_Theme_Light.Content}" /><ComboBoxItem Content="{c:Loc Settings_General_Theme_Dark.Content}" /></ComboBox>
+</c:SettingsCard>
+
+<!-- Settings_General_PortableMode -->
+<c:SettingsCard Header="{c:Loc Settings_General_PortableMode.Header}" Icon="Folder">
+<c:SettingsCard.Description><Button Classes="link" FontSize="12" Content="{c:Loc Settings_General_PortableMode_Locate.Content}" /></c:SettingsCard.Description>
+
+
+<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+<!-- Settings_General_ShowNotifyIcon -->
+<c:SettingsCard Header="{c:Loc Settings_General_ShowNotifyIcon.Header}" Description="{c:Loc Settings_General_ShowNotifyIcon.Description}" Icon="Window">
+
+<ToggleSwitch x:Name="TrayToggle" IsCheckedChanged="Tray_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+<TextBlock x:Name="TrayStatus" IsVisible="False" TextWrapping="Wrap" Margin="48,4,16,8" />
+</c:SettingsGroup>
+
+<!-- Settings_Launch -->
+<c:SettingsGroup Header="{c:Loc Settings_Launch.Header}">
+<!-- Settings_Launch_RunAtStartup -->
+<c:SettingsCard Header="{c:Loc Settings_Launch_RunAtStartup.Header}" Description="{Binding StartupDescription}" Icon="Power">
+<ToggleSwitch x:Name="StartupToggle" IsCheckedChanged="Startup_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+<TextBlock x:Name="StartupError" IsVisible="False" TextWrapping="Wrap" Foreground="{DynamicResource StartupErrorBrush}" Margin="48,4,16,8" />
+
+<!-- Settings_Launch_AlwaysRunAsAdmin -->
+<c:SettingsCard Header="{c:Loc Settings_Launch_AlwaysRunAsAdmin.Header}" Description="{c:Loc Settings_Launch_AlwaysRunAsAdmin.Description}" Icon="Shield">
+
+<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+</c:SettingsCard>
+
+</c:SettingsGroup>
+
+</StackPanel></c:PageFrame></UserControl>

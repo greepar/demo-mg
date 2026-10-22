@@ -1,0 +1,18 @@
+<!-- Shared HomePage.xaml / AboutPage.xaml update card, with UI-only preview states. -->
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Controls.UpdateCard">
+  <c:InfoBar Name="Notice">
+    <StackPanel Name="Details" Margin="0,0,0,16">
+      <CheckBox Name="AutoCheck" Content="{c:Loc Home_UpdateCard_AutoCheckForUpdates.Content}" IsChecked="True" Margin="0,0,0,8" IsVisible="False" />
+      <Grid Name="ProgressPanel" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,24,16" IsVisible="False">
+        <ProgressBar Name="Progress" Minimum="0" Maximum="1" Value="0.6" VerticalAlignment="Center" />
+        <TextBlock Name="ProgressLabel" Grid.Column="1" VerticalAlignment="Center" />
+      </Grid>
+      <WrapPanel>
+        <Button Name="DownloadButton" Content="{c:Loc About_Version_UpdateCard_DownloadAndInstall.Content}" Classes="accent" Margin="0,0,8,0" />
+        <Button Name="CancelButton" Content="{c:Loc About_Version_UpdateCard_Cancel.Content}" IsVisible="False" Margin="0,0,8,0" />
+        <Button Name="ReleaseNotesButton" Content="{c:Loc About_Version_UpdateCard_ReleaseNotes.Content}" Classes="link" Margin="8,0,0,0" />
+        <Button Name="RemindLaterButton" Content="{c:Loc Home_UpdateCard_RemindMeLater.Content}" IsVisible="False" Margin="8,0,0,0" />
+      </WrapPanel>
+    </StackPanel>
+  </c:InfoBar>
+</UserControl>

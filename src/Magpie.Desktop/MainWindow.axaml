@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Magpie.Desktop.Controls" xmlns:v="using:Magpie.Desktop.Views"
+        x:Class="Magpie.Desktop.MainWindow" Title="Magpie" Icon="/Assets/Magpie.ico"
+        Width="1100" Height="740" MinWidth="500" MinHeight="300"
+        WindowDecorations="Full" Background="{DynamicResource PaneFill}"
+        WindowStartupLocation="CenterScreen">
+  <Window.Styles>
+    <Style Selector="Border.pane-overlay"><Setter Property="Background" Value="{DynamicResource PaneFill}" /></Style>
+    <Style Selector="Window.compact:not(.pane-open) TextBlock.nav-label"><Setter Property="IsVisible" Value="False" /></Style>
+    <Style Selector="Window.compact:not(.pane-open) TextBlock.nav-section"><Setter Property="IsVisible" Value="False" /></Style>
+    <Style Selector="Window.compact:not(.pane-open) Button.nav"><Setter Property="Padding" Value="9.667,0" /></Style>
+  </Window.Styles>
+  <Border Name="WindowBorder">
+    <LayoutTransformControl Name="UiScale">
+      <LayoutTransformControl.LayoutTransform><ScaleTransform ScaleX="1" ScaleY="1" /></LayoutTransformControl.LayoutTransform>
+      <!-- RootPage.xaml: NavigationView pane, footer items and the content frame. -->
+      <Grid Name="RootLayout" ColumnDefinitions="321.333,*" Background="{DynamicResource PaneFill}">
+        <Border Grid.Column="1" BorderBrush="#0D000000" BorderThickness="1,0,0,0" Background="{DynamicResource PageFill}">
+          <ContentControl Name="ContentFrame" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"><v:HomePage /></ContentControl>
+        </Border>
+        <Border Name="PaneBackdrop" Grid.Column="1" Background="#33000000" ZIndex="1" IsVisible="False" PointerPressed="PaneBackdrop_PointerPressed" />
+        <Border Name="NavSurface" ZIndex="2" HorizontalAlignment="Left" Width="321.333">
+        <Grid Margin="5.333,8,4.667,8" RowDefinitions="Auto,*,Auto">
+          <Button Name="PaneButton" Classes="subtle" IsVisible="False" Width="32" Height="32" Margin="2.667,0,0,8" HorizontalAlignment="Left" Click="PaneButton_Click"><c:SymbolIcon Kind="Menu" Width="18" Height="18" /></Button>
+          <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="4">
+            <Button Name="HomeNav" Classes="nav selected" Tag="Home" Click="Navigate_Click"><Grid ColumnDefinitions="33.333,*"><c:SymbolIcon Kind="Home" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" /><TextBlock Classes="nav-label" Grid.Column="1" Text="{c:Loc Root_Home.Content}" VerticalAlignment="Center" /></Grid></Button>
+            <Button Classes="nav" Tag="ScalingModes" Click="Navigate_Click"><Grid ColumnDefinitions="33.333,*"><c:SymbolIcon Kind="Sparkles" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" /><TextBlock Classes="nav-label" Grid.Column="1" Text="{c:Loc Root_ScalingModes.Content}" VerticalAlignment="Center" /></Grid></Button>
+            <TextBlock Classes="nav-section" Text="{c:Loc Root_Profiles.Content}" Foreground="{DynamicResource SecondaryText}" FontWeight="SemiBold" Margin="10.667,10,0,9" />
+            <Button Classes="nav" Tag="Defaults" Click="Navigate_Click"><Grid ColumnDefinitions="33.333,*"><c:SymbolIcon Kind="Layers" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" /><TextBlock Classes="nav-label" Grid.Column="1" Text="{c:Loc Root_Defaults.Content}" VerticalAlignment="Center" /></Grid></Button>
+            <StackPanel Name="ProfilesNavItems" IsVisible="False" Spacing="4" />
+            <Button Name="NewProfileNav" Classes="nav"><Grid ColumnDefinitions="33.333,*"><c:SymbolIcon Kind="Add" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" /><TextBlock Classes="nav-label" Grid.Column="1" Text="{c:Loc Root_NewProfile.Content}" VerticalAlignment="Center" /></Grid>
+              <Button.Flyout><Flyout Placement="Right"><c:NewProfileFlyoutContent /></Flyout></Button.Flyout>
+            </Button>
+          </StackPanel>
+          </ScrollViewer>
+          <StackPanel Grid.Row="2" Spacing="4">
+            <Button Classes="nav" Tag="About" Click="Navigate_Click"><Grid ColumnDefinitions="33.333,*"><c:SymbolIcon Kind="Info" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" /><TextBlock Classes="nav-label" Grid.Column="1" Text="{c:Loc Root_About.Content}" VerticalAlignment="Center" /></Grid></Button>
+            <Button Classes="nav" Tag="Settings" Click="Navigate_Click"><Grid ColumnDefinitions="33.333,*"><c:SymbolIcon Kind="Settings" Width="18" Height="18" HorizontalAlignment="Left" VerticalAlignment="Center" /><TextBlock Classes="nav-label" Grid.Column="1" Text="{c:Loc Desktop.Settings}" VerticalAlignment="Center" /></Grid></Button>
+          </StackPanel>
+        </Grid>
+        </Border>
+        <Grid ZIndex="8" Name="DialogLayer" Grid.ColumnSpan="2" IsVisible="False" Background="#4D000000">
+          <c:ContentDialog Name="DialogShell" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Grid>
+      </Grid>
+    </LayoutTransformControl>
+  </Border>
+</Window>
