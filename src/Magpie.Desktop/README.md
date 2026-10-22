@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | Linux | 原生 Avalonia Wayland；ScreenCast Portal/PipeWire；Vulkan；核心静态链接 | 本机 AOT 发布/执行、GPU 数值回归、验证层、随机链、隔离图形回归；历史 QQ 选源实时画面确认 | 最新版本真实授权/撤销/窗口变化、输入、完整原版效果和剩余功能 |
 | Windows | Avalonia Win32；初始 GDI 前台窗口客户端捕获；Vulkan | Windows 目标 MinGW 严格语法检查覆盖捕获、engine 和 tests；MSVC 构建与 AOT 链接分支已编写 | Windows/MSVC 实际编译、GPU 数值、授权/窗口切换、AOT 单文件；WGC/DXGI、光标、游戏输入等仍缺 |
-| macOS 14+ | Avalonia 原生 Cocoa；ScreenCaptureKit 系统选源与帧回调；静态 MoltenVK | Apple 官方 API 声明核对；Objective-C++、ARC、框架链接和 Vulkan portability 分支已编写 | macOS SDK 实际编译、签名/应用身份、系统权限、选源/取消/停止、GPU 数值与 AOT 打包；本机无 Apple SDK，尚不能宣称通过 |
+| macOS 14+ | Avalonia 原生 Cocoa；ScreenCaptureKit 系统选源与帧回调；静态 MoltenVK | Apple M4/macOS 27.0.1 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/单文件、app 本机签名及 Cocoa 界面渲染通过，见 [本机记录](../../docs/macos-testing.md) | 系统权限、真实选源/取消/停止和捕获、交互、Intel 与最低 macOS 14 兼容性；后文早期“仅 Linux 实测”描述以最新本机记录为准 |
 
 ## 公共要求
 
@@ -54,7 +54,7 @@ python3 scripts/verify-platform.py --rid osx-arm64
 
 ## CI
 
-`.github/workflows/desktop-port.yml` 只允许手动触发；需要已配置工具链/GPU 的 self-hosted 标签 `magpie-linux-x64`、`magpie-win-x64`、`magpie-osx-arm64`。目前只是补齐可执行的验收路径，**未触发 CI，也没有 Windows/macOS 通过记录**。捕获、真实输入和图形行为要由独立平台测试证明，核心命令通过不能代替。
+`.github/workflows/desktop-port.yml` 只允许手动触发；需要已配置工具链/GPU 的 self-hosted 标签 `magpie-linux-x64`、`magpie-win-x64`、`magpie-osx-arm64`。**未触发 CI，Windows 尚无本机通过记录**；macOS 的本机验证见上表。macOS CI runner 仍需预先配置 MoltenVK、GLM 和配套 SDK 环境。捕获、真实输入和图形行为要由独立平台测试证明，核心命令通过不能代替。
 
 Apple API 依据：[ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit)、[系统选源回调](https://developer.apple.com/documentation/screencapturekit/sccontentsharingpickerobserver)。
 

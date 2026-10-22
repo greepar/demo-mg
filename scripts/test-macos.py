@@ -16,6 +16,32 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = '1.4.2'
 SHA256 = 'f95765a6229cb7b915990a2890ce12ebe36a730b021545d3d52ae69ce4c4024e'
 URL = f'https://github.com/KhronosGroup/MoltenVK/releases/download/v{VERSION}/MoltenVK-macos.tar'
+GLM_VERSION = '1.0.1'
+GLM_SHA256 = '9f3174561fd26904b23f0db5e560971cbf9b3cbda0b280f04d5c379d03bf234c'
+
+
+def prepare_glm():
+    """Header-only dependency used by the independent SMAA CPU reference."""
+    destination = ROOT / '.tools/glm'
+    destination.mkdir(parents=True, exist_ok=True)
+    package = destination / f'glm-{GLM_VERSION}.tar.gz'
+    if not package.exists():
+        temporary = package.with_suffix('.download')
+        url = f'https://github.com/g-truc/glm/archive/refs/tags/{GLM_VERSION}.tar.gz'
+        print('Downloading pinned GLM ' + GLM_VERSION, flush=True)
+        request = urllib.request.Request(url, headers={'User-Agent': 'Magpie-macOS-build'})
+        with urllib.request.urlopen(request, timeout=60) as source, temporary.open('wb') as target:
+            shutil.copyfileobj(source, target)
+        os.replace(temporary, package)
+    if hashlib.sha256(package.read_bytes()).hexdigest() != GLM_SHA256:
+        raise SystemExit('GLM archive SHA256 mismatch: ' + str(package))
+    with tarfile.open(package) as bundle:
+        bundle.extractall(destination, filter='data')
+    headers = destination / f'glm-{GLM_VERSION}'
+    if not (headers / 'glm/glm.hpp').is_file():
+        raise SystemExit('The pinned GLM archive is missing its headers.')
+    print('Verified GLM headers: ' + str(headers), flush=True)
+    return headers
 
 
 def prepare(archive=None):
@@ -80,13 +106,20 @@ def main():
             if not shutil.which(tool):
                 raise SystemExit('Missing build tool: ' + tool)
     library, headers = prepare(args.archive)
+    glm_headers = prepare_glm()
     if args.prepare_only:
         return
     architecture = {'arm64': 'arm64', 'x86_64': 'x64'}.get(platform.machine())
     if not architecture:
         raise SystemExit('Unsupported Mac architecture: ' + platform.machine())
     rid = 'osx-' + architecture
-    env = dict(os.environ, MAGPIE_MOLTENVK_LIBRARY=str(library), MAGPIE_VULKAN_INCLUDE=str(headers))
+    env = dict(os.environ, MAGPIE_MOLTENVK_LIBRARY=str(library), MAGPIE_VULKAN_INCLUDE=str(headers),
+               MAGPIE_GLM_INCLUDE_DIR=str(glm_headers))
+    # Resolve the SDK explicitly: an unqualified xcrun/clang can select the CLT
+    # SDK even when xcode-select points at a different Xcode toolchain.
+    if not env.get('SDKROOT'):
+        env['SDKROOT'] = subprocess.check_output(
+            ['xcrun', '--sdk', 'macosx', '--show-sdk-path'], text=True).strip()
     # verify-platform strips display variables and never opens a capture picker.
     subprocess.run([sys.executable, str(ROOT / 'scripts/verify-platform.py'), '--rid', rid], cwd=ROOT, env=env, check=True)
     package_app(rid)

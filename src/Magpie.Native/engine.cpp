@@ -14,6 +14,9 @@
 #include "precision.h"
 
 namespace magpie { thread_local std::string error; }
+#ifndef __APPLE__
+extern "C" int mp_capture_configure_input(void*,void*,double,double,double,double,double,double,double,double,double,const char*,int,uint64_t) { return 0; }
+#endif
 namespace {
 void check(VkResult result, const char* operation) {
     if (result != VK_SUCCESS) throw std::runtime_error(std::string(operation) + " failed (Vulkan " + std::to_string(result) + ")");

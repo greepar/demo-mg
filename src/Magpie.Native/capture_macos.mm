@@ -4,6 +4,7 @@
 #import <CoreMedia/CoreMedia.h>
 #include "magpie.h"
 #include "error.h"
+#import "input_macos.h"
 #include <atomic>
 #include <cmath>
 #include <chrono>
@@ -32,6 +33,7 @@ API_AVAILABLE(macos(14.0))
 }
 @property(nonatomic,strong) SCStream* stream;
 @property(nonatomic,strong) dispatch_queue_t sampleQueue;
+@property(nonatomic,strong) MagpieInputBridge* input;
 - (void)present;
 - (void)stop;
 @end
@@ -45,6 +47,7 @@ API_AVAILABLE(macos(14.0))
     [picker addObserver:self];picker.active=YES;[picker present];
 }
 - (void)stop {
+    [self.input stop];
     [SCContentSharingPicker.sharedPicker removeObserver:self];
     [self.stream stopCaptureWithCompletionHandler:^(NSError* error) { (void)error; }];
     self.stream=nil;
@@ -56,6 +59,16 @@ API_AVAILABLE(macos(14.0))
 - (void)contentSharingPicker:(SCContentSharingPicker*)picker didUpdateWithFilter:(SCContentFilter*)filter forStream:(SCStream*)stream {
     (void)picker;(void)stream;
     if(state->cancelled)return;
+    if(!self.input)self.input=[MagpieInputBridge new];
+    // Picker filters expose the exact selected window identity starting in 15.2.
+    // Never guess a process/window from a title or an overlapping screen rectangle.
+    [self.input setSourceWindow:0 process:0];
+    if(@available(macOS 15.2,*)) {
+        if(filter.style==SCShareableContentStyleWindow && filter.includedWindows.count==1) {
+            SCWindow* window=filter.includedWindows.firstObject;
+            [self.input setSourceWindow:window.windowID process:window.owningApplication.processID];
+        }
+    }
     if(self.stream) {
         [self.stream updateContentFilter:filter completionHandler:^(NSError* error){if(error)state->fail(error.localizedDescription.UTF8String);}];
         return;
@@ -65,7 +78,9 @@ API_AVAILABLE(macos(14.0))
     if(!std::isfinite(w)||!std::isfinite(h)||w<1||h<1||w*h>16777216) {state->fail("Unsupported source dimensions");return;}
     SCStreamConfiguration* config=[SCStreamConfiguration new];
     config.width=NSUInteger(w);config.height=NSUInteger(h);config.pixelFormat=kCVPixelFormatType_32BGRA;
-    config.showsCursor=YES;config.queueDepth=3;config.minimumFrameInterval=CMTimeMake(1,60);
+    // The output uses the local system pointer. Baking the source pointer into
+    // captured pixels would display a second cursor and scale it with the image.
+    config.showsCursor=NO;config.queueDepth=3;config.minimumFrameInterval=CMTimeMake(1,60);
     self.sampleQueue=dispatch_queue_create("org.magpie.capture",DISPATCH_QUEUE_SERIAL);
     self.stream=[[SCStream alloc] initWithFilter:filter configuration:config delegate:self];
     NSError* error=nil;
@@ -131,3 +146,19 @@ extern "C" void mp_capture_destroy(void* c){@autoreleasepool{delete static_cast<
 extern "C" void mp_capture_cancel(void* c){@autoreleasepool{if(c)static_cast<Capture*>(c)->cancel();}}
 extern "C" int mp_capture_start(void* c){@autoreleasepool{try{if(!c)throw std::runtime_error("Capture is not initialized");static_cast<Capture*>(c)->start();return 1;}catch(const std::exception& ex){magpie::error=ex.what();return 0;}}}
 extern "C" int mp_capture_frame(void* c,const uint8_t** rgba,uint32_t* w,uint32_t* h){@autoreleasepool{try{if(!c||!rgba||!w||!h)throw std::runtime_error("Invalid capture arguments");return static_cast<Capture*>(c)->frame(rgba,w,h);}catch(const std::exception& ex){magpie::error=ex.what();return -1;}}}
+
+extern "C" int mp_capture_configure_input(void* c,void* window,double x,double y,double width,double height,
+    double cropX,double cropY,double cropWidth,double cropHeight,double toolbarHeight,
+    const char* reservedCharacter,int reservedCode,uint64_t reservedModifiers) {
+    @autoreleasepool {
+        if(!c || !window || ![NSThread isMainThread])return -1;
+        auto capture=static_cast<Capture*>(c);
+        if(capture->state->cancelled)return -1;
+        auto input=capture->observer.input;
+        if(!input)return 0;
+        [input setReservedCharacter:reservedCharacter?[NSString stringWithUTF8String:reservedCharacter]:@""
+            keyCode:reservedCode modifiers:reservedModifiers];
+        return [input configureWindow:(__bridge NSWindow*)window destination:CGRectMake(x,y,width,height)
+            crop:CGRectMake(cropX,cropY,cropWidth,cropHeight) toolbarHeight:toolbarHeight];
+    }
+}

@@ -77,8 +77,8 @@ elseif(WIN32)
   target_link_libraries(magpie_native PUBLIC user32 gdi32)
 elseif(APPLE)
   enable_language(OBJCXX)
-  target_sources(magpie_native PRIVATE capture_macos.mm)
-  set_source_files_properties(capture_macos.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+  target_sources(magpie_native PRIVATE capture_macos.mm input_macos.mm)
+  set_source_files_properties(capture_macos.mm input_macos.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
   set_target_properties(magpie_native PROPERTIES OBJCXX_STANDARD 20)
   target_link_libraries(magpie_native PUBLIC "-framework AppKit" "-framework ScreenCaptureKit"
     "-framework CoreMedia" "-framework CoreVideo" "-framework Metal" "-framework QuartzCore"

@@ -101,6 +101,12 @@ void mp_capture_destroy(void* capture);
 int mp_capture_start(void* capture);
 // Safe from another thread while start is pending.
 void mp_capture_cancel(void* capture);
+// Cocoa UI-thread input binding. Rects use output logical points and normalized
+// source crop coordinates. 1=ready, 2=Accessibility required, 0=unsupported source,
+// -1=invalid/stopped. Other platforms return 0. Does not request permissions.
+int mp_capture_configure_input(void* capture,void* native_window,double x,double y,double width,double height,
+    double crop_x,double crop_y,double crop_width,double crop_height,double toolbar_height,
+    const char* reserved_character,int reserved_key_code,uint64_t reserved_modifiers);
 // 1=new frame, 0=waiting for frame, -1=error. No X11 window identifiers.
 // Returned pixels remain valid until the next non-waiting frame call or capture destruction.
 // Waiting calls and asynchronous producer callbacks do not alter the delivered buffer.
