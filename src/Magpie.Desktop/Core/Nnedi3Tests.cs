@@ -27,7 +27,26 @@ internal static class Nnedi3Tests
         byte[] expected=new byte[14*10*4];
         fixed(byte* pixels=source,target=expected)
             Require(NativeCore.ScaleExtended(engine,(nint)pixels,7,5,target,14,10,13,0,0)!=0,"Standalone NNEDI3 failed.");
-        Require(processor.Pixels.SequenceEqual(expected),"NNEDI3 configured and legacy APIs differ.");
+        if(!processor.Pixels.SequenceEqual(expected))
+        {
+            int first=-1,differences=0,maximumDelta=0;
+            for(int i=0;i<expected.Length;i++)if(processor.Pixels[i]!=expected[i])
+            {
+                if(first<0)first=i;differences++;maximumDelta=Math.Max(maximumDelta,Math.Abs(processor.Pixels[i]-expected[i]));
+            }
+            string details=$"NNEDI3 configured and legacy APIs differ: {differences} channels, max delta {maximumDelta}, first byte {first} ({processor.Pixels[first]} vs {expected[first]}).";
+            try
+            {
+                string diagnostics=Path.Combine(Path.GetTempPath(),"magpie-nnedi3-mismatch-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(diagnostics);
+                File.WriteAllBytes(Path.Combine(diagnostics,"input-7x5.rgba"),source);
+                File.WriteAllBytes(Path.Combine(diagnostics,"configured-14x10.rgba"),processor.Pixels);
+                File.WriteAllBytes(Path.Combine(diagnostics,"legacy-14x10.rgba"),expected);
+                File.WriteAllText(Path.Combine(diagnostics,"comparison.txt"),details+"\nDevice: "+System.Runtime.InteropServices.Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))+"\n");
+                Console.Error.WriteLine("NNEDI3 mismatch diagnostics: "+diagnostics);
+            }
+            catch(Exception failure) { Console.Error.WriteLine("Could not save NNEDI3 mismatch diagnostics: "+failure.Message); }
+            throw new InvalidOperationException(details);
+        }
         Require(!Run(true,1,plan),"Duplicate NNEDI3 frame reached Vulkan.");
         var presentation=PresentationPlan.Build(settings,7,5,31,23,true);
         Require(presentation.Length==2 && presentation[^1].Effect==3 && Run(false,2,presentation),"Static NNEDI3 presentation resize did not re-render.");

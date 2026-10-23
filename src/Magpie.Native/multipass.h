@@ -35,14 +35,14 @@ struct MultiRenderer {
         return i<sampledCount || (i>=multiSamplerBinding && i<multiSamplerBinding+2) ||
             (i>=multiStorageBinding && i<multiStorageBinding+storageCount) || i==multiOutputBinding;
     }
-    void initialize(VkDevice target,VkPhysicalDevice physical,const MultiEffectKernel& effect,bool useHalf=false) {
+    void initialize(VkDevice target,VkPhysicalDevice physicalDevice,const MultiEffectKernel& effect,bool useHalf=false) {
         fp16=useHalf;
         definition=&effect;sampledCount=effect.textures+1;storageCount=1;
         for(uint32_t p=effect.first;p<effect.first+effect.count;p++) {
             uint32_t outputs=0;for(int output:multiPasses[p].outputs)if(output>=0)outputs++;
             storageCount=std::max(storageCount,outputs);
         }
-        device=target;this->physical=physical;vkGetPhysicalDeviceProperties(physical,&properties);vkGetPhysicalDeviceMemoryProperties(physical,&memories);
+        device=target;physical=physicalDevice;vkGetPhysicalDeviceProperties(physicalDevice,&properties);vkGetPhysicalDeviceMemoryProperties(physicalDevice,&memories);
         const auto& limits=properties.limits;
         if(sampledCount>limits.maxPerStageDescriptorSampledImages || sampledCount>limits.maxDescriptorSetSampledImages ||
            storageCount>limits.maxPerStageDescriptorStorageImages || storageCount>limits.maxDescriptorSetStorageImages ||
@@ -127,15 +127,15 @@ struct MultiRenderer {
         }
     }
     std::unique_ptr<MultiFrame> create(uint32_t effect,uint32_t width,uint32_t height,uint32_t outWidth,uint32_t outHeight) {
-        const auto& definition=*multiEffect(effect);resourceUnits(effect,width,height,outWidth,outHeight,properties.limits.maxImageDimension2D);prepare(definition);
+        const auto& graph=*multiEffect(effect);resourceUnits(effect,width,height,outWidth,outHeight,properties.limits.maxImageDimension2D);prepare(graph);
         const uint32_t dimensions[]={width,height,outWidth,outHeight,1};
         auto frame=std::make_unique<MultiFrame>();frame->effect=effect;
         // Keep every descriptor binding valid after switching from a graph
         // with intermediates. This 1x1 image is descriptor padding, never read
         // or written by a graph that declares no intermediate textures.
         const MultiTextureKernel padding{1,4,1,4,1,4,nullptr,0};
-        for(uint32_t i=0;i<std::max(1u,definition.textures);i++) {
-            const auto& spec=definition.textures?definition.specs[i]:padding;
+        for(uint32_t i=0;i<std::max(1u,graph.textures);i++) {
+            const auto& spec=graph.textures?graph.specs[i]:padding;
             auto texture=std::make_unique<MultiImage>();texture->device=device;texture->width=dimensions[spec.widthAxis]*spec.widthFactor;texture->height=dimensions[spec.heightAxis]*spec.heightFactor;
             VkImageCreateInfo info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};info.imageType=VK_IMAGE_TYPE_2D;info.format=storageFormat(spec.format);
             info.extent={texture->width,texture->height,1};info.mipLevels=info.arrayLayers=1;info.samples=VK_SAMPLE_COUNT_1_BIT;info.tiling=VK_IMAGE_TILING_OPTIMAL;

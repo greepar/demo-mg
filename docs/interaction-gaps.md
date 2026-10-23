@@ -2,6 +2,12 @@
 
 核对日期：2026-10-22。范围为本仓库 `Magpie.Desktop` 跨平台移植实现，对照原版 `HomeViewModel`、`ProfileViewModel`、`SettingsViewModel`、`AboutViewModel`、`CursorManager` 和当前 Avalonia 页面/会话代码。以下是当前源码审计确认的已知缺口，不把截图、构建成功或替身测试当作真实交互验收，也不承诺未实测场景不存在其他问题。
 
+## 2026-10-23 目标机检查补充
+
+`02102163` 的 GitHub macOS arm64 / x64 job 已通过原生 SDK / Objective-C++ 编译、NativeAOT 链接、三项非 GPU 原生测试和托管交互模型、单可执行文件及静态依赖检查。详见 [macOS 证据与范围](macos-testing.md#2026-10-23-托管主机编译模型证据)。这些新增证据更新下文历史阶段的“尚未在 SDK 编译”状态；真实输入、源捕获、权限、GUI 和本轮 GPU 仍不因此通过。Windows 目标检查发现 shader 路径/换行校验与 MSVC `/WX` 成员遮蔽问题，正在按真实构建错误修复，尚不能称为 Windows 验收完成。
+
+本机 AMD 并行回归捕获过一次 NNEDI3 configured/legacy 像素不一致；随后 3 次隔离 core 和 50 次与原生 Vulkan 用例重叠的 core 重复均通过，尚未定位首次失败原因。失败日志保留，新增不改变断言的 RGBA/逐通道差异诊断；没有放宽算法比较或将重复通过当作问题已解决。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

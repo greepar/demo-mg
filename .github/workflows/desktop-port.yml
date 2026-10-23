@@ -14,7 +14,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: desktop-native-${{ github.ref }}
+  # Keep ongoing numerical evidence when a follow-up revision repairs a native compiler error.
+  group: desktop-native-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   native:
