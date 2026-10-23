@@ -65,7 +65,7 @@ public partial class HomePage : UserControl
     private void RefreshScreenshotDirectory() => ScreenshotDirectoryCard.Description=Core.RuntimeSettings.Current.ActiveSettings.ResolveScreenshotDirectory();
     public HomePage()
     {
-        InitializeComponent();RefreshShortcuts();DelaySeconds.Value=Core.RuntimeSettings.Current.CountdownSeconds;RefreshScreenshotDirectory();RefreshPerformanceSettings();
+        InitializeComponent();RefreshShortcuts();DelaySeconds.Value=Core.RuntimeSettings.Current.CountdownSeconds;RefreshScreenshotDirectory();RefreshPerformanceSettings();RefreshDeveloperMode();
         void RefreshDelay()=>DelayedScaling.Description=LocExtension.Get("Home_Activation_Timer_Description").Replace("{}",((int)DelaySeconds.Value).ToString(System.Globalization.CultureInfo.CurrentCulture));
         RefreshDelay();DelaySeconds.PropertyChanged+=(_,args)=> { if(args.Property==Slider.ValueProperty&&!_refreshingDelay)
         {
@@ -75,6 +75,6 @@ public partial class HomePage : UserControl
             catch(Exception error) { Core.RuntimeSettings.Current.CountdownSeconds=previous;_refreshingDelay=true;DelaySeconds.Value=previous;_refreshingDelay=false;(TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast("Countdown",error.Message); }
             RefreshDelay();
         } };
-        AttachedToVisualTree+=(_,_)=> { RefreshScreenshotDirectory();RefreshProfiles();RefreshPerformanceSettings();RefreshShortcuts(); };
+        AttachedToVisualTree+=(_,_)=> { RefreshScreenshotDirectory();RefreshProfiles();RefreshPerformanceSettings();RefreshDeveloperMode();RefreshShortcuts(); };
     }
 }

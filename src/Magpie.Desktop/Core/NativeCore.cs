@@ -34,6 +34,8 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_scale")] internal static extern unsafe int Scale(EngineHandle engine, nint input, uint width, uint height, byte* output, uint outWidth, uint outHeight, uint mode, float antiRinging);
     [DllImport(Library, EntryPoint = "mp_scale_ex")] internal static extern unsafe int ScaleExtended(EngineHandle engine, nint input, uint width, uint height, byte* output, uint outWidth, uint outHeight, uint mode, float parameter1, float parameter2);
     [DllImport(Library, EntryPoint = "mp_scale_chain_configured_v2")] internal static extern unsafe int ScaleChain(EngineHandle engine, nint input, uint width, uint height, byte* output, ulong outputBytes, NativeEffectStep* steps, uint count);
+    [DllImport(Library, EntryPoint = "mp_pass_snapshot")] internal static extern int PassSnapshotInfo(EngineHandle engine,uint stage,uint pass,uint output,out PassSnapshot info,uint size);
+    [DllImport(Library, EntryPoint = "mp_copy_pass_snapshot")] internal static extern unsafe int CopyPassSnapshot(EngineHandle engine,ulong serial,uint stage,uint pass,uint output,byte* pixels,ulong bytes);
     [DllImport(Library, EntryPoint = "mp_stage_snapshot")] internal static extern int StageSnapshotInfo(EngineHandle engine,uint index,out StageSnapshot output,uint size);
     [DllImport(Library, EntryPoint = "mp_copy_stage_snapshot")] internal static extern unsafe int CopyStageSnapshot(EngineHandle engine,ulong serial,uint index,byte* output,ulong bytes);
     [DllImport(Library, EntryPoint = "mp_set_gpu_profiling")] internal static extern int SetGpuProfiling(EngineHandle engine,int enabled);
@@ -65,6 +67,7 @@ internal static class NativeCore
         CaptureSourceTests.Verify();
         CaptureBackendTests.Verify();
         ScalingCountdownTests.Verify();
+        DdsExportTests.Verify();
         Console.WriteLine("INTERACTION MODEL PASS: native source ABI and non-GPU settings/shortcut/countdown/toolbar/configuration tests; no UI, capture picker or permission dialog.");
     }
 
@@ -179,6 +182,7 @@ internal static class NativeCore
         if (engine.IsInvalid) throw Error();
         VerifyGraphicsDevices(engine);
         StageSnapshotTests.Verify(engine);
+        PassSnapshotTests.Verify(engine);
         FrameProcessingTests.Verify(engine);
         ScalingModeInterchangeTests.Verify(engine);
         PresentationPlanTests.Verify(engine);

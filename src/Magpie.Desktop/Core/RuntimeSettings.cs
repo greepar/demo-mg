@@ -22,6 +22,7 @@ internal sealed class RuntimeSettings
     public CaptureBackend CaptureBackend { get; set; }
     public ToolbarState FullscreenInitialToolbarState { get; set; }=ToolbarState.AutoHide;
     public ToolbarState WindowedInitialToolbarState { get; set; }=ToolbarState.AutoHide;
+    public bool DeveloperMode { get; set; }
     public bool GpuProfilingEnabled { get; set; }
     public bool DisableFP16 { get; set; }
     public bool KeepScreenOn { get; set; }

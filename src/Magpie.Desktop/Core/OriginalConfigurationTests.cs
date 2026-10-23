@@ -6,7 +6,7 @@ internal static class OriginalConfigurationTests
     internal const string Example="""
     {
       "version":5,"language":"zh-Hans","theme":2,"countdownSeconds":5,"showNotifyIcon":false,
-      "keepScreenOn":true,"disableFP16":true,"duplicateFrameDetectionMode":2,"minFrameRate":12,
+      "developerMode":true,"keepScreenOn":true,"disableFP16":true,"duplicateFrameDetectionMode":2,"minFrameRate":12,
       "enableStatisticsForDynamicDetection":true,"futureSetting":{"nested":[1,"keep"]},
       "shortcuts":{"scale":3394,"windowedModeScale":3153,"toolbar":3140,"takeScreenshot":3155},
       "scalingModes":[
@@ -48,7 +48,7 @@ internal static class OriginalConfigurationTests
         Require(!root.Modes[1].IsAvailable&&root.Modes[1].Steps[0].DeferredEffect.HasValue&&!root.Modes[2].IsAvailable,"Unsupported effects or no-selection became runnable.");
         try { root.Profiles[1].Settings.EnsureSelectedModeAvailable();throw new InvalidOperationException("Unselected profile passed preflight."); }
         catch(InvalidOperationException error) when(error.Message.Contains("no effects")) { }
-        Require(root.Language=="zh-Hans"&&root.Theme==2&&root.CountdownSeconds==5&&!root.ShowTrayIcon&&root.KeepScreenOn&&root.DisableFP16&&root.DuplicateFrameDetection==DuplicateFrameMode.Never&&root.MinimumFrameRate==12&&root.StatisticsForDynamicDetection,"Global preferences were not mapped.");
+        Require(root.DeveloperMode&&root.Language=="zh-Hans"&&root.Theme==2&&root.CountdownSeconds==5&&!root.ShowTrayIcon&&root.KeepScreenOn&&root.DisableFP16&&root.DuplicateFrameDetection==DuplicateFrameMode.Never&&root.MinimumFrameRate==12&&root.StatisticsForDynamicDetection,"Global preferences were not mapped.");
         Require(root.FullscreenShortcut.Key=="B"&&root.FullscreenShortcut.Modifiers=="Alt,Shift,Win"&&root.WindowedShortcut.Key=="Q"&&root.ToolbarShortcut.Key=="D"&&root.ScreenshotShortcut.Key=="S","Original VK/modifier encoding was decoded incorrectly.");
         Require(root.FullscreenInitialToolbarState==ToolbarState.Off&&root.WindowedInitialToolbarState==ToolbarState.AlwaysShow&&root.InitialWindowedScaleFactor==6&&root.CustomInitialWindowedScaleFactor==2.25f&&root.OutputAlignment==8&&root.IsCroppingEnabled&&root.CroppingLeft==1.5f&&root.CroppingBottom==4&&root.FrameRateLimiterEnabled&&root.MaximumFrameRate==144,"Default profile options were lost.");
         Require(!application.Settings.IsCroppingEnabled&&application.Settings.CroppingLeft==0&&application.Settings.InitialWindowedScaleFactor==0&&application.Settings.FullscreenInitialToolbarState==ToolbarState.AutoHide&&application.Settings.MaximumFrameRate==60,"Application options incorrectly inherited the default profile.");

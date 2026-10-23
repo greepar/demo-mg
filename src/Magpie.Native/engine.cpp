@@ -148,6 +148,9 @@ struct Engine {
     static_assert(sizeof(mp_gpu_profile_v2)==2440,"GPU profile v2 ABI changed");
     uint64_t snapshotSerial{};
     uint32_t snapshotCount{},snapshotEffects[MP_MAX_CHAIN_STAGES]{};
+    mp_effect_step snapshotSteps[MP_MAX_CHAIN_STAGES]{};
+    float snapshotExtra[MP_MAX_CHAIN_STAGES*16]{};
+    static_assert(sizeof(mp_pass_snapshot_info)==56);
     static_assert(sizeof(mp_stage_snapshot_info)==32);
     std::unique_ptr<Frame> frames[MP_MAX_CHAIN_STAGES];
     std::unordered_map<uint32_t,std::unique_ptr<MultiRenderer>> multi;
@@ -447,6 +450,55 @@ struct Engine {
         profiler.complete();
         ++snapshotSerial;snapshotCount=count;
         for(uint32_t i=0;i<count;i++)snapshotEffects[i]=steps[i].effect;
+        std::copy_n(steps,count,snapshotSteps);
+        std::fill_n(snapshotExtra,MP_MAX_CHAIN_STAGES*16,0.f);
+        if(extra)std::copy_n(extra,count*16,snapshotExtra);
+    }
+
+    mp_pass_snapshot_info passSnapshot(uint32_t stage,uint32_t pass,uint32_t output) const {
+        if(stage>=snapshotCount)throw std::runtime_error("No successful output for this effect");
+        const auto& frame=*frames[stage];const auto* graph=multiEffect(snapshotEffects[stage]);
+        uint32_t count=graph?graph->count:1;
+        if(pass>=count)throw std::runtime_error("Invalid export pass");
+        mp_pass_snapshot_info info{snapshotSerial,0,stage,pass,output,0,count,UINT32_MAX,1,frame.outWidth,frame.outHeight,0};
+        if(!graph||pass+1==count) {
+            if(output)throw std::runtime_error("Final pass has only one output");
+            info.output_count=1;info.bytes=uint64_t(info.width)*info.height*4;return info;
+        }
+        const auto& kernel=multiPasses[graph->first+pass];
+        for(int texture:kernel.outputs)if(texture>=0)++info.output_count;
+        if(output>=info.output_count)throw std::runtime_error("Invalid pass output");
+        info.texture=uint32_t(kernel.outputs[output]);
+        const auto& image=*frame.multi->textures[info.texture];const auto& spec=graph->specs[info.texture];
+        if(image.source)throw std::runtime_error("A SOURCE texture is not a pass output");
+        info.format=spec.format;info.width=image.width;info.height=image.height;info.bytes=uint64_t(info.width)*info.height*spec.bytes;
+        if(!info.bytes||info.bytes>128ull*1024*1024)throw std::runtime_error("Pass export exceeds the 128 MiB readback limit");
+        return info;
+    }
+    void copyPass(const mp_pass_snapshot_info& info,uint8_t* pixels) {
+        const auto& frame=*frames[info.stage];
+        if(info.texture==UINT32_MAX) { std::memcpy(pixels,frame.output->mapped,size_t(info.bytes));return; }
+        auto staging=buffer(info.bytes,VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        check(vkResetCommandBuffer(command,0),"export command reset");
+        VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};begin.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        check(vkBeginCommandBuffer(command,&begin),"export command begin");
+        const auto& step=snapshotSteps[info.stage];
+        graphRenderer(step.effect).record(command,info.stage,*frame.multi,frame.width,frame.height,frame.outWidth,frame.outHeight,
+            step.parameter1,step.parameter2,snapshotExtra+info.stage*16,nullptr,info.pass+1);
+        const auto& image=*frame.multi->textures[info.texture];
+        VkImageMemoryBarrier before{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};before.oldLayout=VK_IMAGE_LAYOUT_GENERAL;before.newLayout=VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        before.srcQueueFamilyIndex=before.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;before.srcAccessMask=VK_ACCESS_SHADER_WRITE_BIT;before.dstAccessMask=VK_ACCESS_TRANSFER_READ_BIT;
+        before.image=image.image;before.subresourceRange={VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1};
+        vkCmdPipelineBarrier(command,VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,0,0,nullptr,0,nullptr,1,&before);
+        VkBufferImageCopy region{};region.imageSubresource={VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};region.imageExtent={info.width,info.height,1};
+        vkCmdCopyImageToBuffer(command,image.image,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,staging->handle,1,&region);
+        VkMemoryBarrier host{VK_STRUCTURE_TYPE_MEMORY_BARRIER};host.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;host.dstAccessMask=VK_ACCESS_HOST_READ_BIT;
+        before.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;before.newLayout=VK_IMAGE_LAYOUT_GENERAL;before.srcAccessMask=VK_ACCESS_TRANSFER_READ_BIT;before.dstAccessMask=VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_SHADER_WRITE_BIT;
+        vkCmdPipelineBarrier(command,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_HOST_BIT|VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,0,1,&host,0,nullptr,1,&before);
+        check(vkEndCommandBuffer(command),"export command end");check(vkResetFences(device,1,&fence),"export fence reset");
+        VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};submit.commandBufferCount=1;submit.pCommandBuffers=&command;
+        check(vkQueueSubmit(queue,1,&submit,fence),"export submit");check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"export wait");
+        std::memcpy(pixels,staging->mapped,size_t(info.bytes));
     }
 
 };
@@ -544,6 +596,21 @@ extern "C" int mp_copy_stage_snapshot(void* engine,uint64_t serial,uint32_t inde
         const auto& frame=*target.frames[index];
         if(bytes!=uint64_t(frame.outWidth)*frame.outHeight*4)throw std::runtime_error("Stage snapshot output size differs");
         std::memcpy(rgba,frame.output->mapped,size_t(bytes));return 1;
+    }catch(const std::exception& error){magpie::error=error.what();return 0;}
+}
+
+extern "C" int mp_pass_snapshot(void* engine,uint32_t stage,uint32_t pass,uint32_t output,mp_pass_snapshot_info* info,uint32_t size) {
+    try {
+        if(!engine||!info||size!=sizeof(*info))throw std::runtime_error("Invalid pass snapshot arguments");
+        auto& target=*static_cast<Engine*>(engine);std::lock_guard lock(target.mutex);*info=target.passSnapshot(stage,pass,output);return 1;
+    }catch(const std::exception& error){magpie::error=error.what();return 0;}
+}
+extern "C" int mp_copy_pass_snapshot(void* engine,uint64_t serial,uint32_t stage,uint32_t pass,uint32_t output,uint8_t* pixels,uint64_t bytes) {
+    try {
+        if(!engine||!pixels)throw std::runtime_error("Invalid pass snapshot buffer");
+        auto& target=*static_cast<Engine*>(engine);std::lock_guard lock(target.mutex);const auto info=target.passSnapshot(stage,pass,output);
+        if(!serial||info.serial!=serial||bytes!=info.bytes)throw std::runtime_error("Pass snapshot serial or output length differs");
+        target.copyPass(info,pixels);return 1;
     }catch(const std::exception& error){magpie::error=error.what();return 0;}
 }
 

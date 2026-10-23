@@ -30,6 +30,7 @@ commands=[
     ['dotnet','publish','src/Magpie.Desktop','-c','Release','-r',args.rid,'-o',str(output)],
     ['ctest','--test-dir',str(build),'-C','Release','--output-on-failure','--no-tests=error','--output-junit',str(report_dir/'native-model-tests.xml'),'-R','^(capture_resize_geometry|capture_frame_mailbox|capture_source_metadata)$'],
     [str(output/name),'--interaction-model-test'],
+    [sys.executable,'scripts/verify-dds-export.py','--app',str(output/name),'--output',str(report_dir/'dds-export.json')],
     [sys.executable,'scripts/verify-power-abi.py','--output',str(report_dir/'power-abi.json')],
 ]
 report={'rid':args.rid,'passed':False,'state':'running','checks':[],'gpu_tested':False,'ui_tested':False,'capture_tested':False,'native_input_delivery_tested':False,'full_interaction_parity':False}

@@ -49,7 +49,7 @@ internal static class UiPreview
         }
         switch (scenario)
         {
-            case "StageExportOutput":popups.Add(await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyStageExportAsync(window));break;
+            case "StageExportOutput":case "PassExportOutput":popups.AddRange(await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyStageExportAsync(window,scenario=="PassExportOutput"));break;
             case "ScreenshotShortcutEdit":await window.VerifyScreenshotShortcutEditingAsync();break;
             case "ScreenshotShortcutOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyScreenshotShortcutAsync(window);break;
             case "SourceTitleOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceTitleAsync(window);break;

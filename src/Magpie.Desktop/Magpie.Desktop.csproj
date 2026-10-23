@@ -40,6 +40,7 @@
     <NativePython Condition="'$(NativePython)' == 'python3'">python</NativePython>
   </PropertyGroup>
   <Target Name="VerifyOriginalEffectCatalog" BeforeTargets="BeforeBuild">
+    <Exec Command="&quot;$(NativePython)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/generate-pass-export-catalog.py&quot;" />
     <Exec Command="&quot;$(NativePython)&quot; &quot;$(MSBuildProjectDirectory)/../../scripts/generate-effect-catalog.py&quot;" />
   </Target>
   <Target Name="BuildMagpieCore" BeforeTargets="CoreCompile">

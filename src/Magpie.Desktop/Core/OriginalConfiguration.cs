@@ -9,7 +9,7 @@ internal static class OriginalConfiguration
 {
     private static readonly HashSet<string> GlobalFields=new(StringComparer.Ordinal)
     {
-        "version","language","theme","countdownSeconds","downCount","showNotifyIcon","showTrayIcon","keepScreenOn",
+        "version","language","theme","developerMode","countdownSeconds","downCount","showNotifyIcon","showTrayIcon","keepScreenOn",
         "disableFP16","duplicateFrameDetectionMode","enableStatisticsForDynamicDetection","minFrameRate",
         "scalingModes","profiles","scalingProfiles","shortcuts","hotkeys","overlay"
     };
@@ -55,6 +55,7 @@ internal static class OriginalConfiguration
             try { settings.Language=Localization.NormalizePreference(Text(language)); }
             catch(InvalidDataException) { warnings.Add("language: unsupported preference preserved; using the system language."); }
         }
+        if(Find(root,"developerMode") is {} developer)settings.DeveloperMode=Boolean(developer);
         if(Find(root,"theme") is {} theme)settings.Theme=Integer(theme,0,2);
         if(Find(root,"countdownSeconds","downCount") is {} countdown)settings.CountdownSeconds=Integer(countdown,1,5);
         if(Find(root,"showNotifyIcon","showTrayIcon") is {} tray)settings.ShowTrayIcon=Boolean(tray);
@@ -128,7 +129,7 @@ internal static class OriginalConfiguration
                 FullscreenShortcut=globals.FullscreenShortcut,WindowedShortcut=globals.WindowedShortcut,ToolbarShortcut=globals.ToolbarShortcut,ScreenshotShortcut=globals.ScreenshotShortcut,
                 KeepScreenOn=globals.KeepScreenOn,DisableFP16=globals.DisableFP16,DuplicateFrameDetection=globals.DuplicateFrameDetection,
                 StatisticsForDynamicDetection=globals.StatisticsForDynamicDetection,MinimumFrameRate=globals.MinimumFrameRate,
-                ShowTrayIcon=globals.ShowTrayIcon,CountdownSeconds=globals.CountdownSeconds };
+                ShowTrayIcon=globals.ShowTrayIcon,CountdownSeconds=globals.CountdownSeconds,DeveloperMode=globals.DeveloperMode };
             ReadProfile(source,profile.Settings,$"profiles[{i}].");settings.Profiles.Add(profile);
             warnings.Add($"profiles[{i}]: Windows application rules and raw launch parameters preserved; select and review a local executable and arguments before launching. Automatic matching is not migrated.");
         }

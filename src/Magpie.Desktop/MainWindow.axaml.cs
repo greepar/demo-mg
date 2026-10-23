@@ -71,7 +71,9 @@ public partial class MainWindow : Window
     }
     public void ShowDeveloperOptions()
     {
-        if (_pages["Home"] is HomePage home) home.FindControl<SettingsExpander>("DeveloperOptions")!.IsVisible = true;
+        var settings=Core.RuntimeSettings.Current;bool previous=settings.DeveloperMode;
+        try { settings.DeveloperMode=true;settings.Save();if(_pages["Home"] is HomePage home)home.RefreshDeveloperMode(); }
+        catch(Exception failure) { settings.DeveloperMode=previous;ShowToast("Developer mode",failure.Message); }
     }
     internal void EnsurePreviewProfile()
     {

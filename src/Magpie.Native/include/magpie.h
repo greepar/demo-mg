@@ -129,6 +129,17 @@ typedef struct mp_stage_snapshot_info {
 } mp_stage_snapshot_info;
 int mp_stage_snapshot(void* engine,uint32_t index,mp_stage_snapshot_info* output,uint32_t size);
 int mp_copy_stage_snapshot(void* engine,uint64_t serial,uint32_t index,uint8_t* rgba,uint64_t bytes);
+// Developer pass outputs: format codes 0=RGBA16F, 1=RGBA8, 2=R16F,
+// 3=RG16F, 4=R8, 5=RG8. texture=UINT32_MAX is final RGBA8 OUTPUT.
+// Internal textures are raw tightly packed texels, suitable for lossless DDS.
+// A non-final pass is replayed through that pass before readback, because later
+// passes may have overwritten its texture. Final output is never overwritten.
+typedef struct mp_pass_snapshot_info {
+    uint64_t serial,bytes;
+    uint32_t stage,pass,output,output_count,pass_count,texture,format,width,height,reserved;
+} mp_pass_snapshot_info;
+int mp_pass_snapshot(void* engine,uint32_t stage,uint32_t pass,uint32_t output,mp_pass_snapshot_info* info,uint32_t size);
+int mp_copy_pass_snapshot(void* engine,uint64_t serial,uint32_t stage,uint32_t pass,uint32_t output,uint8_t* pixels,uint64_t bytes);
 // Cocoa UI-thread input binding. Rects use output logical points and normalized
 // source crop coordinates. 1=ready, 2=Accessibility required, 0=unsupported source,
 // 3=waiting for a matching submitted frame, -1=invalid/stopped. Other platforms

@@ -139,7 +139,7 @@ struct MultiRenderer {
             auto texture=std::make_unique<MultiImage>();texture->device=device;texture->width=dimensions[spec.widthAxis]*spec.widthFactor;texture->height=dimensions[spec.heightAxis]*spec.heightFactor;
             VkImageCreateInfo info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};info.imageType=VK_IMAGE_TYPE_2D;info.format=storageFormat(spec.format);
             info.extent={texture->width,texture->height,1};info.mipLevels=info.arrayLayers=1;info.samples=VK_SAMPLE_COUNT_1_BIT;info.tiling=VK_IMAGE_TILING_OPTIMAL;
-            info.usage=VK_IMAGE_USAGE_STORAGE_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|(spec.source?VK_IMAGE_USAGE_TRANSFER_DST_BIT:0);
+            info.usage=VK_IMAGE_USAGE_STORAGE_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT|(spec.source?VK_IMAGE_USAGE_TRANSFER_DST_BIT:0);
             check(vkCreateImage(device,&info,nullptr,&texture->image),"multi image");
             VkMemoryRequirements requirements{};vkGetImageMemoryRequirements(device,texture->image,&requirements);
             uint32_t memoryType=UINT32_MAX;
@@ -188,7 +188,7 @@ struct MultiRenderer {
             vkUpdateDescriptorSets(device,writeCount,writes,0,nullptr);
         }
     }
-    void record(VkCommandBuffer command,uint32_t index,const MultiFrame& frame,uint32_t width,uint32_t height,uint32_t outWidth,uint32_t outHeight,float parameter1,float parameter2,const float* extra,GpuProfiler* profiler=nullptr) {
+    void record(VkCommandBuffer command,uint32_t index,const MultiFrame& frame,uint32_t width,uint32_t height,uint32_t outWidth,uint32_t outHeight,float parameter1,float parameter2,const float* extra,GpuProfiler* profiler=nullptr,uint32_t passLimit=UINT32_MAX) {
         for(const auto& texture:frame.textures) {
             if(texture->source) {
                 if(texture->uploaded)continue;
@@ -209,7 +209,7 @@ struct MultiRenderer {
         }
         const auto& effect=*multiEffect(frame.effect);
         auto push=settings(effect,width,height,outWidth,outHeight,parameter1,parameter2,extra);
-        for(uint32_t pass=0;pass<effect.count;pass++) {
+        for(uint32_t pass=0;pass<std::min(effect.count,passLimit);pass++) {
             const auto& kernel=multiPasses[effect.first+pass];
             vkCmdBindPipeline(command,VK_PIPELINE_BIND_POINT_COMPUTE,pipelines[effect.first+pass]);
             vkCmdBindDescriptorSets(command,VK_PIPELINE_BIND_POINT_COMPUTE,layout,0,1,&sets[index*effect.count+pass],0,nullptr);
