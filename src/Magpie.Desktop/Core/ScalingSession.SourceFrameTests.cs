@@ -19,8 +19,7 @@ internal sealed partial class ScalingSession
             byte[] second=(byte[])first.Clone();second[0]=211;
             var a=new CaptureSource("first","application-a","",11,101,1);
             var b=new CaptureSource("second","application-b","",22,202,1);
-            if(!ReplayFrame(processor,engine,first,plan,true,0)||!Present(processor.Pixels,3,2))throw new InvalidOperationException("Initial source frame failed.");
-            CommitPresentedSource(a,1);
+            if(!ReplayFrame(processor,engine,first,plan,true,0)||!PresentCapturedFrame(processor.Pixels,3,2,a,1))throw new InvalidOperationException("Initial source frame failed.");
             // The actual unselected native capture reports Unknown. A screenshot
             // must use its displayed frame snapshot rather than querying it.
             if(ReadCapturedSource(capture)!=CaptureSource.Unknown)throw new InvalidOperationException("Unselected capture fixture fabricated an identity.");
@@ -34,13 +33,18 @@ internal sealed partial class ScalingSession
             string queued=SaveScreenshot()!;
             if(!Path.GetFileName(queued).StartsWith("first_application-a",StringComparison.Ordinal)||ReadSourceInfo()!=a||_lastSourceSequence!=1)throw new InvalidOperationException("Queued worker frame changed the displayed source identity/sequence.");
             VerifyPng(queued,first,new PixelSize(3,2));
-            if(!Present(processor.Pixels,3,2))throw new InvalidOperationException("Replacement source bitmap was not presented.");
-            CommitPresentedSource(b,2);string replaced=SaveScreenshot()!;
+            RequestScreenshot();
+            if(!PresentCapturedFrame(processor.Pixels,3,2,b,2))throw new InvalidOperationException("Replacement source bitmap was not presented.");
+            string replaced=Path.Combine(folder,"second_application-b.png");
+            if(!File.Exists(replaced)||Volatile.Read(ref _screenshotPending)!=0)throw new InvalidOperationException("Queued screenshot did not run after the source commit.");
+            if(Directory.GetFiles(folder,"first_application-a*.png").Length!=2)throw new InvalidOperationException("A replacement frame was saved with the old source identity.");
             if(Path.GetFileName(replaced)!="second_application-b.png")throw new InvalidOperationException("Presented replacement kept the previous source identity.");
             VerifyPng(replaced,second,new PixelSize(3,2));
             if(ReplayFrame(processor,engine,second,plan,true,2))throw new InvalidOperationException("Duplicate-source identity change reran Vulkan.");
             var duplicate=b with { Title="same-pixels-new-source",WindowId=303 };
-            CommitPresentedSource(duplicate,3);string unchanged=SaveScreenshot()!;
+            RequestScreenshot();
+            if(!CommitUnchangedFrameSource(duplicate,3))throw new InvalidOperationException("Duplicate source commit failed.");
+            string unchanged=Path.Combine(folder,"same-pixels-new-source_application-b.png");
             if(Path.GetFileName(unchanged)!="same-pixels-new-source_application-b.png"||processor.Performance.TotalScaled!=2||_lastSourceSequence!=3)throw new InvalidOperationException("Identical pixels did not accept a new source identity/sequence without GPU work.");
             VerifyPng(unchanged,second,new PixelSize(3,2));
             CommitPresentedSource(CaptureSource.Unknown);string unknown=SaveScreenshot()!;
@@ -57,7 +61,16 @@ internal sealed partial class ScalingSession
             }
             UpdateInputStatus(1);
             if(_inputStatus.IsVisible)throw new InvalidOperationException("Matching source/frame did not clear the waiting message.");
-            Console.WriteLine("SOURCE FRAME IDENTITY PASS: actual unselected native snapshot, real Vulkan/PNG pairs before and after queued UI submission, duplicate source identity without GPU rerun and unknown-source reset; selected identities/pixels are fixture data, no picker.");
+            RequestScreenshot();
+            if(!Present(second,3,2)||Volatile.Read(ref _screenshotPending)!=1)throw new InvalidOperationException("Raw bitmap presentation drained screenshots without committing its source.");
+            var current=ReadSourceInfo();ulong currentSequence=_lastSourceSequence;
+            Stop();
+            int count=Directory.GetFiles(folder,"*.png").Length;
+            if(PresentCapturedFrame(first,3,2,a,99)||CommitUnchangedFrameSource(a,99)||ReadSourceInfo()!=current||_lastSourceSequence!=currentSequence||Directory.GetFiles(folder,"*.png").Length!=count)
+                throw new InvalidOperationException("Rejected/stopped presentation advanced source identity or wrote queued pixels.");
+            DrainScreenshot();
+            if(Volatile.Read(ref _screenshotPending)!=0||Directory.GetFiles(folder,"*.png").Length!=count)throw new InvalidOperationException("Stop did not discard a queued screenshot.");
+            Console.WriteLine("SOURCE FRAME IDENTITY PASS: actual unselected native snapshot, real Vulkan/PNG pairs before and after queued UI submission, queued screenshot after pixel+identity commit, raw presentation cannot drain, stopped submission rejection, duplicate source identity without GPU rerun and unknown-source reset; selected identities/pixels are fixture data, no picker.");
         }
         finally
         {

@@ -89,6 +89,12 @@
 
 macOS Cocoa 输入桥增加截图预留键的字符/原生键码/修饰键，截图组合不转发源应用。C ABI 同步更新，必须重新编译托管/原生部分；不混用旧库。Linux 原生归档和 AOT 同步发布，截图路由用实际 Avalonia KeyDown/对话框、PNG 文件和像素回读验证；系统输入使用替身/私有 D-Bus。最终 Linux NativeAOT 核心、23 项原生 CTest、7 项中英隔离 UI、10 项私有 D-Bus 和实际 UI 上下文的 Portal 注册测试通过，报告 `artifacts/desktop/screenshot-shortcut-test-summary.json`。三平台真实系统注册、输出焦点与源应用共存、权限/布局变化的截图行为仍待验收；这不补齐其余输入/光标/自动缩放缺口。
 
+## 截图请求与源身份提交顺序修复
+
+此前 `Present` 写入新位图后会直接处理截图队列，而生产捕获回调随后才 `CommitPresentedSource`，在两者之间可能用旧窗口名保存新画面。已移除原始位图提交的队列副作用，共用 `PresentCapturedFrame` 在同一个 UI turn 依次提交位图、源窗口/PID/帧序号，再保存排队截图。重复像素的换源走 `CommitUnchangedFrameSource`，更新身份后才处理队列；拒绝/停止的提交不改变源快照，停止后的队列只清空不落盘。
+
+Linux 最终 AOT 核心与六项中英隔离 UI 通过，实际 Vulkan 与 PNG 检查覆盖旧画面仍在等待时的截图、排队换源截图的名称/像素、重复帧身份更新且 GPU 次数不增加、原始 `Present` 不偷跑队列、停止后提交/排队请求拒绝，并复验动态标题、截图快捷键和已有输出 PNG 行为。身份/像素/按键为注入数据，实际未选源 native capture 用于证明不读取超前元数据；没有打开用户桌面/选源，不等于真实三平台生命周期通过。报告 `artifacts/desktop/screenshot-order-test-summary.json`。原生代码本轮无改动，未重复宣称新原生测试结果。
+
 ## 后续建议顺序
 
 2026-10-22 后续实现记录：本轮主题与外链使用三平台共用托管代码，接入现有目标机 AOT 构建路径；本机 Linux NativeAOT 核心与七项私有 Wayland UI 场景通过。截图已查看浅色 About 和深色 Settings，新增链接拒绝提示有真实 xdg_popup 图层证据。记录为 `artifacts/desktop/interaction-settings-test-summary.json`、`artifacts/desktop/interaction-settings-review/` 和 `artifacts/desktop/interaction-settings-en/`。这不是整份清单完成记录，也不把已有 macOS 编译记录计作本轮变更的 macOS 验收。

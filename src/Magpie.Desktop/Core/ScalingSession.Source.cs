@@ -43,6 +43,20 @@ internal sealed partial class ScalingSession
         catch(Exception error) { Console.Error.WriteLine("Source metadata: "+error.Message); }
         return CaptureSource.Unknown;
     }
+    // Submit pixels and their identity in one UI turn, then satisfy queued
+    // screenshots. Present itself must never drain the queue while the previous
+    // source snapshot still describes the bitmap that has just been replaced.
+    private bool PresentCapturedFrame(byte[] pixels,uint width,uint height,CaptureSource source,ulong sequence)
+    {
+        if(!Present(pixels,width,height))return false;
+        CommitPresentedSource(source,sequence);
+        DrainScreenshot();return true;
+    }
+    private bool CommitUnchangedFrameSource(CaptureSource source,ulong sequence)
+    {
+        if(_bitmap is null||_stop.IsCancellationRequested)return false;
+        CommitPresentedSource(source,sequence);DrainScreenshot();return true;
+    }
     private void CommitPresentedSource(CaptureSource source,ulong sequence=0)
     {
         _lastSourceInfo=source;_lastSourceSequence=sequence;ConfigureMacInput();

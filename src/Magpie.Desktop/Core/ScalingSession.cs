@@ -143,12 +143,12 @@ internal sealed partial class ScalingSession
                         pacer.MarkFrame(now);
                         long submitBegin=Stopwatch.GetTimestamp();
                         var output=plan.Chain[^1];
-                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);bool presented=Present(processor.Pixels,output.Width,output.Height);if(presented)CommitPresentedSource(frameSource,frameSequence);return presented; }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
+                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);return PresentCapturedFrame(processor.Pixels,output.Width,output.Height,frameSource,frameSequence); }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
                     }
                     // Duplicate pixels still belong to the newly delivered
                     // source. The cached output is identical, so commit its
                     // metadata without an unnecessary GPU/bitmap submission.
-                    else if(result==1)await Dispatcher.UIThread.InvokeAsync(()=> { if(_bitmap is not null)CommitPresentedSource(frameSource,frameSequence); });
+                    else if(result==1)await Dispatcher.UIThread.InvokeAsync(()=>CommitUnchangedFrameSource(frameSource,frameSequence));
                     if(Volatile.Read(ref _screenshotPending)!=0)await Dispatcher.UIThread.InvokeAsync(DrainScreenshot);
                     if(processor.Performance.TrySnapshot(Stopwatch.GetTimestamp(),out var counters))
                     {
@@ -354,7 +354,7 @@ internal sealed partial class ScalingSession
                 Buffer.MemoryCopy(source + y * (int)width * 4, (byte*)destination.Address + y * destination.RowBytes, destination.RowBytes, width * 4);
         PositionImage();
         image.InvalidateVisual();
-        DrainScreenshot();return true;
+        return true;
     }
     private void HandleOutputKey(KeyEventArgs args)
     {
@@ -371,7 +371,7 @@ internal sealed partial class ScalingSession
     }
     private void DrainScreenshot()
     {
-        if(Interlocked.Exchange(ref _screenshotPending,0)!=0)SaveScreenshot();
+        if(Interlocked.Exchange(ref _screenshotPending,0)!=0&&!_stop.IsCancellationRequested)SaveScreenshot();
     }
     internal async Task VerifyOutputAsync(Window owner)
     {
