@@ -4,7 +4,7 @@
 
 ## 2026-10-23 目标机检查补充
 
-`02102163` 的 GitHub macOS arm64 / x64 job 已通过原生 SDK / Objective-C++ 编译、NativeAOT 链接、三项非 GPU 原生测试和托管交互模型、单可执行文件及静态依赖检查。详见 [macOS 证据与范围](macos-testing.md#2026-10-23-托管主机编译模型证据)。这些新增证据更新下文历史阶段的“尚未在 SDK 编译”状态；真实输入、源捕获、权限、GUI 和本轮 GPU 仍不因此通过。Windows 目标检查发现 shader 路径/换行校验与 MSVC `/WX` 成员遮蔽问题，正在按真实构建错误修复，尚不能称为 Windows 验收完成。
+`02102163` 的 GitHub macOS arm64 / x64 job 已通过原生 SDK / Objective-C++ 编译、NativeAOT 链接、三项非 GPU 原生测试和托管交互模型、单可执行文件及静态依赖检查。详见 [macOS 证据与范围](macos-testing.md#2026-10-23-托管主机编译模型证据)。这些新增证据更新下文历史阶段的“尚未在 SDK 编译”状态；真实输入、源捕获、权限、GUI 和本轮 GPU 仍不因此通过。Windows 目标检查已修复 shader 路径/换行、MSVC 成员遮蔽/测试 CRT 用法、静态库与开发 DLL 导入库同名覆盖及测试夹具的 Linux env 路径假设。`43c43669` 的 Windows job 已通过原生 SDK/C++、AOT、三项非 GPU CTest 和全部托管交互模型，但因第三方 PDB 发布残留未过单文件检查；`a65e5825` 修复发布规则后的检查仍待完成。下载的 EXE 导入表已核对无自有核心/Skia/HarfBuzz DLL，但不代表 GPU 或 GUI 验收通过。
 
 本机 AMD 并行回归捕获过一次 NNEDI3 configured/legacy 像素不一致；随后 3 次隔离 core 和 50 次与原生 Vulkan 用例重叠的 core 重复均通过，尚未定位首次失败原因。失败日志保留，新增不改变断言的 RGBA/逐通道差异诊断；没有放宽算法比较或将重复通过当作问题已解决。
 
