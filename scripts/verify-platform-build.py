@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -58,6 +60,25 @@ for index,command in enumerate(commands):
 files=sorted(p.name for p in output.iterdir() if p.is_file())
 if files!=[name]:
     report['state']='failed';report['packaging_files']=files;save();raise SystemExit('Expected exactly one executable, got '+str(files))
+if host=='win':
+    dumpbin=shutil.which('dumpbin')
+    cache=build/'CMakeCache.txt'
+    if not dumpbin and cache.is_file():
+        match=re.search(r'^CMAKE_LINKER:[^=]+=(.+)$',cache.read_text(encoding='utf-8'),re.MULTILINE)
+        if match:
+            candidate=Path(match.group(1).strip()).with_name('dumpbin.exe')
+            if candidate.is_file():dumpbin=str(candidate)
+    if not dumpbin:
+        locator=Path(os.environ.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'Microsoft Visual Studio/Installer/vswhere.exe'
+        if locator.is_file():
+            found=subprocess.run([str(locator),'-latest','-products','*','-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-find',r'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe'],capture_output=True,text=True)
+            dumpbin=next((line.strip() for line in found.stdout.splitlines() if Path(line.strip()).is_file()),None)
+    if not dumpbin:
+        report['state']='failed';save();raise SystemExit('Cannot inspect Windows AOT dependencies: MSVC dumpbin is unavailable.')
+    result=subprocess.run([dumpbin,'/dependents',str(output/name)],capture_output=True,text=True)
+    (report_dir/'native-dependencies.log').write_text(result.stdout+result.stderr,encoding='utf-8')
+    if result.returncode or any(value in result.stdout.lower() for value in ('magpie_native.dll','libskiasharp.dll','libharfbuzzsharp.dll','libavalonianative.dll')):
+        report['state']='failed';save();raise SystemExit('Windows native core/Skia/HarfBuzz must be embedded, not dependent on a development DLL.')
 if host=='osx':
     result=subprocess.run(['otool','-L',str(output/name)],capture_output=True,text=True)
     (report_dir/'native-dependencies.log').write_text(result.stdout+result.stderr,encoding='utf-8')

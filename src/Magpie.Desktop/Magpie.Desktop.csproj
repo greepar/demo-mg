@@ -36,7 +36,7 @@
     <VulkanSdkRoot>$(VULKAN_SDK)</VulkanSdkRoot>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-    <NativeArchive>$(NativeBuildDir)/$(Configuration)/magpie_native.lib</NativeArchive>
+    <NativeArchive>$(NativeBuildDir)/$(Configuration)/magpie_native_static.lib</NativeArchive>
     <NativePython Condition="'$(NativePython)' == 'python3'">python</NativePython>
   </PropertyGroup>
   <Target Name="VerifyOriginalEffectCatalog" BeforeTargets="BeforeBuild">

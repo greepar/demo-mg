@@ -265,7 +265,7 @@ int main(int argc,char** argv) {
                 std::cout<<"DEVICE PASS: "<<info.name<<" UUID="<<info.identifier<<" type="<<info.type<<'\n';
             }
             require(expectedAutomatic==mp_device_identifier(engine.get()),"Automatic GPU scoring changed or disagrees with enumeration");
-            mp_device_info untouched{};std::strcpy(untouched.name,"keep");
+            mp_device_info untouched{};std::memcpy(untouched.name,"keep",sizeof("keep"));
             require(!mp_devices_get(devices.get(),count,&untouched),"Out-of-range device snapshot index accepted");
             require(std::strcmp(untouched.name,"keep")==0,"Failed device query modified output");
             require(!mp_devices_get(devices.get(),0,nullptr),"Null device metadata output accepted");
@@ -687,8 +687,8 @@ int main(int argc,char** argv) {
             mp_effect_step stages[4]={{20,7,5,0,0},{21,7,5,0,0},{22,7,5,0,0},{23,7,5,0,0}};
             require(mp_set_gpu_profiling(engine.get(),1),mp_last_error());
             require(mp_scale_chain(engine.get(),smaaInput.data(),7,5,smaaOutput.data(),smaaOutput.size(),stages,4),mp_last_error());
-            mp_gpu_profile_v2 timing{};require(mp_get_gpu_profile_v2(engine.get(),&timing),mp_last_error());
-            if(timing.supported)require(timing.stage_count==4&&timing.pass_count==12&&timing.pass_counts[0]==3&&timing.pass_counts[3]==3,"SMAA pass graph timing invalid");
+            mp_gpu_profile_v2 smaaTiming{};require(mp_get_gpu_profile_v2(engine.get(),&smaaTiming),mp_last_error());
+            if(smaaTiming.supported)require(smaaTiming.stage_count==4&&smaaTiming.pass_count==12&&smaaTiming.pass_counts[0]==3&&smaaTiming.pass_counts[3]==3,"SMAA pass graph timing invalid");
             auto previous=smaaInput;
             for(uint32_t effect=20;effect<=23;effect++) { require(mp_scale_ex(engine.get(),previous.data(),7,5,sequential.data(),7,5,effect,0,0),mp_last_error());previous=sequential; }
             require(smaaOutput==sequential,"SMAA four-stage graph differs from ordered standalone effects");

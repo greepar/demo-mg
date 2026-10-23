@@ -68,6 +68,10 @@ target_compile_features(magpie_native PUBLIC cxx_std_20)
 if(MSVC)
   target_compile_options(magpie_native PRIVATE /W4 /WX /EHsc)
   set_property(TARGET magpie_native PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  # Keep the static core distinct from the development DLL's magpie_native.lib
+  # import library. Otherwise a multi-config Release build overwrites the archive
+  # and NativeAOT silently links an extra runtime DLL instead of embedding C++.
+  set_property(TARGET magpie_native PROPERTY ARCHIVE_OUTPUT_NAME magpie_native_static)
 else()
   target_compile_options(magpie_native PRIVATE -Wall -Wextra -Werror -Wno-missing-field-initializers)
 endif()
