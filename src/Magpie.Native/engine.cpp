@@ -146,6 +146,9 @@ struct Engine {
     GpuProfiler profiler;
     static_assert(sizeof(mp_gpu_profile)==2416,"GPU profile ABI changed");
     static_assert(sizeof(mp_gpu_profile_v2)==2440,"GPU profile v2 ABI changed");
+    uint64_t snapshotSerial{};
+    uint32_t snapshotCount{},snapshotEffects[MP_MAX_CHAIN_STAGES]{};
+    static_assert(sizeof(mp_stage_snapshot_info)==32);
     std::unique_ptr<Frame> frames[MP_MAX_CHAIN_STAGES];
     std::unordered_map<uint32_t,std::unique_ptr<MultiRenderer>> multi;
     std::mutex mutex;
@@ -362,6 +365,8 @@ struct Engine {
         if (pixels > 67108864) throw std::runtime_error("Effect chain exceeds aggregate 64-megapixel resource limit");
         const uint64_t required = uint64_t(iw) * ih * 4;
         if (outputBytes < required) throw std::runtime_error("Effect chain output buffer is too small");
+        if(snapshotSerial==UINT64_MAX)throw std::runtime_error("Stage snapshot serial exhausted");
+        snapshotCount=0;
         iw = width; ih = height;
         for (uint32_t i = 0; i < count; ++i) {
             resize(i, iw, ih, steps[i].output_width, steps[i].output_height);
@@ -426,9 +431,9 @@ struct Engine {
             }
             VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
             barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-            barrier.dstAccessMask = i + 1 < count ? VK_ACCESS_TRANSFER_READ_BIT : VK_ACCESS_HOST_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT | (i + 1 < count ? VK_ACCESS_TRANSFER_READ_BIT : 0);
             vkCmdPipelineBarrier(command, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                i + 1 < count ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+                VK_PIPELINE_STAGE_HOST_BIT | (i + 1 < count ? VK_PIPELINE_STAGE_TRANSFER_BIT : 0), 0, 1, &barrier, 0, nullptr, 0, nullptr);
         }
         profiler.finishRecording(command);
         check(vkEndCommandBuffer(command), "vkEndCommandBuffer");
@@ -440,6 +445,8 @@ struct Engine {
         for(uint32_t i=0;i<count;i++)if(frames[i]->multi)for(auto& texture:frames[i]->multi->textures)if(texture->source) { texture->uploaded=true;texture->upload.reset(); }
         std::memcpy(output, frames[count-1]->output->mapped, size_t(required));
         profiler.complete();
+        ++snapshotSerial;snapshotCount=count;
+        for(uint32_t i=0;i<count;i++)snapshotEffects[i]=steps[i].effect;
     }
 
 };
@@ -518,6 +525,26 @@ extern "C" int mp_scale_chain_configured(void* engine,const uint8_t* input,uint3
     uint8_t* output,uint64_t outputBytes,const mp_effect_config* stages,uint32_t count) {
     if(count>16) { magpie::error="Legacy configured chain exceeds sixteen stages";return 0; }
     return mp_scale_chain_configured_v2(engine,input,width,height,output,outputBytes,stages,count);
+}
+
+extern "C" int mp_stage_snapshot(void* engine,uint32_t index,mp_stage_snapshot_info* output,uint32_t size) {
+    try {
+        if(!engine||!output||size!=sizeof(*output))throw std::runtime_error("Invalid stage snapshot arguments");
+        auto& target=*static_cast<Engine*>(engine);std::lock_guard lock(target.mutex);
+        if(index>=target.snapshotCount)throw std::runtime_error("No successful output for this stage");
+        const auto& frame=*target.frames[index];
+        *output={target.snapshotSerial,index,target.snapshotCount,target.snapshotEffects[index],frame.outWidth,frame.outHeight,0};return 1;
+    }catch(const std::exception& error){magpie::error=error.what();return 0;}
+}
+extern "C" int mp_copy_stage_snapshot(void* engine,uint64_t serial,uint32_t index,uint8_t* rgba,uint64_t bytes) {
+    try {
+        if(!engine||!rgba)throw std::runtime_error("Invalid stage snapshot buffers");
+        auto& target=*static_cast<Engine*>(engine);std::lock_guard lock(target.mutex);
+        if(!serial||serial!=target.snapshotSerial||index>=target.snapshotCount)throw std::runtime_error("Stage snapshot is unavailable or belongs to a different execution");
+        const auto& frame=*target.frames[index];
+        if(bytes!=uint64_t(frame.outWidth)*frame.outHeight*4)throw std::runtime_error("Stage snapshot output size differs");
+        std::memcpy(rgba,frame.output->mapped,size_t(bytes));return 1;
+    }catch(const std::exception& error){magpie::error=error.what();return 0;}
 }
 
 extern "C" int mp_set_gpu_profiling(void* engine,int enabled) {

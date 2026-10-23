@@ -64,7 +64,7 @@ internal sealed partial class ScalingSession
     private void UpdateToolbarVisibility()
     {
         if(_toolbar is null || _output is null)return;
-        bool active=_toolbarDragging || (_toolbarKeyboardFocus && _toolbar.IsKeyboardFocusWithin) || _toolbar.GetVisualDescendants().OfType<Popup>().Any(p=>p.IsOpen);
+        bool active=_stageMenuOpen || _toolbarDragging || (_toolbarKeyboardFocus && _toolbar.IsKeyboardFocusWithin) || _toolbar.GetVisualDescendants().OfType<Popup>().Any(p=>p.IsOpen);
         double alpha=ToolbarVisibility.Alpha(_toolbarState,_toolbar.Bounds,_toolbarPointer,active);
         bool inputRegionChanged=_toolbar.IsVisible!=(_toolbarState!=ToolbarState.Off) || _toolbar.IsHitTestVisible!=(alpha>0);
         _toolbar.IsVisible=_toolbarState!=ToolbarState.Off;

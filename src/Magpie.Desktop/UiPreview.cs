@@ -49,6 +49,7 @@ internal static class UiPreview
         }
         switch (scenario)
         {
+            case "StageExportOutput":popups.Add(await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyStageExportAsync(window));break;
             case "ScreenshotShortcutEdit":await window.VerifyScreenshotShortcutEditingAsync();break;
             case "ScreenshotShortcutOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyScreenshotShortcutAsync(window);break;
             case "SourceTitleOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceTitleAsync(window);break;
@@ -930,6 +931,17 @@ internal static class UiPreview
         json.WriteNumber("render_scaling",window.RenderScaling);
         json.WriteString("base",Path.GetFileName(path)+".base.png");
         json.WriteNumber("width",size.Width);json.WriteNumber("height",size.Height);
+        // Avalonia 12 may place the content inside a decorated TopLevelHost.
+        // Record the actual visual transform instead of guessing titlebar or
+        // shadow offsets when composing parent-relative Wayland popup positions.
+        var surface=visual.GetVisualAncestors().LastOrDefault()??window;
+        if(visual.TranslatePoint(default,surface) is {} origin)
+        {
+            json.WriteStartObject("capture_transform");
+            json.WriteNumber("surface_x",origin.X);json.WriteNumber("surface_y",origin.Y);
+            json.WriteNumber("surface_width",surface.Bounds.Width);json.WriteNumber("surface_height",surface.Bounds.Height);
+            json.WriteEndObject();
+        }
         json.WriteStartArray("popups");
         foreach(var layer in layers)
         {

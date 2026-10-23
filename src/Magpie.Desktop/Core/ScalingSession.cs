@@ -136,6 +136,9 @@ internal sealed partial class ScalingSession
                         });
                         havePlan=true;previousTarget=target;previousRevision=revision;previousWindowed=currentWindowed;
                     }
+                    await _stageGate.WaitAsync(_stop.Token);
+                    try
+                    {
                     long now=Stopwatch.GetTimestamp();
                     bool scaled=processor.Process(engine,lastSource,sourceWidth,sourceHeight,result==1,plan.Chain,plan.Detection,plan.DynamicStatistics,plan.Minimum,plan.Maximum,now,plan.Gpu,plan.Crop);
                     if(scaled)
@@ -143,7 +146,7 @@ internal sealed partial class ScalingSession
                         pacer.MarkFrame(now);
                         long submitBegin=Stopwatch.GetTimestamp();
                         var output=plan.Chain[^1];
-                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);return PresentCapturedFrame(processor.Pixels,output.Width,output.Height,frameSource,frameSequence); }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
+                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);bool presented=PresentCapturedFrame(processor.Pixels,output.Width,output.Height,frameSource,frameSequence);if(presented)SetDisplayedStages(engine,plan.Chain);return presented; }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
                     }
                     // Duplicate pixels still belong to the newly delivered
                     // source. The cached output is identical, so commit its
@@ -159,6 +162,8 @@ internal sealed partial class ScalingSession
                     }
                     if(!scaled)await Task.Delay(processor.IdleDelayMilliseconds(plan.Minimum,plan.Maximum,Stopwatch.GetTimestamp()),_stop.Token);
                     else await Task.Delay(1,_stop.Token);
+                    }
+                    finally { _stageGate.Release(); }
                 }
             }
             catch (OperationCanceledException) { }
@@ -179,6 +184,7 @@ internal sealed partial class ScalingSession
                 capture?.Dispose();
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    _stageEngine=null;_displayedStages=[];
                     _finished = true;
                     _output?.Close(); _output = null;
                     _bitmap?.Dispose(); _bitmap = null;
@@ -201,7 +207,9 @@ internal sealed partial class ScalingSession
         _statistics = new TextBlock { Text = "Waiting for source frame…", Foreground = Brushes.White, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,TextWrapping=TextWrapping.Wrap,FontSize=12 };
         _message = new TextBlock { Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         var screenshot = new Button { Content = Localization.Text("Screenshot"), Margin = new Thickness(8,0) };
+        screenshot.Name="ScreenshotOutputButton";
         screenshot.Click += (_, _) => RequestScreenshot();
+        ConfigureStageExport(screenshot);
         var stop = new Button { Name="StopScalingButton",Content=new Controls.SymbolIcon { Kind="Close",Width=18,Height=18 },Width=36,Height=36,Padding=new Thickness(8) };
         stop.Click += (_, _) => Stop();
         ConfigureToolbarClose(stop,fullscreen);
@@ -433,18 +441,22 @@ internal sealed partial class ScalingSession
     private string? SaveScreenshot()
     {
         if (_bitmap is null) return null;
+        return SaveScreenshotBitmap(_bitmap,ReadScreenshotSource());
+    }
+    private string? SaveScreenshotBitmap(Bitmap bitmap,CaptureSource source,string? suffix=null)
+    {
         try
         {
             var settings=_settings;
             string directory = settings.ResolveScreenshotDirectory();
             Directory.CreateDirectory(directory);
-            var source=ReadScreenshotSource();
             string name = ScreenshotNames.Format(settings.ResolveScreenshotTemplate(),source.ScreenshotTitle,source.ScreenshotProcess,DateTime.Now);
+            if(suffix is not null)name=ScreenshotNames.WithSuffix(name,suffix);
             string path = Path.Combine(directory, name);
             // CreateNew prevents overwriting a screenshot made within the same millisecond.
             for (int index = 1; File.Exists(path); index++) path = Path.Combine(directory, Path.GetFileNameWithoutExtension(name) + "_" + index + ".png");
             using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write);
-            _bitmap!.Save(file, PngBitmapEncoderOptions.Default);
+            bitmap.Save(file, PngBitmapEncoderOptions.Default);
             if (_message is not null) { _message.Text = "Saved " + path; _message.IsVisible = true; }
             return path;
         }

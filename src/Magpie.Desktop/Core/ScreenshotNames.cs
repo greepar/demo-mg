@@ -4,6 +4,18 @@ namespace Magpie.Desktop.Core;
 
 internal static class ScreenshotNames
 {
+    internal static string WithSuffix(string filename,string suffix)
+    {
+        static string Bound(string text,int maximum)
+        {
+            var result=new StringBuilder();int bytes=0;
+            foreach(var rune in text.EnumerateRunes()) { if(bytes+rune.Utf8SequenceLength>maximum)break;result.Append(rune.ToString());bytes+=rune.Utf8SequenceLength; }
+            return result.ToString().TrimEnd(' ','.');
+        }
+        string safe=Path.GetFileNameWithoutExtension(Format("%WT%",suffix,"",DateTime.Now));
+        safe=Bound(safe,80);
+        return Bound(Path.GetFileNameWithoutExtension(filename),219-Encoding.UTF8.GetByteCount(safe))+"_"+safe+".png";
+    }
     public const string DefaultTemplate = "%WT:80%_%Y%-%m%-%D%_%H%-%M%-%S%-%MS%";
     // Recognized tokens may contain a colon; literal filename characters may not.
     public static bool IsValidTemplate(string template)

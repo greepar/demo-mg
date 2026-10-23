@@ -1,6 +1,7 @@
 """Compose preview layers from acknowledged xdg-popup positions, never global coordinates."""
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 
@@ -81,12 +82,25 @@ def compose(target, trace):
         image=Image.open(local(layer['file'])).convert('RGBA')
         if image.size!=(layer['width'],layer['height']):raise ValueError('Popup capture size mismatch')
         gx,gy,pw,ph=p['parent_geometry']
-        if gx or gy:raise ValueError('Nonzero parent window geometry origin requires an explicit capture transform')
-        if abs(pw/scale-base.width)>1 or abs(ph/scale-base.height)>1:raise ValueError('Popup belongs to a different toplevel capture')
+        transform=metadata.get('capture_transform')
+        if transform is None:
+            if gx or gy:raise ValueError('Nonzero parent window geometry origin requires an explicit capture transform')
+            if abs(pw/scale-base.width)>1 or abs(ph/scale-base.height)>1:raise ValueError('Popup belongs to a different toplevel capture')
+        else:
+            cx,cy,sw,sh=(transform.get(key) for key in ('surface_x','surface_y','surface_width','surface_height'))
+            if any(not isinstance(value,(int,float)) or not math.isfinite(value) for value in (cx,cy,sw,sh)):
+                raise ValueError('Invalid visual capture transform')
+            geometry=(gx/scale,gy/scale,pw/scale,ph/scale)
+            left,top,width,height=geometry
+            if sw<=0 or sh<=0 or left<0 or top<0 or left+width>sw+1 or top+height>sh+1:
+                raise ValueError('Parent geometry exceeds captured visual surface')
+            if cx<left-1 or cy<top-1 or cx+base.width>left+width+1 or cy+base.height>top+height+1:
+                raise ValueError('Captured content is outside parent geometry')
+            x=round((p['x']+gx)/scale-cx);y=round((p['y']+gy)/scale-cy)
         if x<0 or y<0 or x+image.width>base.width+1 or y+image.height>base.height+1:raise ValueError('Native popup extends outside the application viewport')
         base.alpha_composite(image,(x,y))
         evidence.append(p|{'layer':layer['file'],'capture_x':x,'capture_y':y,'layer_sha256':hashlib.sha256(local(layer['file']).read_bytes()).hexdigest()})
     base.save(target)
-    report={'passed':True,'method':'Acknowledged and committed xdg_popup.configure; parent-relative positions recursively accumulated. Rendered app layers composited, not a compositor framebuffer screenshot.','render_scaling':scale,'popups':evidence,'trace_sha256':hashlib.sha256(trace.encode()).hexdigest(),'capture_sha256':hashlib.sha256(target.read_bytes()).hexdigest()}
+    report={'passed':True,'method':'Acknowledged and committed xdg_popup.configure; parent-relative positions recursively accumulated. Rendered app layers composited, not a compositor framebuffer screenshot.','render_scaling':scale,'capture_transform':metadata.get('capture_transform'),'popups':evidence,'trace_sha256':hashlib.sha256(trace.encode()).hexdigest(),'capture_sha256':hashlib.sha256(target.read_bytes()).hexdigest()}
     Path(str(target)+'.wayland.json').write_text(json.dumps(report,indent=2)+'\n')
     return report

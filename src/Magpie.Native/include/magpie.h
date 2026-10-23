@@ -120,6 +120,15 @@ void mp_capture_destroy(void* capture);
 int mp_capture_start(void* capture);
 // Safe from another thread while start is pending.
 void mp_capture_cancel(void* capture);
+// Last successful chain output for each effect stage, including presentation stages.
+// Snapshot serial changes on every successful execution. Copy rejects stale serials
+// and wrong output lengths without modifying caller bytes; no GPU work is submitted.
+typedef struct mp_stage_snapshot_info {
+    uint64_t serial;
+    uint32_t index,count,effect,width,height,reserved;
+} mp_stage_snapshot_info;
+int mp_stage_snapshot(void* engine,uint32_t index,mp_stage_snapshot_info* output,uint32_t size);
+int mp_copy_stage_snapshot(void* engine,uint64_t serial,uint32_t index,uint8_t* rgba,uint64_t bytes);
 // Cocoa UI-thread input binding. Rects use output logical points and normalized
 // source crop coordinates. 1=ready, 2=Accessibility required, 0=unsupported source,
 // 3=waiting for a matching submitted frame, -1=invalid/stopped. Other platforms
