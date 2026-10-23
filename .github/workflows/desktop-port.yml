@@ -1,9 +1,20 @@
-name: Desktop cross-platform native gates
-# Explicit dispatch on provisioned native hosts: no implicit untested OS skips.
+name: Desktop native build and interaction models
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/desktop-port.yml'
+      - 'src/Magpie.Desktop/**'
+      - 'src/Magpie.Native/**'
+      - 'src/Effects/**'
+      - 'scripts/**'
+      - 'tests/fixtures/**'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: desktop-native-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   native:
     strategy:
@@ -11,13 +22,15 @@ jobs:
       matrix:
         include:
           - rid: linux-x64
-            runner: magpie-linux-x64
+            runner: ubuntu-24.04
           - rid: win-x64
-            runner: magpie-win-x64
+            runner: windows-2022
           - rid: osx-arm64
-            runner: magpie-osx-arm64
-    runs-on: [self-hosted, '${{ matrix.runner }}']
-    timeout-minutes: 30
+            runner: macos-15
+          - rid: osx-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -26,14 +39,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build, test and verify AOT packaging without opening a window
+      - name: Prepare Linux native toolchain and software Vulkan driver
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld ninja-build cmake pkg-config libvulkan-dev mesa-vulkan-drivers libpipewire-0.3-dev libglib2.0-dev libfontconfig1-dev libglm-dev
+          echo "VK_DRIVER_FILES=$(find /usr/share/vulkan/icd.d -name '*lvp*' -print -quit)" >> "$GITHUB_ENV"
+      - name: Prepare pinned Windows/macOS native dependencies
+        if: runner.os != 'Linux'
+        run: python scripts/prepare-desktop-ci.py
+      - name: Native SDK, AOT, interaction models and single executable
+        run: python scripts/verify-platform-build.py --rid ${{ matrix.rid }}
+      - name: Linux software Vulkan regression
+        if: runner.os == 'Linux'
         run: python scripts/verify-platform.py --rid ${{ matrix.rid }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: desktop-${{ matrix.rid }}
           path: |
+            artifacts/platform-build-checks/${{ matrix.rid }}
             artifacts/platform-checks/${{ matrix.rid }}
             artifacts/native/${{ matrix.rid }}/Release/*.json
             artifacts/native/${{ matrix.rid }}/Release/*.log
+            artifacts/native/${{ matrix.rid }}/Release/Testing/Temporary/LastTest.log
             artifacts/desktop/${{ matrix.rid }}/Magpie.Desktop*

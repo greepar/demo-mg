@@ -49,7 +49,7 @@ internal static class NativeCore
         double x,double y,double width,double height,double cropX,double cropY,double cropWidth,double cropHeight,double toolbarHeight,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers,ulong expectedWindow,uint expectedProcess,ulong expectedSequence);
 
-    public static unsafe int SmokeTest()
+    internal static void VerifyInteractionModels()
     {
         NativeGlobalShortcutTests.Run();
         GlobalShortcutSettingsTests.Run();
@@ -63,6 +63,12 @@ internal static class NativeCore
         CaptureSourceTests.Verify();
         CaptureBackendTests.Verify();
         ScalingCountdownTests.Verify();
+        Console.WriteLine("INTERACTION MODEL PASS: native source ABI and non-GPU settings/shortcut/countdown/toolbar/configuration tests; no UI, capture picker or permission dialog.");
+    }
+
+    public static unsafe int SmokeTest()
+    {
+        VerifyInteractionModels();
         var settings = new RuntimeSettings();
         if (settings.OutputSize(640, 480, 1920, 1080) != (1440u,1080u)) throw new InvalidOperationException("Fit dimensions are incorrect.");
         settings.ScaleType = 0; settings.ScaleX = 2; settings.ScaleY = 3;

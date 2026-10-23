@@ -7,6 +7,11 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--interaction-model-test")
+        {
+            try { Core.NativeCore.VerifyInteractionModels();return 0; }
+            catch(Exception error) { Console.Error.WriteLine(error);return 1; }
+        }
         if(args.Length==1&&args[0]=="--configuration-migration-test")
         {
             try { Core.OriginalConfigurationTests.Verify();return 0; }
