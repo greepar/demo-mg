@@ -82,4 +82,12 @@
     <LinkerArg Include="-Wl,-framework,IOSurface" />
     <LinkerArg Include="-Wl,-framework,IOKit" />
   </ItemGroup>
+  <!-- Static native packages may leave their optional PDBs in the publish set.
+       They are debugging artifacts, not runtime dependencies of the AOT executable. -->
+  <Target Name="RemoveStaticNativeDebugSymbols" AfterTargets="Publish" Condition="'$(PublishAot)' == 'true' and '$(DebugType)' == 'none' and $([MSBuild]::IsOSPlatform('Windows'))">
+    <ItemGroup>
+      <StaticNativeDebugSymbol Include="$(PublishDir)libHarfBuzzSharp.pdb;$(PublishDir)libSkiaSharp.pdb" />
+    </ItemGroup>
+    <Delete Files="@(StaticNativeDebugSymbol)" />
+  </Target>
 </Project>
