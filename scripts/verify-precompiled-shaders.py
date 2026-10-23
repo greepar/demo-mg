@@ -22,7 +22,7 @@ if args.write_manifest:
             import shutil
             shutil.copyfileobj(source,compressed)
 paths=['src/Magpie.Native/effects.json','scripts/effect_catalog.py','scripts/dds_source.py','scripts/magpiefx.py','scripts/compile-vulkan-shader.py','scripts/multipass_shaders.py',
-       *sorted(str(p.relative_to(ROOT)) for p in (ROOT/'src/Effects').rglob('*') if p.is_file() and p.suffix in ('.hlsl','.hlsli','.dds')),
+       *sorted(p.relative_to(ROOT).as_posix() for p in (ROOT/'src/Effects').rglob('*') if p.is_file() and p.suffix in ('.hlsl','.hlsli','.dds')),
        archive]
 actual={p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in paths}
 with gzip.open(ROOT/archive,'rb') as compressed: kernels=compressed.read()

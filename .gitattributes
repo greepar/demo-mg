@@ -61,3 +61,12 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# Shader provenance hashes use the exact LF source bytes on every checkout host.
+/src/Effects/**/*.hlsl text eol=lf
+/src/Effects/**/*.hlsli text eol=lf
+/src/Effects/**/*.dds binary
+/src/Magpie.Native/effects.json text eol=lf
+/src/Magpie.Native/shaders/*.json text eol=lf
+/src/Magpie.Native/shaders/*.gz binary
+/scripts/*.py text eol=lf

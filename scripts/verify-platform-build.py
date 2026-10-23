@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 
 for stream in (sys.stdout,sys.stderr):
     if hasattr(stream,'reconfigure'):stream.reconfigure(encoding='utf-8',errors='replace')
@@ -25,7 +26,7 @@ commands=[
     [sys.executable,'scripts/verify-original-mode-fixture.py'],
     [sys.executable,'scripts/verify-precompiled-shaders.py'],
     ['dotnet','publish','src/Magpie.Desktop','-c','Release','-r',args.rid,'-o',str(output)],
-    ['ctest','--test-dir',str(build),'-C','Release','--output-on-failure','--no-tests=error','-R','^(capture_resize_geometry|capture_frame_mailbox|capture_source_metadata)$'],
+    ['ctest','--test-dir',str(build),'-C','Release','--output-on-failure','--no-tests=error','--output-junit',str(report_dir/'native-model-tests.xml'),'-R','^(capture_resize_geometry|capture_frame_mailbox|capture_source_metadata)$'],
     [str(output/name),'--interaction-model-test'],
     [sys.executable,'scripts/verify-power-abi.py','--output',str(report_dir/'power-abi.json')],
 ]
@@ -40,8 +41,15 @@ for index,command in enumerate(commands):
     (report_dir/f'{index}.log').write_text(result.stdout+result.stderr,encoding='utf-8')
     print(result.stdout,flush=True)
     report['checks'].append({'command':command,'exit_code':result.returncode});save()
-    if not result.returncode and index==3 and '100% tests passed, 0 tests failed out of 3' not in result.stdout:
-        result.returncode=1;result.stderr+='\nThe gate requires all three non-GPU native tests.\n'
+    if not result.returncode and index==3:
+        try:
+            cases=list(ET.parse(report_dir/'native-model-tests.xml').getroot().iter('testcase'))
+            expected={'capture_resize_geometry','capture_frame_mailbox','capture_source_metadata'}
+            if len(cases)!=3 or {case.get('name') for case in cases}!=expected or any(
+                case.get('status')=='notrun' or any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases):
+                raise ValueError('Expected all three native model tests to execute and pass.')
+        except (ET.ParseError,OSError,ValueError) as failure:
+            result.returncode=1;result.stderr+='\nNative test evidence failed: '+str(failure)+'\n'
     if not result.returncode and index==4 and 'INTERACTION MODEL PASS:' not in result.stdout:
         result.returncode=1;result.stderr+='\nThe executable did not report successful interaction-model execution.\n'
     if result.returncode:
