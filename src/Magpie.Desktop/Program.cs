@@ -7,6 +7,14 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--configuration-migration-test")
+        {
+            try { Core.OriginalConfigurationTests.Verify();return 0; }
+            catch(Exception error) { Console.Error.WriteLine(error);return 1; }
+        }
+        if(args.Length==3&&args[0]=="--migrate-original-config")return Core.OriginalConfiguration.RunAsync(args[1],args[2]).GetAwaiter().GetResult();
+        if(args.Length==3&&args[0]=="--configuration-probe")return Core.ConfigurationLocationTests.Probe(args[1],args[2]);
+        if(args.Length==2&&args[0]=="--configuration-reveal-probe")return Core.ConfigurationReveal.Probe(args[1]);
         // Non-GUI child receipt for the isolated startup command parser test.
         if(args.Length>=2 && args[0]=="--startup-command-probe")
         {

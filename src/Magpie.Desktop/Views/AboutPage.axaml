@@ -12,10 +12,10 @@
       <c:SettingsCard Header="{c:Loc About_Version_UpdateSettings_CheckForPreviewUpdates.Header}" Icon="Sparkles"><ToggleSwitch /></c:SettingsCard>
     </c:SettingsGroup>
     <c:SettingsGroup Header="{c:Loc About_Feedback.Header}">
-      <c:SettingsCard Header="{c:Loc About_Feedback_ReportBug.Header}" Icon="Info"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard>
-      <c:SettingsCard Header="{c:Loc About_Feedback_RequestFeature.Header}" Icon="Sparkles"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard>
-      <c:SettingsCard Header="{c:Loc About_Feedback_Discussion.Header}" Icon="Window"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard>
+      <c:ExternalLinkButton Classes="card-link" Destination="BugReport" AutomationProperties.Name="{c:Loc About_Feedback_ReportBug.Header}"><c:SettingsCard Header="{c:Loc About_Feedback_ReportBug.Header}" Icon="Info"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard></c:ExternalLinkButton>
+      <c:ExternalLinkButton Classes="card-link" Destination="FeatureRequest" AutomationProperties.Name="{c:Loc About_Feedback_RequestFeature.Header}"><c:SettingsCard Header="{c:Loc About_Feedback_RequestFeature.Header}" Icon="Sparkles"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard></c:ExternalLinkButton>
+      <c:ExternalLinkButton Classes="card-link" Destination="Discussion" AutomationProperties.Name="{c:Loc About_Feedback_Discussion.Header}"><c:SettingsCard Header="{c:Loc About_Feedback_Discussion.Header}" Icon="Window"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></c:SettingsCard></c:ExternalLinkButton>
     </c:SettingsGroup>
-    <c:SettingsGroup Header="{c:Loc About_OtherLinks.Header}"><WrapPanel><Button Classes="link" Content="Repository" /><Button Classes="link" Content="FAQ" /><Button Classes="link" Content="Contribution guidelines" /><Button Classes="link" Content="License" /></WrapPanel></c:SettingsGroup>
+    <c:SettingsGroup Header="{c:Loc About_OtherLinks.Header}"><WrapPanel><c:ExternalLinkButton Classes="link" Destination="Repository" Content="Repository" /><c:ExternalLinkButton Classes="link" Destination="FAQ" Content="FAQ" /><c:ExternalLinkButton Classes="link" Destination="Contribution" Content="Contribution guidelines" /><c:ExternalLinkButton Classes="link" Destination="License" Content="License" /></WrapPanel></c:SettingsGroup>
   </StackPanel></c:PageFrame>
 </UserControl>

@@ -12,8 +12,8 @@ public partial class SettingsPage : UserControl
         .Concat(Localization.Languages.Select(tag=>System.Globalization.CultureInfo.GetCultureInfo(tag).NativeName)).ToArray();
     public SettingsPage()
     {
-        InitializeComponent();DataContext=this;RefreshLanguage();RefreshStartup();_initialized=true;
-        AttachedToVisualTree+=(_,_)=> { RefreshLanguage();RefreshStartup();RefreshTray(); };
+        InitializeComponent();DataContext=this;RefreshLanguage();RefreshTheme();RefreshConfiguration();RefreshStartup();_initialized=true;
+        AttachedToVisualTree+=(_,_)=> { RefreshLanguage();RefreshTheme();RefreshConfiguration();RefreshStartup();RefreshTray(); };
     }
     private void RefreshLanguage()
     {
@@ -46,11 +46,20 @@ public partial class SettingsPage : UserControl
     }
     private void Theme_SelectionChanged(object? sender, SelectionChangedEventArgs args)
     {
-        if (!_initialized) return;
-        if (Application.Current is not { } application || sender is not ComboBox combo) return;
-        application.RequestedThemeVariant = combo.SelectedIndex switch
+        if (!_initialized || ThemeSelector.SelectedIndex<0 || Application.Current is not { } application) return;
+        var settings=RuntimeSettings.Current;int previous=settings.Theme;
+        try
         {
-            1 => ThemeVariant.Light, 2 => ThemeVariant.Dark, _ => ThemeVariant.Default
-        };
+            settings.Theme=ThemeSelector.SelectedIndex;settings.Save();ThemePreference.Apply(application,settings.Theme);
+        }
+        catch(Exception failure)
+        {
+            settings.Theme=previous;RefreshTheme();
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(Localization.Get("Settings_General_Theme.Header"),failure.Message);
+        }
+    }
+    private void RefreshTheme()
+    {
+        bool initialized=_initialized;_initialized=false;ThemeSelector.SelectedIndex=RuntimeSettings.Current.Theme;_initialized=initialized;
     }
 }

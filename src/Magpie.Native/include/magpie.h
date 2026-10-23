@@ -96,6 +96,25 @@ int mp_get_gpu_profile_v2(void* engine,mp_gpu_profile_v2* profile);
 int mp_set_gpu_profiling(void* engine,int enabled);
 int mp_get_gpu_profile(void* engine,mp_gpu_profile* profile);
 void* mp_capture_create(void);
+// Compiled capture implementation: 1=Portal/PipeWire, 2=ScreenCaptureKit,
+// 3=GDI. 4..6 reserved for GraphicsCapture/DesktopDuplication/DwmSharedSurface.
+uint32_t mp_capture_backend(void);
+// Delivered-frame sequence on Cocoa/GDI; 0 before delivery or on other backends.
+uint64_t mp_capture_frame_sequence(void* capture);
+// Version 1, caller-owned UTF-8 snapshot. Empty/unflagged fields are unknown;
+// never inferred from the capturing application's own process or stream name.
+// kind: 0=unknown, 1=window, 2=display, 3=virtual display.
+enum { MP_SOURCE_TITLE=1,MP_SOURCE_PROCESS_NAME=2,MP_SOURCE_EXECUTABLE=4,MP_SOURCE_PID=8,MP_SOURCE_WINDOW=16 };
+typedef struct mp_capture_source_info {
+    uint32_t version,flags,process_id,kind;
+    uint64_t window_id;
+    char title[1024],process_name[256],executable_path[4096];
+} mp_capture_source_info;
+int mp_capture_source(void* capture,mp_capture_source_info* info,uint32_t info_size);
+// Optional live title of the UI snapshot's exact window/PID. Cocoa also checks
+// its geometry/frame epoch. 1=title available (including empty), 0=unavailable,
+// changed source or unsupported backend. Does not select a source or prompt.
+int mp_capture_snapshot_title(void* capture,uint64_t expected_window,uint32_t expected_process,uint64_t expected_sequence,mp_capture_source_info* info,uint32_t size);
 void mp_capture_destroy(void* capture);
 // Opens the system source picker on the calling worker thread.
 int mp_capture_start(void* capture);
@@ -103,10 +122,13 @@ int mp_capture_start(void* capture);
 void mp_capture_cancel(void* capture);
 // Cocoa UI-thread input binding. Rects use output logical points and normalized
 // source crop coordinates. 1=ready, 2=Accessibility required, 0=unsupported source,
-// -1=invalid/stopped. Other platforms return 0. Does not request permissions.
+// 3=waiting for a matching submitted frame, -1=invalid/stopped. Other platforms
+// return 0. Does not request permissions.
+// Expected identity must match the UI-presented frame and current stream; a
+// pending source change disables forwarding until its matching frame is shown.
 int mp_capture_configure_input(void* capture,void* native_window,double x,double y,double width,double height,
     double crop_x,double crop_y,double crop_width,double crop_height,double toolbar_height,
-    const char* reserved_character,int reserved_key_code,uint64_t reserved_modifiers);
+    const char* reserved_character,int reserved_key_code,uint64_t reserved_modifiers,uint64_t expected_window,uint32_t expected_process,uint64_t expected_sequence);
 // 1=new frame, 0=waiting for frame, -1=error. No X11 window identifiers.
 // Returned pixels remain valid until the next non-waiting frame call or capture destruction.
 // Waiting calls and asynchronous producer callbacks do not alter the delivered buffer.

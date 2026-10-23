@@ -4,6 +4,7 @@ namespace Magpie.Desktop.Core;
 
 internal sealed class RuntimeSettings
 {
+    public JsonElement? OriginalConfiguration { get; set; }
     public List<ApplicationProfile> Profiles { get; set; } = [];
     public bool IsCroppingEnabled { get; set; }
     public float CroppingLeft { get; set; }
@@ -18,6 +19,9 @@ internal sealed class RuntimeSettings
     public int InitialWindowedScaleFactor { get; set; }
     public float CustomInitialWindowedScaleFactor { get; set; }=1.25f;
     public int OutputAlignment { get; set; }=4;
+    public CaptureBackend CaptureBackend { get; set; }
+    public ToolbarState FullscreenInitialToolbarState { get; set; }=ToolbarState.AutoHide;
+    public ToolbarState WindowedInitialToolbarState { get; set; }=ToolbarState.AutoHide;
     public bool GpuProfilingEnabled { get; set; }
     public bool DisableFP16 { get; set; }
     public bool KeepScreenOn { get; set; }
@@ -30,6 +34,7 @@ internal sealed class RuntimeSettings
     public bool ShowTrayIcon { get; set; }=true;
     public int CountdownSeconds { get; set; }=3;
     public string Language { get; set; } = "";
+    public int Theme { get; set; }
     public string GraphicsDeviceId { get; set; } = "";
     public string? ActiveProfileId { get; set; }
     [JsonIgnore]
@@ -42,7 +47,7 @@ internal sealed class RuntimeSettings
         copy.ToolbarShortcut=new() { Key=ToolbarShortcut.Key,Modifiers=ToolbarShortcut.Modifiers };
         copy.Crt=(float[])Crt.Clone();
         copy.GraphParameters=new(GraphParameters,StringComparer.Ordinal);
-        copy.Profiles=[];copy.ActiveProfileId=null;
+        copy.Profiles=[];copy.ActiveProfileId=null;copy.OriginalConfiguration=null;
         // Effect modes are shared definitions; per-application values and selection are independent.
         copy.Modes=Modes;
         return copy;
@@ -138,7 +143,8 @@ internal sealed class RuntimeSettings
     public static long ChangeSequence=>Interlocked.Read(ref _changeSequence);
     public static RuntimeSettings Current { get; private set; } = new();
     public static bool PersistenceEnabled { get; set; } = true;
-    public static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Magpie", "desktop-settings.json");
+    internal static ConfigurationLocation Location { get; }=ConfigurationLocation.Create();
+    public static string FilePath=>Location.Path;
     public static void Load()
     {
         if (!PersistenceEnabled || !File.Exists(FilePath)) return;
@@ -151,6 +157,7 @@ internal sealed class RuntimeSettings
     }
     public void Validate()
     {
+        if(OriginalConfiguration is {} original)global::Magpie.Desktop.Core.OriginalConfiguration.ValidatePreserved(original);
         if(Profiles is null || Profiles.Count>100 || Profiles.Any(p=>p is null))throw new InvalidDataException("Invalid profiles list.");
         foreach(var profile in Profiles)
         {
@@ -169,6 +176,9 @@ internal sealed class RuntimeSettings
         if(InitialWindowedScaleFactor is <0 or >6 || !float.IsFinite(CustomInitialWindowedScaleFactor) || CustomInitialWindowedScaleFactor is <1 or >10 || OutputAlignment is <0 or >8)throw new InvalidDataException("Invalid window scale or output alignment.");
         if(!Enum.IsDefined(DuplicateFrameDetection) || !double.IsFinite(MinimumFrameRate) || MinimumFrameRate is <0 or >1000)throw new InvalidDataException("Invalid frame detection or minimum frame rate.");
         _=Localization.NormalizePreference(Language);
+        _=ThemePreference.Variant(Theme);
+        if(!Enum.IsDefined(CaptureBackend))throw new InvalidDataException("Invalid capture backend.");
+        if(!Enum.IsDefined(FullscreenInitialToolbarState)||!Enum.IsDefined(WindowedInitialToolbarState))throw new InvalidDataException("Invalid initial toolbar state.");
         VulkanDevices.ValidateIdentifier(GraphicsDeviceId);
         CrtParameters.Validate(Crt);
         if (!double.IsFinite(MaximumFrameRate) || MaximumFrameRate is <10 or >1000)

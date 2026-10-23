@@ -1,5 +1,6 @@
 #include "magpie.h"
 #include "error.h"
+#include "source_info.h"
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
 #include <pipewire/pipewire.h>
@@ -49,6 +50,7 @@ struct Capture {
     std::vector<uint8_t> pixels, delivered;
     uint32_t width{}, height{}, deliveredWidth{}, deliveredHeight{};
     bool fresh{};
+    uint32_t sourceKind{};
     std::string streamError;
     static inline std::once_flag pipewireInit;
     ~Capture() {
@@ -106,6 +108,7 @@ struct Capture {
     void start() {
         ContextScope scope(context);
         if (!session.empty()) throw std::runtime_error("Capture session has already started");
+        if (!bus) initialize();
         std::string token = "magpie" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
         GVariantBuilder builder;
         options(builder, (token + "create").c_str());
@@ -128,6 +131,11 @@ struct Capture {
         auto first = variant(g_variant_get_child_value(streams.get(), 0));
         auto nodeValue = variant(g_variant_get_child_value(first.get(), 0));
         const uint32_t node = g_variant_get_uint32(nodeValue.get());
+        auto properties=variant(g_variant_get_child_value(first.get(),1));uint32_t sourceType{};
+        if(g_variant_lookup(properties.get(),"source_type","u",&sourceType)) {
+            std::lock_guard lock(pixelsMutex);
+            sourceKind=sourceType==2?1:sourceType==1?2:sourceType==4?3:0;
+        }
         g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
         GError* error{}; GUnixFDList* descriptors{};
         auto remote = variant(g_dbus_connection_call_with_unix_fd_list_sync(bus.get(), service, desktop, screenCast, "OpenPipeWireRemote",
@@ -220,10 +228,19 @@ struct Capture {
 };
 }
 extern "C" void* mp_capture_create() {
-    try { auto capture = std::make_unique<Capture>(); capture->initialize(); return capture.release(); }
+    try { return new Capture(); }
     catch (const std::exception& ex) { magpie::error = ex.what(); return nullptr; }
 }
 extern "C" void mp_capture_destroy(void* capture) { delete static_cast<Capture*>(capture); }
+extern "C" uint32_t mp_capture_backend(void) { return 1; }
+extern "C" int mp_capture_snapshot_title(void*,uint64_t,uint32_t,uint64_t,mp_capture_source_info*,uint32_t) { return 0; }
+extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint32_t size) {
+    if(!capture||!info||size!=sizeof(*info)){magpie::error="Invalid source metadata arguments";return 0;}
+    auto& c=*static_cast<Capture*>(capture);std::lock_guard lock(c.pixelsMutex);
+    *info=magpie::emptySource();info->kind=c.sourceKind;
+    // ScreenCast does not provide a portable source title/PID/executable.
+    return 1;
+}
 extern "C" void mp_capture_cancel(void* capture) {
     if (auto* c = static_cast<Capture*>(capture)) { c->cancelled = true; g_cancellable_cancel(c->cancellable.get()); }
 }

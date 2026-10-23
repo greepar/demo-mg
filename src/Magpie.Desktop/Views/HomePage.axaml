@@ -16,6 +16,7 @@
         <c:SettingsExpander Name="DelayedScaling" IsWrapEnabled="True" Header="{c:Loc Home_Activation_Timer.Header}" Icon="Timer">
           <c:SettingsExpander.Action>
             <StackPanel Orientation="Horizontal" Spacing="8">
+              <Grid Name="CountdownDisplay" Width="30" Height="30" IsVisible="False" VerticalAlignment="Center"><c:CountdownRing Name="CountdownProgress" /><TextBlock Name="CountdownLabel" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" /></Grid>
               <Button Name="FullscreenStart" Click="FullscreenStart_Click"><StackPanel Orientation="Horizontal" Spacing="8"><c:SymbolIcon Kind="Scale" Width="14" Height="14" VerticalAlignment="Center" /><TextBlock Text="{c:Loc Home_Activation_Timer_Start}" /></StackPanel></Button>
               <Button Name="WindowedStart" Click="WindowedStart_Click"><StackPanel Orientation="Horizontal" Spacing="8"><c:SymbolIcon Kind="Window" Width="14" Height="14" VerticalAlignment="Center" /><TextBlock Text="{c:Loc Home_Activation_Timer_Start}" /></StackPanel></Button>
             </StackPanel>
@@ -27,15 +28,16 @@
       </c:SettingsGroup>
       <c:SettingsGroup Header="{c:Loc Home_Toolbar.Header}" Description="{c:Loc Home_Toolbar.Description}">
         <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Home_Toolbar_StateToggle.Header}" Icon="Toolbar"><c:ShortcutControl Name="ToolbarShortcut" Key="D" Title="{c:Loc Home_Toolbar_StateToggle_ShortcutControl.Title}" /></c:SettingsCard>
-        <c:SettingsCard Header="{c:Loc Profile_Toolbar_InitialState.Header}" Icon="Eye">
-          <ComboBox Classes="inline" SelectedIndex="1"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /></ComboBox>
-        </c:SettingsCard>
+        <c:SettingsExpander Header="{c:Loc Profile_Toolbar_InitialState.Header}" Icon="Eye"><StackPanel Spacing="2">
+          <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_InitialState_Fullscreen.Header}"><ComboBox Name="FullscreenToolbarState" SelectionChanged="ToolbarState_Changed" SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox></c:SettingsCard>
+          <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_InitialState_Windowed.Header}"><ComboBox Name="WindowedToolbarState" SelectionChanged="ToolbarState_Changed" SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox></c:SettingsCard>
+        </StackPanel></c:SettingsExpander>
         <c:SettingsCard Header="{c:Loc Profile_Toolbar_ScreenshotSaveDirectory.Header}" Name="ScreenshotDirectoryCard" Icon="Folder">
           <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="{c:Loc Profile_Toolbar_ScreenshotSaveDirectory_Change.Content}" Click="ScreenshotDirectory_Click" /><Button Classes="subtle" Padding="6" ToolTip.Tip="Open screenshot directory" Click="OpenScreenshotDirectory_Click"><c:SymbolIcon Kind="Open" Width="14" Height="14" /></Button></StackPanel>
         </c:SettingsCard>
       </c:SettingsGroup>
       <c:SettingsGroup Header="{c:Loc Home_TouchSupport.Header}" Description="{c:Loc Home_TouchSupport.Description}">
-        <c:SettingsCard Name="TouchCard" Header="{c:Loc Home_TouchSupport_EnableTouchSupport.Header}" Icon="Touch"><c:SettingsCard.Description><StackPanel><TextBlock FontSize="12" Text="{c:Loc Home_TouchSupport_EnableTouchSupport_Description.Text}" /><Button Classes="link" FontSize="12" Content="{c:Loc Home_TouchSupport_EnableTouchSupport_LearnMore.Content}" /></StackPanel></c:SettingsCard.Description><ToggleSwitch Name="TouchToggle" IsChecked="False" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsCard>
+        <c:SettingsCard Name="TouchCard" Header="{c:Loc Home_TouchSupport_EnableTouchSupport.Header}" Icon="Touch"><c:SettingsCard.Description><StackPanel><TextBlock FontSize="12" Text="{c:Loc Home_TouchSupport_EnableTouchSupport_Description.Text}" /><c:ExternalLinkButton Destination="TouchSupport" Classes="link" FontSize="12" Content="{c:Loc Home_TouchSupport_EnableTouchSupport_LearnMore.Content}" /></StackPanel></c:SettingsCard.Description><ToggleSwitch Name="TouchToggle" IsChecked="False" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsCard>
       <c:InfoBar Classes="blue" Title="{c:Loc Home_TouchSupport_Info.Title}" IsClosable="False" IsOpen="{Binding #TouchToggle.IsChecked}" />
         <c:InfoBar Severity="Warning" Title="{c:Loc Home_TouchSupport_Warn.Title}" IsClosable="False" IsOpen="{Binding #TouchToggle.IsChecked}" />
       </c:SettingsGroup>

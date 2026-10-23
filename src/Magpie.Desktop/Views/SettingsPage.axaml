@@ -21,16 +21,27 @@
 <!-- Settings_General_Theme -->
 <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Settings_General_Theme.Header}" Icon="Theme">
 
-<ComboBox SelectionChanged="Theme_SelectionChanged" SelectedIndex="0"><ComboBoxItem Content="{c:Loc Settings_General_Theme_System.Content}" /><ComboBoxItem Content="{c:Loc Settings_General_Theme_Light.Content}" /><ComboBoxItem Content="{c:Loc Settings_General_Theme_Dark.Content}" /></ComboBox>
+<ComboBox Name="ThemeSelector" SelectionChanged="Theme_SelectionChanged" SelectedIndex="0"><ComboBoxItem Content="{c:Loc Settings_General_Theme_System.Content}" /><ComboBoxItem Content="{c:Loc Settings_General_Theme_Light.Content}" /><ComboBoxItem Content="{c:Loc Settings_General_Theme_Dark.Content}" /></ComboBox>
 </c:SettingsCard>
 
 <!-- Settings_General_PortableMode -->
-<c:SettingsCard Header="{c:Loc Settings_General_PortableMode.Header}" Icon="Folder">
-<c:SettingsCard.Description><Button Classes="link" FontSize="12" Content="{c:Loc Settings_General_PortableMode_Locate.Content}" /></c:SettingsCard.Description>
+<c:SettingsCard Name="PortableModeCard" Header="{c:Loc Settings_General_PortableMode.Header}" Icon="Folder">
+<c:SettingsCard.Description><Button Name="LocateConfigurationButton" Click="LocateConfiguration_Click" Classes="link" FontSize="12" Content="{c:Loc Settings_General_PortableMode_Locate.Content}" /></c:SettingsCard.Description>
 
 
-<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+<ToggleSwitch Name="PortableModeToggle" IsCheckedChanged="PortableMode_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
 </c:SettingsCard>
+<TextBlock Name="ConfigurationStatus" IsVisible="False" TextWrapping="Wrap" Foreground="{DynamicResource StartupErrorBrush}" Margin="48,4,16,8" />
+
+<c:SettingsCard Name="ImportConfigurationCard" IsWrapEnabled="True" Header="{Binding ImportConfigurationTitle}" Description="{Binding ImportConfigurationDescription}" Icon="Folder">
+<Button Name="ChooseConfigurationButton" Content="{Binding ChooseConfigurationLabel}" Click="ChooseConfiguration_Click" />
+</c:SettingsCard>
+<StackPanel Name="ImportConfigurationReview" IsVisible="False" Spacing="12" Margin="12,4">
+<TextBlock Name="ImportConfigurationSummary" TextWrapping="Wrap" FontWeight="SemiBold" />
+<ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled"><TextBlock Name="ImportConfigurationWarnings" TextWrapping="Wrap" /></ScrollViewer>
+<WrapPanel><Button Name="ApplyConfigurationButton" Content="{Binding ApplyConfigurationLabel}" Click="ApplyConfiguration_Click" Margin="0,0,8,8" /><Button Name="CancelConfigurationButton" Content="{Binding CancelConfigurationLabel}" Click="CancelConfiguration_Click" Margin="0,0,0,8" /></WrapPanel>
+</StackPanel>
+<TextBlock Name="ImportConfigurationError" IsVisible="False" TextWrapping="Wrap" Foreground="{DynamicResource StartupErrorBrush}" Margin="12,4" />
 
 <!-- Settings_General_ShowNotifyIcon -->
 <c:SettingsCard Header="{c:Loc Settings_General_ShowNotifyIcon.Header}" Description="{c:Loc Settings_General_ShowNotifyIcon.Description}" Icon="Window">

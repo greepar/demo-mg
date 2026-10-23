@@ -51,7 +51,7 @@ internal sealed partial class ScalingSession
     public event Action<string>? Status;
 
     internal Func<bool> GlobalToolbarShortcutActive { get; set; }=()=>false;
-    internal void ToggleToolbar() { if(_toolbar is not null)_toolbar.IsVisible=!_toolbar.IsVisible; }
+    internal void ToggleToolbar()=>CycleToolbarState();
 
     public void Stop()
     {
@@ -73,6 +73,7 @@ internal sealed partial class ScalingSession
             {
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds), _stop.Token);
                 _settings.EnsureSelectedModeAvailable();
+                _=CaptureBackendPolicy.Resolve(_settings.CaptureBackend,CaptureBackendPolicy.Available);
                 if(_previewLoop is {} preview)
                 {
                     if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Synthetic capture requires isolated preview mode.");
@@ -93,6 +94,7 @@ internal sealed partial class ScalingSession
                 long start=Stopwatch.GetTimestamp();
                 var processor=new ScalingFrameProcessor(start);
                 nint lastSource=0;uint sourceWidth=0,sourceHeight=0;
+                CaptureSource frameSource=CaptureSource.Unknown;ulong frameSequence=0;
                 bool receivedFrame=false,havePlan=false;
                 long previousRevision=-1,previousTarget=-1;int previousWindowed=-1;
                 (NativeEffectStep[] Chain,string Name,DuplicateFrameMode Detection,bool DynamicStatistics,double Minimum,double Maximum,bool Gpu,SourceRegion Crop) plan=([],"",DuplicateFrameMode.Dynamic,false,0,0,false,default);
@@ -104,6 +106,7 @@ internal sealed partial class ScalingSession
                     if(result<0)throw NativeCore.Error();
                     if(result==1)
                     {
+                        frameSource=ReadCapturedSource(capture);frameSequence=NativeCore.CaptureFrameSequence(capture);
                         if(!receivedFrame)
                         {
                             _stop.Token.ThrowIfCancellationRequested();
@@ -138,8 +141,12 @@ internal sealed partial class ScalingSession
                         pacer.MarkFrame(now);
                         long submitBegin=Stopwatch.GetTimestamp();
                         var output=plan.Chain[^1];
-                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);return Present(processor.Pixels,output.Width,output.Height); }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
+                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);bool presented=Present(processor.Pixels,output.Width,output.Height);if(presented)CommitPresentedSource(frameSource,frameSequence);return presented; }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
                     }
+                    // Duplicate pixels still belong to the newly delivered
+                    // source. The cached output is identical, so commit its
+                    // metadata without an unnecessary GPU/bitmap submission.
+                    else if(result==1)await Dispatcher.UIThread.InvokeAsync(()=> { if(_bitmap is not null)CommitPresentedSource(frameSource,frameSequence); });
                     if(Volatile.Read(ref _screenshotPending)!=0)await Dispatcher.UIThread.InvokeAsync(DrainScreenshot);
                     if(processor.Performance.TrySnapshot(Stopwatch.GetTimestamp(),out var counters))
                     {
@@ -193,8 +200,10 @@ internal sealed partial class ScalingSession
         _message = new TextBlock { Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         var screenshot = new Button { Content = Localization.Text("Screenshot"), Margin = new Thickness(8,0) };
         screenshot.Click += (_, _) => Interlocked.Exchange(ref _screenshotPending, 1);
-        var stop = new Button { Name="StopScalingButton",Content = Localization.Text("Stop") };
+        var stop = new Button { Name="StopScalingButton",Content=new Controls.SymbolIcon { Kind="Close",Width=18,Height=18 },Width=36,Height=36,Padding=new Thickness(8) };
         stop.Click += (_, _) => Stop();
+        ConfigureToolbarClose(stop,fullscreen);
+        var pin=CreateToolbarPin();
         var effect = new ComboBox { Name="OutputEffectSelector",ItemsSource=Enumerable.Range(0,ScalingModeInterchange.EffectPaths.Length).Select(i=>EffectStageSettings.Name((uint)i)).ToArray(),SelectedIndex=(int)_settings.Effect,Margin=new Thickness(8,0) };
         effect.SelectionChanged += (_, _) => { if(effect.SelectedIndex<0)return;_settings.SelectedModeId = null; _settings.Effect = (uint)effect.SelectedIndex; RuntimeSettings.Current.Save(); };
 
@@ -246,7 +255,7 @@ internal sealed partial class ScalingSession
             try { RuntimeSettings.Current.GpuProfilingEnabled=profiler.IsChecked==true;RuntimeSettings.Current.Save();_gpuPanel.IsVisible=profiler.IsChecked==true;if(_gpuDetails is not null)_gpuDetails.Text="Waiting for GPU timing sample…"; }
             catch(Exception error) { RuntimeSettings.Current.GpuProfilingEnabled=previous;profiler.IsChecked=previous;if(_message is not null) { _message.Text=error.Message;_message.IsVisible=true; } }
         };
-        var row = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { modes, effect,graphParameters, screenshot, stop,profiler } };
+        var row = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { pin,modes, effect,graphParameters, screenshot, stop,profiler } };
         _toolbarActions=row;
         _powerStatus=new TextBlock { Name="OutputPowerStatus",IsVisible=false,Foreground=Brushes.Goldenrod,TextWrapping=TextWrapping.Wrap };
         _inputStatus=new TextBlock { Name="OutputInputStatus",IsVisible=false,Foreground=Brushes.Goldenrod,TextWrapping=TextWrapping.Wrap };
@@ -292,6 +301,7 @@ internal sealed partial class ScalingSession
             else if (!GlobalToolbarShortcutActive() && args.Key==Enum.Parse<Key>(RuntimeSettings.Current.ToolbarShortcut.Key) && args.KeyModifiers==RuntimeSettings.Current.ToolbarShortcut.AvaloniaModifiers) { ToggleToolbar(); args.Handled = true; }
         };
         _output.Closing += (_, _) => { _inputPoll?.Dispose();_inputPoll=null;Stop(); };
+        InitializeToolbar(fullscreen);
         SetSourceGeometry(sourceWidth,sourceHeight);
         if(fullscreen)_output.WindowState=WindowState.FullScreen;
         else if(sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner);
@@ -418,7 +428,8 @@ internal sealed partial class ScalingSession
             var settings=_settings;
             string directory = settings.ResolveScreenshotDirectory();
             Directory.CreateDirectory(directory);
-            string name = ScreenshotNames.Format(settings.ResolveScreenshotTemplate(), "Capture", "Magpie", DateTime.Now);
+            var source=ReadScreenshotSource();
+            string name = ScreenshotNames.Format(settings.ResolveScreenshotTemplate(),source.ScreenshotTitle,source.ScreenshotProcess,DateTime.Now);
             string path = Path.Combine(directory, name);
             // CreateNew prevents overwriting a screenshot made within the same millisecond.
             for (int index = 1; File.Exists(path); index++) path = Path.Combine(directory, Path.GetFileNameWithoutExtension(name) + "_" + index + ".png");

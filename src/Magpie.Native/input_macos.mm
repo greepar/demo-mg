@@ -19,6 +19,8 @@
     CGEventFlags _reservedModifiers;
 }
 - (void)setSourceWindow:(CGWindowID)window process:(pid_t)process {
+    if(process==getpid()) {window=0;process=0;}
+    if(_sourceWindow==window && _sourceProcess==process)return;
     [self releaseInput];
     _sourceWindow=process==getpid()?0:window;
     _sourceProcess=process==getpid()?0:process;

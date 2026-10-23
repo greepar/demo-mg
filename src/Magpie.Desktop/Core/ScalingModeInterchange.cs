@@ -18,7 +18,7 @@ internal static class ScalingModeInterchange
     {
         if(string.IsNullOrWhiteSpace(value) || value.Length>maximum || value.Any(char.IsControl))Fail("Invalid "+description+".");
     }
-    private static void CheckObjects(JsonElement value)
+    internal static void CheckObjects(JsonElement value)
     {
         if(value.ValueKind==JsonValueKind.Object)
         {

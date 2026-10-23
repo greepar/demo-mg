@@ -49,6 +49,33 @@ internal static class UiPreview
         }
         switch (scenario)
         {
+            case "SourceTitleOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceTitleAsync(window);break;
+            case "SourceFrameIdentityOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceFrameIdentityAsync(window);break;
+            case "ToolbarMoveOutput":await Core.ScalingSession.VerifyToolbarMoveAsync(window);break;
+            case "ToolbarActionsOutput":await Core.ScalingSession.VerifyToolbarActionsAsync(window);break;
+            case "CountdownLifecycle":await window.VerifyCountdownAsync();break;
+            case "SourceMetadataOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceScreenshotAsync(window);break;
+            case "ProfileImportedConfiguration":
+            {
+                var migrated=Core.OriginalConfiguration.Parse(Core.OriginalConfigurationTests.Example);
+                var root=Core.RuntimeSettings.Current;root.Modes.AddRange(migrated.Settings.Modes);root.Profiles.AddRange(migrated.Settings.Profiles);root.Validate();
+                window.RefreshProfilesNavigation();page="Profile:"+root.Profiles[0].Id;window.Navigate(page);
+                var importedPage=First<ProfilePage>();
+                if(importedPage.FindControl<Button>("LaunchProfileButton")!.IsEnabled||importedPage.FindControl<MenuItem>("ProgramLocationMenu")!.IsEnabled||!importedPage.FindControl<TextBlock>("ImportedProfileNotice")!.IsVisible)
+                    throw new InvalidOperationException("Imported profile did not retain its unavailable identity and launch guards.");
+                Console.WriteLine("IMPORTED PROFILE UI PASS: original Windows rule and unapplied arguments visible; executable/location actions disabled; original mode/backend references retained.");
+                break;
+            }
+            case "SettingsImportConfiguration":await First<SettingsPage>().VerifyImportUiAsync();break;
+            case "SettingsConfiguration":case "SettingsConfigurationFailure":
+                await First<SettingsPage>().VerifyConfigurationUiAsync(scenario=="SettingsConfigurationFailure");break;
+            case "ToolbarPolicyOutput":await Core.ScalingSession.VerifyToolbarAsync(window);break;
+            case "HomeToolbarPreferences":await Core.ToolbarPreferencesTests.VerifyUiAsync(window);break;
+            case "SettingsThemePersistence":
+                First<SettingsPage>().VerifyThemeInteraction();break;
+            case "AboutLinks":case "AboutLinkFailure":
+                var linkError=await Core.ExternalLinkTests.VerifyAsync(window,scenario=="AboutLinkFailure");
+                if(linkError is not null)popups.Add(linkError);break;
             case "AwakeOutput":case "AwakePendingOutput":case "AwakeUnavailableOutput":case "AwakeFailureOutput":
                 await Core.ScalingSession.VerifyPowerLifecycleAsync(window,scenario);break;
             case "HomeKeepAwake":
@@ -182,7 +209,8 @@ internal static class UiPreview
             case "ProfileHardware":
                 First<ProfilePage>().FindControl<SettingsCard>("MultimonitorCard")!.IsVisible = true;
                 First<ProfilePage>().FindControl<SettingsCard>("GraphicsCard")!.IsVisible = true; break;
-            case "ProfileCaptureWarning": First<ProfilePage>().FindControl<ComboBox>("CaptureMethod")!.SelectedIndex = 1; break;
+            case "ProfileCapturePolicy":case "ProfileCaptureWarning":
+                await First<ProfilePage>().VerifyCaptureInteractionAsync(window,scenario=="ProfileCaptureWarning");break;
             case "ProfileCapture": await OpenCombo(First<ProfilePage>().FindControl<ComboBox>("CaptureMethod")!); break;
             case "ProfileMode": await OpenCombo(First<ComboBox>()); break;
             case "ProfileLimiter":

@@ -2,10 +2,11 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:c="using:Magpie.Desktop.Controls" x:Class="Magpie.Desktop.Views.ProfilePage">
 <c:PageFrame Name="ProfileFrame" Title="{c:Loc Root_Defaults.Content}">
 <c:PageFrame.HeaderAction><StackPanel Name="ProfileActions" Orientation="Horizontal" Spacing="2" IsVisible="False">
-<Button Classes="subtle" Width="36" Height="36" Padding="0" ToolTip.Tip="Launch" Click="Launch_Click"><c:SymbolIcon Kind="Play" Width="18" Height="18" /></Button>
-<Button Name="ProfileMore" Classes="subtle" Width="36" Height="36" Padding="0" ToolTip.Tip="More options"><c:SymbolIcon Kind="More" Width="18" Height="18" /><Button.Flyout><MenuFlyout Placement="Bottom"><MenuItem Header="{c:Loc Profile_MoreOptions_OpenProgramLocation.Text}" Click="ProgramAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Folder" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="Change the executable file for launching" Tag="ChangeExecutable" Click="ProgramAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Window" Width="16" Height="16" /></MenuItem.Icon></MenuItem><Separator /><MenuItem Header="{c:Loc Profile_MoreOptions_Rename.Text}" Tag="Rename" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Edit" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="Reorder" Tag="Reorder" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Reorder" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="{c:Loc Profile_MoreOptions_Delete.Text}" Tag="Delete" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Delete" Width="16" Height="16" /></MenuItem.Icon></MenuItem></MenuFlyout></Button.Flyout></Button>
+<Button Name="LaunchProfileButton" Classes="subtle" Width="36" Height="36" Padding="0" ToolTip.Tip="Launch" Click="Launch_Click"><c:SymbolIcon Kind="Play" Width="18" Height="18" /></Button>
+<Button Name="ProfileMore" Classes="subtle" Width="36" Height="36" Padding="0" ToolTip.Tip="More options"><c:SymbolIcon Kind="More" Width="18" Height="18" /><Button.Flyout><MenuFlyout Placement="Bottom"><MenuItem Name="ProgramLocationMenu" Header="{c:Loc Profile_MoreOptions_OpenProgramLocation.Text}" Click="ProgramAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Folder" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="Change the executable file for launching" Tag="ChangeExecutable" Click="ProgramAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Window" Width="16" Height="16" /></MenuItem.Icon></MenuItem><Separator /><MenuItem Header="{c:Loc Profile_MoreOptions_Rename.Text}" Tag="Rename" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Edit" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="Reorder" Tag="Reorder" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Reorder" Width="16" Height="16" /></MenuItem.Icon></MenuItem><MenuItem Header="{c:Loc Profile_MoreOptions_Delete.Text}" Tag="Delete" Click="ProfileAction_Click"><MenuItem.Icon><c:SymbolIcon Kind="Delete" Width="16" Height="16" /></MenuItem.Icon></MenuItem></MenuFlyout></Button.Flyout></Button>
 </StackPanel></c:PageFrame.HeaderAction>
 <StackPanel Spacing="32" Margin="0,4,0,0">
+<TextBlock Name="ImportedProfileNotice" IsVisible="False" TextWrapping="Wrap" />
 <!-- Profile_General -->
 <c:SettingsGroup Header="{c:Loc Profile_General.Header}">
 <!-- Profile_General_ScalingMode -->
@@ -19,7 +20,7 @@
 <!-- Profile_General_CaptureMethod -->
 <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_General_CaptureMethod.Header}" Icon="Capture">
 
-<ComboBox Name="CaptureMethod" SelectedIndex="0" SelectionChanged="CaptureMethod_SelectionChanged"><ComboBoxItem Content="Graphics Capture" /><ComboBoxItem Content="Desktop Duplication" /><ComboBoxItem Content="GDI" /><ComboBoxItem Content="DwmSharedSurface" /></ComboBox>
+<ComboBox Name="CaptureMethod" SelectionChanged="CaptureMethod_SelectionChanged" MinWidth="200" />
 </c:SettingsCard>
 
 
@@ -61,11 +62,11 @@
 <c:SettingsExpander.Action></c:SettingsExpander.Action>
 <StackPanel Spacing="2"><!-- Profile_Toolbar_InitialState_Fullscreen -->
 <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_InitialState_Fullscreen.Header}" Icon="">
-<ComboBox SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox>
+<ComboBox Name="FullscreenToolbarState" SelectionChanged="ToolbarState_Changed" SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox>
 </c:SettingsCard>
 <!-- Profile_Toolbar_InitialState_Windowed -->
 <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Toolbar_InitialState_Windowed.Header}" Icon="">
-<ComboBox SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox>
+<ComboBox Name="WindowedToolbarState" SelectionChanged="ToolbarState_Changed" SelectedIndex="2"><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_Off.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AlwaysShow.Content}" /><ComboBoxItem Content="{c:Loc Profile_Toolbar_InitialState_AutoHide.Content}" /></ComboBox>
 </c:SettingsCard>
 </StackPanel>
 </c:SettingsExpander>

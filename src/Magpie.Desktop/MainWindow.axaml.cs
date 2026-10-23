@@ -10,7 +10,8 @@ public partial class MainWindow : Window
 {
     private Core.ScalingSession? _scalingSession;
     internal Core.DesktopIntegration? DesktopIntegration { get; set; }
-    internal void StopScaling()=>_scalingSession?.Stop();
+    internal bool CanImportConfiguration=>_scalingSession is null&&!GlobalShortcutsBusy;
+    internal void StopScaling() { CancelCountdown();_scalingSession?.Stop(); }
     private bool _paneOpen;
     private bool _compact;
     private string _page = "Home";
@@ -40,18 +41,22 @@ public partial class MainWindow : Window
     }
     internal void StartScaling(bool fullscreen, int delaySeconds)
     {
+        if(delaySeconds is <0 or >5)throw new ArgumentOutOfRangeException(nameof(delaySeconds));
         if (_scalingSession is not null) { _scalingSession.Stop(); return; }
-        var session = new Core.ScalingSession(Core.RuntimeSettings.Current.ActiveSettings) { GlobalToolbarShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="toolbar")==true };
+        if(delaySeconds>0){StartCountdown(fullscreen,delaySeconds);return;}
+        CancelCountdown();
+        var session=CreateScalingSession();session.GlobalToolbarShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="toolbar")==true;
         _scalingSession = session;
         ((HomePage)_pages["Home"]).SetRunning(true);
         session.Status += text => Avalonia.Threading.Dispatcher.UIThread.Post(() => Console.WriteLine(text));
         session.Finished += failure =>
         {
+            if(!ReferenceEquals(_scalingSession,session))return;
             _scalingSession = null;
             ((HomePage)_pages["Home"]).SetRunning(false);
             if (failure is not null) ShowToast("Scaling could not start", failure);
         };
-        _ = session.RunAsync(this, fullscreen, delaySeconds);
+        _ = session.RunAsync(this, fullscreen, 0);
     }
     public void ShowShortcutDialog(ShortcutControl shortcut)
     {

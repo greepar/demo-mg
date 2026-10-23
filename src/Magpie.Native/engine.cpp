@@ -14,8 +14,11 @@
 #include "precision.h"
 
 namespace magpie { thread_local std::string error; }
+#if !defined(__APPLE__) && !defined(_WIN32)
+extern "C" uint64_t mp_capture_frame_sequence(void*) { return 0; }
+#endif
 #ifndef __APPLE__
-extern "C" int mp_capture_configure_input(void*,void*,double,double,double,double,double,double,double,double,double,const char*,int,uint64_t) { return 0; }
+extern "C" int mp_capture_configure_input(void*,void*,double,double,double,double,double,double,double,double,double,const char*,int,uint64_t,uint64_t,uint32_t,uint64_t) { return 0; }
 #endif
 namespace {
 void check(VkResult result, const char* operation) {

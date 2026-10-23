@@ -5,7 +5,7 @@
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
-        <ResourceDictionary x:Key="Light">
+        <ResourceDictionary x:Key="Default">
           <SolidColorBrush x:Key="ComboBoxDropDownBackground">#FCFCFC</SolidColorBrush>
           <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush">#1F000000</SolidColorBrush>
         </ResourceDictionary>

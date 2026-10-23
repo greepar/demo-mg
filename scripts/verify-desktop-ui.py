@@ -12,6 +12,19 @@ from wayland_popup_capture import compose
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
+    "SourceTitleOutput",
+    "SourceFrameIdentityOutput",
+    "ToolbarMoveOutput",
+    "ToolbarActionsOutput",
+    "ProfileCapturePolicy", "NarrowProfileCapturePolicy", "NarrowProfileCaptureWarning", "NarrowProfileCapture",
+    "CountdownLifecycle", "NarrowCountdownLifecycle",
+    "SourceMetadataOutput",
+    "ProfileImportedConfiguration", "NarrowProfileImportedConfiguration",
+    "SettingsImportConfiguration", "NarrowSettingsImportConfiguration",
+    "SettingsConfiguration", "NarrowSettingsConfiguration", "SettingsConfigurationFailure",
+    "ToolbarPolicyOutput",
+    "HomeToolbarPreferences", "NarrowHomeToolbarPreferences",
+    "SettingsThemePersistence", "NarrowSettingsThemePersistence", "AboutLinks", "NarrowAboutLinks", "AboutLinkFailure",
     "LargeSourceWindowOutput",
     "HomeKeepAwake", "NarrowHomeKeepAwake", "AwakeOutput", "AwakePendingOutput", "AwakeUnavailableOutput", "AwakeFailureOutput",
     "HomePrecision", "NarrowHomePrecision", "FP16Output", "FP32Output",

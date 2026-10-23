@@ -38,6 +38,8 @@ python scripts/verify-platform.py --rid win-x64
 
 ## macOS
 
+源信息接口：`mp_capture_source` 返回版本 1 的固定 UTF-8 快照，三平台布局一致；Windows 读选定窗口的标题和进程身份，macOS 15.2+ 读系统选源提供的明确单窗口身份，Linux 仅记录 Portal 的源类型。未知字段留空，不把客户端流名称当作源进程。该信息已用于截图模板；不是完整自动匹配/源窗口跟踪。macOS 当前是选择时快照，动态标题和重选帧归属仍待完善/验收。ScreenCast 的通用返回字段见 [Portal 规范](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html)。
+
 新克隆仓库推荐使用 [macOS 本机测试步骤](macos-testing.md) 和 `python3 scripts/test-macos.py`：自动准备固定版本的官方静态 MoltenVK/头文件、执行下述验收命令，并生成 ad-hoc 签名的本机测试 app。预编译 shader 以经过校验的 `.h.gz` 存储，构建时解包，不需要 Git LFS 或手动取得 128 MiB 头文件。
 
 需要 Xcode/macOS SDK（支持 ScreenCaptureKit 14+）、静态 MoltenVK 与 Vulkan 头文件。不能将动态 Vulkan 库作为“单文件”静默回退。

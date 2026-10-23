@@ -31,9 +31,9 @@ public partial class MainWindow
             var button=new Button { Tag=key,Classes={"nav"},Content=new StackPanel { Orientation=Orientation.Horizontal,Spacing=16,
                 Children={new SymbolIcon { Kind="Window",Width=18,Height=18 },new TextBlock { Text=profile.Name,Classes={"nav-label"} }} } };
             button.Click+=(_,_)=>Navigate(key);
-            var launch=new MenuItem { Header=Core.Localization.Text("Launch"),Icon=new SymbolIcon { Kind="Play",Width=16,Height=16 } };
+            var launch=new MenuItem { IsEnabled=profile.CanLaunch,Header=Core.Localization.Text("Launch"),Icon=new SymbolIcon { Kind="Play",Width=16,Height=16 } };
             launch.Click+=(_,_)=>page.LaunchProfile();
-            var location=new MenuItem { Header=Core.Localization.Text("Open program location"),Icon=new SymbolIcon { Kind="Folder",Width=16,Height=16 } };
+            var location=new MenuItem { IsEnabled=profile.CanLaunch,Header=Core.Localization.Text("Open program location"),Icon=new SymbolIcon { Kind="Folder",Width=16,Height=16 } };
             location.Click+=(_,_)=>page.OpenProgramLocation();
             var delete=new MenuItem { Header=Core.Localization.Text("Delete"),Icon=new SymbolIcon { Kind="Delete",Width=16,Height=16 } };
             delete.Click+=(_,_)=> { Navigate(key);page.ShowProfileAction("Delete"); };

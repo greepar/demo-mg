@@ -33,21 +33,26 @@ internal sealed partial class ScalingSession
             state=NativeCore.CaptureConfigureInput(capture,handle.Handle,bounds.X,bounds.Y,bounds.Width,bounds.Height,
                 (double)crop.X/_captureFrameWidth,(double)crop.Y/_captureFrameHeight,
                 (double)crop.Width/_captureFrameWidth,(double)crop.Height/_captureFrameHeight,
-                _toolbar is { IsVisible:true }?_toolbar.Bounds.Bottom:0,character,keyCode,flags);
+                _toolbar is { IsVisible:true,IsHitTestVisible:true }?_toolbar.Bounds.Bottom:0,character,keyCode,flags,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId,_lastSourceSequence);
         }
+        UpdateInputStatus(state);
+    }
+    private void UpdateInputStatus(int state)
+    {
         if(_inputState==state)return;
         _inputState=state;
         if(_inputStatus is null)return;
         bool chinese=Localization.CurrentLanguage.StartsWith("zh",StringComparison.Ordinal);
         _inputStatus.Text=state switch
         {
+            3=>chinese?"正在更新捕获画面，等待匹配的帧后恢复操作。":"Waiting for a matching capture frame before enabling input.",
             2=>chinese?"要操作源窗口，请在“系统设置 → 隐私与安全性 → 辅助功能”中允许 Magpie。首次点击缩放画面会请求权限。":
                 "To control the source window, allow Magpie in System Settings → Privacy & Security → Accessibility. Click the scaled image to request access.",
             0=>chinese?"当前源仅支持查看。操作源窗口需要 macOS 15.2 或更高版本，并在系统选源中选择其他应用的单个窗口。":
                 "This source is view-only. Control requires macOS 15.2 or later and a single window from another app selected in the system picker.",
             _=>""
         };
-        _inputStatus.IsVisible=state is 0 or 2;
+        _inputStatus.IsVisible=state is 0 or 2 or 3;
     }
 
     private void StartMacInputPolling()

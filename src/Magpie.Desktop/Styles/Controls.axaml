@@ -5,7 +5,7 @@
   <Styles.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
-        <ResourceDictionary x:Key="Light">
+        <ResourceDictionary x:Key="Default">
           <SolidColorBrush x:Key="InfoFill">#F3F3F3</SolidColorBrush>
           <SolidColorBrush x:Key="SuccessFill">#DFF6DD</SolidColorBrush>
           <SolidColorBrush x:Key="WarningFill">#FFF4CE</SolidColorBrush>
@@ -192,6 +192,15 @@
       </ControlTemplate>
     </Setter>
   </Style>
+  <Style Selector="Button.card-link">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.card-link:pointerover c|SettingsCard"><Setter Property="Background" Value="{DynamicResource PaneSelection}" /></Style>
+  <Style Selector="Button.card-link:pressed c|SettingsCard"><Setter Property="Opacity" Value="0.8" /></Style>
   <Style Selector="c|SettingsCard">
     <Setter Property="MinHeight" Value="70" />
     <Setter Property="Padding" Value="16" />

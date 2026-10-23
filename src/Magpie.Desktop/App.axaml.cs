@@ -15,6 +15,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Core.ThemePreference.Apply(this,Core.RuntimeSettings.Current.Theme);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var window = new MainWindow();

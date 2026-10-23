@@ -67,9 +67,18 @@ public partial class ProfilePage : UserControl
     }
     private void CaptureMethod_SelectionChanged(object? sender, SelectionChangedEventArgs args)
     {
-        if (!_initialized) return;
-        CaptureWarning.IsOpen = CaptureMethod.SelectedIndex == 1;
-        CaptureTitleBarCard.IsEnabled = CaptureMethod.SelectedIndex < 2;
+        if(!_initialized || CaptureMethod.SelectedItem is not ComboBoxItem { Tag:Core.CaptureBackend backend })return;
+        var previous=Settings.CaptureBackend;
+        // Do not rebuild Items during the selection model's change callback.
+        // Clearing it here invalidates Avalonia's in-flight selected indices.
+        try { _=Core.CaptureBackendPolicy.Resolve(backend,Core.CaptureBackendPolicy.Available);Settings.CaptureBackend=backend;Core.RuntimeSettings.Current.Save();RefreshCaptureStatus(); }
+        catch(Exception error)
+        {
+            Settings.CaptureBackend=previous;
+            Dispatcher.UIThread.Post(RefreshCaptureMethod);
+            Console.Error.WriteLine("Capture selection: "+error);
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(LocExtension.Get("Profile_General_CaptureMethod.Header"),error.Message);
+        }
     }
     private void ScalingMode_SelectionChanged(object? sender,SelectionChangedEventArgs args)
     {
@@ -165,6 +174,7 @@ public partial class ProfilePage : UserControl
     }
     private void RefreshSettings()
     {
+        _initialized=false;RefreshToolbar();RefreshCaptureMethod();
         CrtSettingsButton.IsVisible=(Settings.Effect==12 || Core.GraphEffects.HasParameters(Settings.Effect)) && Settings.SelectedModeId is null;
         _initialized=false;
         RefreshDeviceChoices();
@@ -194,6 +204,18 @@ public partial class ProfilePage : UserControl
         foreach(var mode in modes)ScalingModeSelector.Items.Add(new ComboBoxItem { Content=mode.IsAvailable?mode.Name:mode.Name+" (unavailable)",Tag=mode.Id,IsEnabled=mode.IsAvailable });
         int selected=modes.FindIndex(m=>m.Id==settings.SelectedModeId);
         ScalingModeSelector.SelectedIndex=selected>=0 ? selected+BuiltinModeCount : Math.Max(0,Array.IndexOf(BuiltinEffectIds,settings.Effect));
+        LaunchProfileButton.IsEnabled=_profile?.CanLaunch==true;
+        ProgramLocationMenu.IsEnabled=_profile?.CanLaunch==true;
+        ImportedProfileNotice.IsVisible=_profile?.OriginalProfile.HasValue==true;
+        if(_profile?.OriginalProfile is {} original)
+        {
+            string identity=original.GetProperty("pathRule").GetString()!;
+            string arguments=original.TryGetProperty("launchParameters",out var rawArguments)&&rawArguments.ValueKind==System.Text.Json.JsonValueKind.String ? rawArguments.GetString()! : "";
+            ImportedProfileNotice.Text=(Core.Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)
+                ? "原 Windows 应用规则已保留。请在更多菜单中选择本机程序，并按本机格式核对启动参数；自动匹配尚未迁移。原路径："
+                : "Original Windows rules are preserved. Select a local executable in More and review its arguments for this platform; automatic matching is not migrated. Original path: ")+identity+
+                (arguments.Length>0?"\n"+(Core.Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)?"原启动参数（尚未应用）：":"Original launch arguments (not applied): ")+arguments:"");
+        }
         LaunchArgumentsInput.Text=_profile is null ? "" : string.Join('\n',_profile.Arguments);
         _initialized=true;
     }
@@ -236,9 +258,11 @@ public partial class ProfilePage : UserControl
                 using var file=files[0];string previous=_profile.ExecutablePath;
                 try { _profile.ExecutablePath=file.TryGetLocalPath() ?? throw new InvalidOperationException("Choose a local executable.");Core.RuntimeSettings.Current.Save(); }
                 catch { _profile.ExecutablePath=previous;throw; }
+                RefreshSettings();(owner as MainWindow)?.RefreshProfilesNavigation();
             }
             else
             {
+                if(!_profile.CanLaunch)throw new InvalidOperationException("Select a local executable before opening its location.");
                 var directory=new DirectoryInfo(Path.GetDirectoryName(_profile.ExecutablePath)!);
                 if(!await owner.Launcher.LaunchDirectoryInfoAsync(directory))throw new InvalidOperationException("Program location could not be opened.");
             }

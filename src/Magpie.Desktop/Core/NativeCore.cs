@@ -37,13 +37,17 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_set_gpu_profiling")] internal static extern int SetGpuProfiling(EngineHandle engine,int enabled);
     [DllImport(Library, EntryPoint = "mp_get_gpu_profile_v2")] internal static extern int GetGpuProfile(EngineHandle engine,out NativeGpuProfile profile);
     [DllImport(Library, EntryPoint = "mp_capture_create")] internal static extern CaptureHandle CaptureCreate();
+    [DllImport(Library, EntryPoint = "mp_capture_frame_sequence")] internal static extern ulong CaptureFrameSequence(CaptureHandle capture);
+    [DllImport(Library, EntryPoint = "mp_capture_snapshot_title")] internal static extern int CaptureSnapshotTitle(CaptureHandle capture,ulong window,uint process,ulong sequence,out NativeCaptureSource source,uint size);
+    [DllImport(Library, EntryPoint = "mp_capture_backend")] internal static extern uint CaptureBackend();
+    [DllImport(Library, EntryPoint = "mp_capture_source")] internal static extern int CaptureSourceInfo(CaptureHandle capture,out NativeCaptureSource source,uint size);
     [DllImport(Library, EntryPoint = "mp_capture_destroy")] internal static extern void CaptureDestroy(nint capture);
     [DllImport(Library, EntryPoint = "mp_capture_start")] internal static extern int CaptureStart(CaptureHandle capture);
     [DllImport(Library, EntryPoint = "mp_capture_cancel")] internal static extern void CaptureCancel(CaptureHandle capture);
     [DllImport(Library, EntryPoint = "mp_capture_frame")] internal static extern int CaptureFrame(CaptureHandle capture, out nint rgba, out uint width, out uint height);
     [DllImport(Library, EntryPoint = "mp_capture_configure_input")] internal static extern int CaptureConfigureInput(CaptureHandle capture,nint window,
         double x,double y,double width,double height,double cropX,double cropY,double cropWidth,double cropHeight,double toolbarHeight,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers);
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers,ulong expectedWindow,uint expectedProcess,ulong expectedSequence);
 
     public static unsafe int SmokeTest()
     {
@@ -52,6 +56,13 @@ internal static class NativeCore
         StartupRegistrationTests.Run();
         ScreenAwakeTests.Verify();
         VerifyLocalization();
+        ThemePreferenceTests.Verify();
+        ToolbarTests.Verify();
+        ConfigurationLocationTests.Verify();
+        OriginalConfigurationTests.Verify();
+        CaptureSourceTests.Verify();
+        CaptureBackendTests.Verify();
+        ScalingCountdownTests.Verify();
         var settings = new RuntimeSettings();
         if (settings.OutputSize(640, 480, 1920, 1080) != (1440u,1080u)) throw new InvalidOperationException("Fit dimensions are incorrect.");
         settings.ScaleType = 0; settings.ScaleX = 2; settings.ScaleY = 3;
