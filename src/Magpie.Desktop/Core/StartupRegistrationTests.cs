@@ -10,8 +10,12 @@ internal static class StartupRegistrationTests
         try
         {
             string user=Path.Combine(root,"user","magpie.desktop"),system=Path.Combine(root,"system.desktop");
-            string[] arguments=["/opt/Magpie a%$`\\\"/Magpie","", "a b", "100%", "$HOME", "`echo bad`", "a\\b", "a\"b"];
+            // This serializer/file lifecycle fixture runs on every OS. Keep its
+            // executable independent of a Linux env binary; VerifyGio below still
+            // exercises real Linux executables containing percent signs.
+            string[] arguments=["/opt/Magpie a$`\\\"/Magpie","", "a b", "100%", "$HOME", "`echo bad`", "a\\b", "a\"b"];
             string entry=StartupRegistration.DesktopEntry(arguments,root),hidden=StartupRegistration.DesktopEntry(arguments,root,true);
+            Check(entry.Contains("100%%"),"Desktop argument percent escaping");
             var registration=new FileStartupRegistration(user,entry,hidden,[system],StartupRegistration.Marker);
             Check(!registration.Enabled,"Initially disabled");registration.SetEnabled(true);Check(registration.Enabled,"Enable");
             Check(File.ReadAllText(user)==entry,"Exact command retained");registration.SetEnabled(false);Check(!File.Exists(user)&&!registration.Enabled,"Remove user entry");
