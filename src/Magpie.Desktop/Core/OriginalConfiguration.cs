@@ -69,7 +69,8 @@ internal static class OriginalConfiguration
             ReadShortcut(shortcuts,"scale",null,settings.FullscreenShortcut,warnings);
             ReadShortcut(shortcuts,"windowedModeScale",null,settings.WindowedShortcut,warnings);
             ReadShortcut(shortcuts,"toolbar","overlay",settings.ToolbarShortcut,warnings);
-            Preserved(shortcuts,new HashSet<string>(["scale","windowedModeScale","toolbar","overlay"],StringComparer.Ordinal),"shortcuts.",warnings);
+            ReadShortcut(shortcuts,"takeScreenshot",null,settings.ScreenshotShortcut,warnings);
+            Preserved(shortcuts,new HashSet<string>(["scale","windowedModeScale","toolbar","overlay","takeScreenshot"],StringComparer.Ordinal),"shortcuts.",warnings);
         }
         // Keep original array positions until every profile's numeric reference has been resolved.
         var originalModes=modes.ToArray();EffectModeSettings? unselected=null;
@@ -124,7 +125,7 @@ internal static class OriginalConfiguration
             // Profiles start with original defaults, rather than inheriting another app's or the default profile's options.
             var globals=settings.CopyForProfile();
             profile.Settings=new RuntimeSettings { Modes=modes,Language=globals.Language,Theme=globals.Theme,
-                FullscreenShortcut=globals.FullscreenShortcut,WindowedShortcut=globals.WindowedShortcut,ToolbarShortcut=globals.ToolbarShortcut,
+                FullscreenShortcut=globals.FullscreenShortcut,WindowedShortcut=globals.WindowedShortcut,ToolbarShortcut=globals.ToolbarShortcut,ScreenshotShortcut=globals.ScreenshotShortcut,
                 KeepScreenOn=globals.KeepScreenOn,DisableFP16=globals.DisableFP16,DuplicateFrameDetection=globals.DuplicateFrameDetection,
                 StatisticsForDynamicDetection=globals.StatisticsForDynamicDetection,MinimumFrameRate=globals.MinimumFrameRate,
                 ShowTrayIcon=globals.ShowTrayIcon,CountdownSeconds=globals.CountdownSeconds };

@@ -52,7 +52,7 @@ python3 scripts/verify-platform.py --rid osx-arm64
 
 `verify-platform-build.py` 严格核对主机架构，在本机编译 C++/Objective-C++、发布 NativeAOT、执行三项非 GPU 原生模型/源快照 CTest 和 `--interaction-model-test`，检查单可执行文件；macOS 额外使用 `otool -L` 拒绝动态依赖自有核心/Skia/AvaloniaNative/MoltenVK。CTest 使用 JUnit 结果核对三项的实际执行，不依赖不同版本的控制台摘要格式。Windows 的 Vulkan 头文件与 loader 从固定版本的 Khronos 原始源码校验 SHA256 后构建，只在 CI 环境 PATH 提供系统 loader，不捆入应用；macOS 使用现有固定版本静态 MoltenVK。shader 输入固定 LF，并使用 POSIX 形式的摘要键，避免 Windows checkout 换行/分隔符改变摘要。
 
-Linux 托管主机另执行原 `verify-platform.py` 的完整软件 Vulkan 回归。Windows/macOS 托管检查**不证明** GPU、源捕获、输入送达、权限、系统弹层或真实 GUI 重启，报告明确标记这些为未测试。完整目标机 GPU 回归仍使用原 `verify-platform.py`；Mac 可使用 `test-macos.py` 准备依赖并运行该完整检查。Windows 静态核心输出为 `magpie_native_static.lib`，与开发 DLL 的 `magpie_native.lib` 导入库分开，避免覆盖后意外依赖额外 DLL；发布不携带静态图形包的可选 PDB，并用 MSVC dumpbin 检查 EXE 依赖。当前具体结果以对应 CI job、`platform-build-checks/<rid>/results.json` 和原生/托管执行日志为准，不以工作流存在作为通过证据。
+Linux 托管主机另执行原 `verify-platform.py` 的完整软件 Vulkan 回归。Windows/macOS 托管检查**不证明** GPU、源捕获、输入送达、权限、系统弹层或真实 GUI 重启，报告明确标记这些为未测试。完整目标机 GPU 回归仍使用原 `verify-platform.py`；Mac 可使用 `test-macos.py` 准备依赖并运行该完整检查。`a65e5825` 的 Windows x64 和 macOS arm64/x64 jobs 已通过本节限定范围的编译/AOT/模型/打包检查；后续代码仍需自身 SHA 的验证结果。Windows 静态核心输出为 `magpie_native_static.lib`，与开发 DLL 的 `magpie_native.lib` 导入库分开，避免覆盖后意外依赖额外 DLL；发布不携带静态图形包的可选 PDB，并用 MSVC dumpbin 检查 EXE 依赖。当前具体结果以对应 CI job、`platform-build-checks/<rid>/results.json` 和原生/托管执行日志为准，不以工作流存在作为通过证据。
 
 Apple API 依据：[ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit)、[系统选源回调](https://developer.apple.com/documentation/screencapturekit/sccontentsharingpickerobserver)。
 

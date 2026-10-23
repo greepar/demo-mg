@@ -49,6 +49,8 @@ internal static class UiPreview
         }
         switch (scenario)
         {
+            case "ScreenshotShortcutEdit":await window.VerifyScreenshotShortcutEditingAsync();break;
+            case "ScreenshotShortcutOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyScreenshotShortcutAsync(window);break;
             case "SourceTitleOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceTitleAsync(window);break;
             case "SourceFrameIdentityOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceFrameIdentityAsync(window);break;
             case "ToolbarMoveOutput":await Core.ScalingSession.VerifyToolbarMoveAsync(window);break;

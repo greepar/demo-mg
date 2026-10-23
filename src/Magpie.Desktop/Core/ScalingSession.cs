@@ -47,9 +47,11 @@ internal sealed partial class ScalingSession
     private Image? _image;
     private TextBlock? _message;
     private int _screenshotPending;
+    internal void RequestScreenshot() { if(!_stop.IsCancellationRequested)Interlocked.Exchange(ref _screenshotPending,1); }
     public event Action<string?>? Finished;
     public event Action<string>? Status;
 
+    internal Func<bool> GlobalScreenshotShortcutActive { get; set; }=()=>false;
     internal Func<bool> GlobalToolbarShortcutActive { get; set; }=()=>false;
     internal void ToggleToolbar()=>CycleToolbarState();
 
@@ -199,7 +201,7 @@ internal sealed partial class ScalingSession
         _statistics = new TextBlock { Text = "Waiting for source frame…", Foreground = Brushes.White, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,TextWrapping=TextWrapping.Wrap,FontSize=12 };
         _message = new TextBlock { Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         var screenshot = new Button { Content = Localization.Text("Screenshot"), Margin = new Thickness(8,0) };
-        screenshot.Click += (_, _) => Interlocked.Exchange(ref _screenshotPending, 1);
+        screenshot.Click += (_, _) => RequestScreenshot();
         var stop = new Button { Name="StopScalingButton",Content=new Controls.SymbolIcon { Kind="Close",Width=18,Height=18 },Width=36,Height=36,Padding=new Thickness(8) };
         stop.Click += (_, _) => Stop();
         ConfigureToolbarClose(stop,fullscreen);
@@ -294,12 +296,7 @@ internal sealed partial class ScalingSession
                     }
                 });
         };
-        _output.KeyDown += (_, args) =>
-        {
-            if (args.Key == Key.Escape) { Stop(); args.Handled = true; }
-            else if (args.Key == Key.F12) { Interlocked.Exchange(ref _screenshotPending, 1); args.Handled = true; }
-            else if (!GlobalToolbarShortcutActive() && args.Key==Enum.Parse<Key>(RuntimeSettings.Current.ToolbarShortcut.Key) && args.KeyModifiers==RuntimeSettings.Current.ToolbarShortcut.AvaloniaModifiers) { ToggleToolbar(); args.Handled = true; }
-        };
+        _output.KeyDown += (_, args) => HandleOutputKey(args);
         _output.Closing += (_, _) => { _inputPoll?.Dispose();_inputPoll=null;Stop(); };
         InitializeToolbar(fullscreen);
         SetSourceGeometry(sourceWidth,sourceHeight);
@@ -358,6 +355,19 @@ internal sealed partial class ScalingSession
         PositionImage();
         image.InvalidateVisual();
         DrainScreenshot();return true;
+    }
+    private void HandleOutputKey(KeyEventArgs args)
+    {
+        if(args.Key==Key.Escape) { Stop();args.Handled=true;return; }
+        var screenshot=RuntimeSettings.Current.ScreenshotShortcut;
+        bool screenshotBinding=args.Key==Enum.Parse<Key>(screenshot.Key)&&args.KeyModifiers==screenshot.AvaloniaModifiers;
+        if(args.Key==Key.F12||screenshotBinding)
+        {
+            if(args.Key==Key.F12||!GlobalScreenshotShortcutActive())RequestScreenshot();
+            args.Handled=true;return;
+        }
+        if(!GlobalToolbarShortcutActive()&&args.Key==Enum.Parse<Key>(RuntimeSettings.Current.ToolbarShortcut.Key)&&args.KeyModifiers==RuntimeSettings.Current.ToolbarShortcut.AvaloniaModifiers)
+        { ToggleToolbar();args.Handled=true; }
     }
     private void DrainScreenshot()
     {

@@ -271,7 +271,7 @@ extern "C" int mp_capture_frame(void* c,const uint8_t** rgba,uint32_t* w,uint32_
 
 extern "C" int mp_capture_configure_input(void* c,void* window,double x,double y,double width,double height,
     double cropX,double cropY,double cropWidth,double cropHeight,double toolbarHeight,
-    const char* reservedCharacter,int reservedCode,uint64_t reservedModifiers,uint64_t expectedWindow,uint32_t expectedProcess,uint64_t expectedSequence) {
+    const char* reservedCharacter,int reservedCode,uint64_t reservedModifiers,uint64_t expectedWindow,uint32_t expectedProcess,uint64_t expectedSequence,const char* screenshotCharacter,int screenshotCode,uint64_t screenshotModifiers) {
     @autoreleasepool {
         if(!c || !window || ![NSThread isMainThread])return -1;
         auto capture=static_cast<Capture*>(c);
@@ -289,6 +289,7 @@ extern "C" int mp_capture_configure_input(void* c,void* window,double x,double y
         [input setSourceWindow:CGWindowID(source.window_id) process:pid_t(source.process_id)];
         [input setReservedCharacter:reservedCharacter?[NSString stringWithUTF8String:reservedCharacter]:@""
             keyCode:reservedCode modifiers:reservedModifiers];
+        [input setScreenshotCharacter:screenshotCharacter?[NSString stringWithUTF8String:screenshotCharacter]:@"" keyCode:screenshotCode modifiers:screenshotModifiers];
         int result=[input configureWindow:(__bridge NSWindow*)window destination:CGRectMake(x,y,width,height)
             crop:CGRectMake(cropX,cropY,cropWidth,cropHeight) toolbarHeight:toolbarHeight];
         return pending?3:result;

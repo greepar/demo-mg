@@ -31,6 +31,7 @@ internal sealed class RuntimeSettings
     public GlobalShortcutBinding FullscreenShortcut { get; set; }=new();
     public GlobalShortcutBinding WindowedShortcut { get; set; }=new() { Key="Q" };
     public GlobalShortcutBinding ToolbarShortcut { get; set; }=new() { Key="D" };
+    public GlobalShortcutBinding ScreenshotShortcut { get; set; }=new() { Key="S" };
     public bool ShowTrayIcon { get; set; }=true;
     public int CountdownSeconds { get; set; }=3;
     public string Language { get; set; } = "";
@@ -45,6 +46,7 @@ internal sealed class RuntimeSettings
         copy.FullscreenShortcut=new() { Key=FullscreenShortcut.Key,Modifiers=FullscreenShortcut.Modifiers };
         copy.WindowedShortcut=new() { Key=WindowedShortcut.Key,Modifiers=WindowedShortcut.Modifiers };
         copy.ToolbarShortcut=new() { Key=ToolbarShortcut.Key,Modifiers=ToolbarShortcut.Modifiers };
+        copy.ScreenshotShortcut=new() { Key=ScreenshotShortcut.Key,Modifiers=ScreenshotShortcut.Modifiers };
         copy.Crt=(float[])Crt.Clone();
         copy.GraphParameters=new(GraphParameters,StringComparer.Ordinal);
         copy.Profiles=[];copy.ActiveProfileId=null;copy.OriginalConfiguration=null;

@@ -70,9 +70,11 @@ public partial class MainWindow
             }
             else
             {
-                if(!GlobalShortcutsActive||api.Registered.Count!=3||!GlobalShortcutStatus.Contains("Fixture ALT+SHIFT+a"))throw new InvalidOperationException("Native registration status missing.");
+                if(!GlobalShortcutsActive||api.Registered.Count!=4||!GlobalShortcutStatus.Contains("Fixture ALT+SHIFT+a"))throw new InvalidOperationException("Native registration status missing.");
                 int id=api.Registered.Keys.First();api.Emit(id,true);api.Emit(id,true);api.Emit(id,false);api.Emit(id,true);
                 if(!ShortcutProbeActivations.SequenceEqual(new[]{"fullscreen","fullscreen"}))throw new InvalidOperationException("Native UI action dispatch is inconsistent.");
+                int screenshotId=api.Registered.Keys.Last();api.Emit(screenshotId,true);api.Emit(screenshotId,true);api.Emit(screenshotId,false);
+                if(ShortcutProbeActivations.Last()!="screenshot"||ShortcutProbeActivations.Count!=3)throw new InvalidOperationException("Screenshot native action was not dispatched once.");
                 if(mode=="LayoutChanged")
                 {
                     api.LayoutIsCurrent=false;((NativeGlobalShortcuts)_globalShortcuts!).CheckLayout();

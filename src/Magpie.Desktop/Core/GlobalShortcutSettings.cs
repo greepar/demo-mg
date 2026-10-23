@@ -33,12 +33,12 @@ internal sealed record PortalShortcut(string Id,string Description,string Prefer
 internal sealed record BoundShortcut(string Id,string Description,string TriggerDescription);
 internal static class GlobalShortcutSettings
 {
-    internal static readonly string[] Ids=["fullscreen","windowed","toolbar"];
-    internal static GlobalShortcutBinding Binding(RuntimeSettings settings,string id)=>id switch { "fullscreen"=>settings.FullscreenShortcut,"windowed"=>settings.WindowedShortcut,"toolbar"=>settings.ToolbarShortcut,_=>throw new InvalidDataException("Unknown shortcut action.") };
+    internal static readonly string[] Ids=["fullscreen","windowed","toolbar","screenshot"];
+    internal static GlobalShortcutBinding Binding(RuntimeSettings settings,string id)=>id switch { "fullscreen"=>settings.FullscreenShortcut,"windowed"=>settings.WindowedShortcut,"toolbar"=>settings.ToolbarShortcut,"screenshot"=>settings.ScreenshotShortcut,_=>throw new InvalidDataException("Unknown shortcut action.") };
     internal static void Validate(RuntimeSettings settings)
     {
         string[] triggers=Ids.Select(id=>(Binding(settings,id)??throw new InvalidDataException("Missing shortcut binding.")).Trigger).ToArray();
         if(triggers.Distinct(StringComparer.Ordinal).Count()!=triggers.Length)throw new InvalidDataException("Each action needs a different shortcut.");
     }
-    internal static PortalShortcut[] Definitions(RuntimeSettings settings)=>Ids.Select(id=>new PortalShortcut(id,Localization.Get(id switch { "fullscreen"=>"Home_Activation_FullscreenScaling_ShortcutControl.Title","windowed"=>"Home_Activation_WindowedScaling_ShortcutControl.Title",_=>"Home_Toolbar_StateToggle_ShortcutControl.Title" }),Binding(settings,id).Trigger)).ToArray();
+    internal static PortalShortcut[] Definitions(RuntimeSettings settings)=>Ids.Select(id=>new PortalShortcut(id,Localization.Get(id switch { "fullscreen"=>"Home_Activation_FullscreenScaling_ShortcutControl.Title","windowed"=>"Home_Activation_WindowedScaling_ShortcutControl.Title","toolbar"=>"Home_Toolbar_StateToggle_ShortcutControl.Title",_=>"Home_Toolbar_TakeScreenshot_ShortcutControl.Title" }),Binding(settings,id).Trigger)).ToArray();
 }

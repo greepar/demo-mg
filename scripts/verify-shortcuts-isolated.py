@@ -39,10 +39,10 @@ def method(connection,sender,path,iface,member,params,invocation):
   response(request,0,{'session_handle':GLib.Variant('s',session)})
  else:
   requested_session,bindings,parent,_=values;assert requested_session==session and parent==''
-  assert [i for i,_ in bindings]==['fullscreen','windowed','toolbar']
-  assert [v['preferred_trigger'] for _,v in bindings]==['ALT+SHIFT+a','ALT+SHIFT+q','ALT+SHIFT+d']
+  assert [i for i,_ in bindings]==['fullscreen','windowed','toolbar','screenshot']
+  assert [v['preferred_trigger'] for _,v in bindings]==['ALT+SHIFT+a','ALT+SHIFT+q','ALT+SHIFT+d','ALT+SHIFT+s']
   assert all(v['description'] for _,v in bindings)
-  bound=shortcuts(['fullscreen','windowed','toolbar'] if mode!='partial' else ['windowed'])
+  bound=shortcuts(['fullscreen','windowed','toolbar','screenshot'] if mode!='partial' else ['windowed'])
   if mode=='cancel-response':response(request,1,{})
   elif mode=='reject':response(request,2,{})
   elif mode=='malformed':response(request,0,{'shortcuts':GLib.Variant('s','invalid')})
@@ -94,19 +94,22 @@ for mode in ['success','partial','cancel-response','reject','invalid-actions','c
     else:conn.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','ReleaseName',GLib.Variant('(s)',(SERVICE,)),None,Gio.DBusCallFlags.NONE,3000,None)
    if mode in ('success','partial','restart'):
     initial=wait(receipt,lambda s:s.get('State')=='bound',process,'bound')
-    assert len(initial['Bound'])==(1 if mode=='partial' else 3),initial
+    assert len(initial['Bound'])==(1 if mode=='partial' else 4),initial
     assert all(b['TriggerDescription'].startswith('Custom') for b in initial['Bound'])
     emit('Activated','windowed');emit('Activated','windowed');emit('Deactivated','windowed');emit('Activated','windowed');emit('Activated','invalid');emit('Activated','windowed',session+'_wrong')
     spoof=Gio.DBusConnection.new_for_address_sync(os.environ['DBUS_SESSION_BUS_ADDRESS'],Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT|Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,None,None)
     emit('Deactivated','windowed',connection=spoof);emit('Activated','windowed',connection=spoof);spoof.flush_sync(None);spoof.close_sync(None)
     wait(receipt,lambda s:s.get('Activations')==['windowed','windowed'],process,'activation dedup, deactivation and sender/session filtering')
+    if mode!='partial':
+     emit('Activated','screenshot');emit('Activated','screenshot');emit('Deactivated','screenshot')
+     wait(receipt,lambda s:s.get('Activations')==['windowed','windowed','screenshot'],process,'screenshot action deduplication')
     changed=shortcuts(['toolbar']);conn.emit_signal(None,PATH,IFACE,'ShortcutsChanged',GLib.Variant('(oa(sa{sv}))',(session,changed)))
     wait(receipt,lambda s:len(s.get('Bound',[]))==1 and s['Bound'][0]['Id']=='toolbar',process,'changed bindings')
-    emit('Activated','windowed');emit('Activated','toolbar');wait(receipt,lambda s:s.get('Activations')==['windowed','windowed','toolbar'],process,'updated action filtering')
+    emit('Activated','windowed');emit('Activated','toolbar');wait(receipt,lambda s:s.get('Activations')==(['windowed','windowed','toolbar'] if mode=='partial' else ['windowed','windowed','screenshot','toolbar']),process,'updated action filtering')
     if mode=='restart':conn.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','ReleaseName',GLib.Variant('(s)',(SERVICE,)),None,Gio.DBusCallFlags.NONE,3000,None)
     else:conn.emit_signal(None,session,'org.freedesktop.portal.Session','Closed',GLib.Variant('(a{sv})',({},)))
     wait(receipt,lambda s:len(s.get('Closed',[]))>0 and len(s.get('Bound',[]))==0,process,'session revoked')
-    emit('Activated','toolbar');time.sleep(.1);assert state(receipt)['Activations']==['windowed','windowed','toolbar']
+    emit('Activated','toolbar');time.sleep(.1);assert state(receipt)['Activations']==(['windowed','windowed','toolbar'] if mode=='partial' else ['windowed','windowed','screenshot','toolbar'])
     pathlib.Path(str(receipt)+'.stop').touch()
    else:initial=wait(receipt,lambda s:s.get('State')=='failed',process,'failure handled');assert initial['Error']
    assert process.wait(timeout=8)==0

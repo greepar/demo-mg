@@ -12,6 +12,7 @@ from wayland_popup_capture import compose
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
+    "ScreenshotShortcutEdit", "NarrowScreenshotShortcutEdit", "ScreenshotShortcutOutput",
     "SourceTitleOutput",
     "SourceFrameIdentityOutput",
     "ToolbarMoveOutput",

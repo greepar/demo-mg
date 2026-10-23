@@ -47,7 +47,7 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_capture_frame")] internal static extern int CaptureFrame(CaptureHandle capture, out nint rgba, out uint width, out uint height);
     [DllImport(Library, EntryPoint = "mp_capture_configure_input")] internal static extern int CaptureConfigureInput(CaptureHandle capture,nint window,
         double x,double y,double width,double height,double cropX,double cropY,double cropWidth,double cropHeight,double toolbarHeight,
-        [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers,ulong expectedWindow,uint expectedProcess,ulong expectedSequence);
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers,ulong expectedWindow,uint expectedProcess,ulong expectedSequence,[MarshalAs(UnmanagedType.LPUTF8Str)] string screenshotCharacter,int screenshotCode,ulong screenshotModifiers);
 
     internal static void VerifyInteractionModels()
     {

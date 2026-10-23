@@ -46,6 +46,7 @@ public partial class MainWindow : Window
         if(delaySeconds>0){StartCountdown(fullscreen,delaySeconds);return;}
         CancelCountdown();
         var session=CreateScalingSession();session.GlobalToolbarShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="toolbar")==true;
+        session.GlobalScreenshotShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="screenshot")==true;
         _scalingSession = session;
         ((HomePage)_pages["Home"]).SetRunning(true);
         session.Status += text => Avalonia.Threading.Dispatcher.UIThread.Post(() => Console.WriteLine(text));

@@ -13,7 +13,7 @@ public partial class HomePage
             if(_shortcutWindow is not null)_shortcutWindow.GlobalShortcutsChanged-=RefreshShortcuts;
             _shortcutWindow=main;main.GlobalShortcutsChanged+=RefreshShortcuts;
         }
-        foreach(var (control,id) in new[]{(FullscreenShortcut,"fullscreen"),(WindowedShortcut,"windowed"),(ToolbarShortcut,"toolbar")})
+        foreach(var (control,id) in new[]{(FullscreenShortcut,"fullscreen"),(WindowedShortcut,"windowed"),(ToolbarShortcut,"toolbar"),(ScreenshotShortcut,"screenshot")})
         {
             var binding=GlobalShortcutSettings.Binding(RuntimeSettings.Current,id);control.Key=binding.Key;control.Modifiers=binding.Modifiers;
         }

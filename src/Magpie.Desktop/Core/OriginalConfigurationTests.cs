@@ -8,7 +8,7 @@ internal static class OriginalConfigurationTests
       "version":5,"language":"zh-Hans","theme":2,"countdownSeconds":5,"showNotifyIcon":false,
       "keepScreenOn":true,"disableFP16":true,"duplicateFrameDetectionMode":2,"minFrameRate":12,
       "enableStatisticsForDynamicDetection":true,"futureSetting":{"nested":[1,"keep"]},
-      "shortcuts":{"scale":3394,"windowedModeScale":3153,"toolbar":3140,"takeScreenshot":88},
+      "shortcuts":{"scale":3394,"windowedModeScale":3153,"toolbar":3140,"takeScreenshot":3155},
       "scalingModes":[
         {"name":"Detail","effects":[{"name":"Bicubic","scalingType":0,"scale":{"x":2,"y":3},"parameters":{"paramB":0.2,"paramC":0.7}}]},
         {"name":"Deferred","effects":[{"name":"Custom\\NotInstalled","parameters":{"strength":0.7}}]}
@@ -49,7 +49,7 @@ internal static class OriginalConfigurationTests
         try { root.Profiles[1].Settings.EnsureSelectedModeAvailable();throw new InvalidOperationException("Unselected profile passed preflight."); }
         catch(InvalidOperationException error) when(error.Message.Contains("no effects")) { }
         Require(root.Language=="zh-Hans"&&root.Theme==2&&root.CountdownSeconds==5&&!root.ShowTrayIcon&&root.KeepScreenOn&&root.DisableFP16&&root.DuplicateFrameDetection==DuplicateFrameMode.Never&&root.MinimumFrameRate==12&&root.StatisticsForDynamicDetection,"Global preferences were not mapped.");
-        Require(root.FullscreenShortcut.Key=="B"&&root.FullscreenShortcut.Modifiers=="Alt,Shift,Win"&&root.WindowedShortcut.Key=="Q"&&root.ToolbarShortcut.Key=="D","Original VK/modifier encoding was decoded incorrectly.");
+        Require(root.FullscreenShortcut.Key=="B"&&root.FullscreenShortcut.Modifiers=="Alt,Shift,Win"&&root.WindowedShortcut.Key=="Q"&&root.ToolbarShortcut.Key=="D"&&root.ScreenshotShortcut.Key=="S","Original VK/modifier encoding was decoded incorrectly.");
         Require(root.FullscreenInitialToolbarState==ToolbarState.Off&&root.WindowedInitialToolbarState==ToolbarState.AlwaysShow&&root.InitialWindowedScaleFactor==6&&root.CustomInitialWindowedScaleFactor==2.25f&&root.OutputAlignment==8&&root.IsCroppingEnabled&&root.CroppingLeft==1.5f&&root.CroppingBottom==4&&root.FrameRateLimiterEnabled&&root.MaximumFrameRate==144,"Default profile options were lost.");
         Require(!application.Settings.IsCroppingEnabled&&application.Settings.CroppingLeft==0&&application.Settings.InitialWindowedScaleFactor==0&&application.Settings.FullscreenInitialToolbarState==ToolbarState.AutoHide&&application.Settings.MaximumFrameRate==60,"Application options incorrectly inherited the default profile.");
         Require(root.CaptureBackend==CaptureBackend.Gdi&&application.Settings.CaptureBackend==CaptureBackend.GraphicsCapture&&root.Profiles[1].Settings.CaptureBackend==CaptureBackend.DesktopDuplication,"Windows capture choices were silently replaced.");
@@ -59,7 +59,7 @@ internal static class OriginalConfigurationTests
         Require(application.OriginalProfile!.Value.GetProperty("launchParameters").GetString()=="--name \"two words\"","Windows argument quoting was altered.");
         if(!OperatingSystem.IsWindows())Require(root.ScreenshotDirectory=="","Foreign screenshot path became a local path.");
         Require(root.ScreenshotTemplate=="%WT%_%PN%_%MS%"&&root.OriginalConfiguration!.Value.GetProperty("futureSetting").GetProperty("nested")[1].GetString()=="keep","Original archive or screenshot format was lost.");
-        foreach(string field in new[]{"futureSetting","takeScreenshot","graphicsCardId","3DGameMode","autoScale","cursorScaling","overlay.windows"})
+        foreach(string field in new[]{"futureSetting","graphicsCardId","3DGameMode","autoScale","cursorScaling","overlay.windows"})
             Require(result.Warnings.Any(w=>w.Contains(field,StringComparison.Ordinal)),"Missing migration review warning: "+field);
         var cloned=root.CopyForProfile();Require(!cloned.OriginalConfiguration.HasValue,"Profile copies duplicated the complete root archive.");
         Require(OriginalConfiguration.Parse("\uFEFF/*comment*/"+Example.Replace("\"version\":5,","\"version\":5,/* legacy comment */")).Settings.Profiles.Count==2,"Original BOM/comments were rejected.");

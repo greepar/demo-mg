@@ -4,7 +4,7 @@
 
 ## 2026-10-23 目标机检查补充
 
-`02102163` 的 GitHub macOS arm64 / x64 job 已通过原生 SDK / Objective-C++ 编译、NativeAOT 链接、三项非 GPU 原生测试和托管交互模型、单可执行文件及静态依赖检查。详见 [macOS 证据与范围](macos-testing.md#2026-10-23-托管主机编译模型证据)。这些新增证据更新下文历史阶段的“尚未在 SDK 编译”状态；真实输入、源捕获、权限、GUI 和本轮 GPU 仍不因此通过。Windows 目标检查已修复 shader 路径/换行、MSVC 成员遮蔽/测试 CRT 用法、静态库与开发 DLL 导入库同名覆盖及测试夹具的 Linux env 路径假设。`43c43669` 的 Windows job 已通过原生 SDK/C++、AOT、三项非 GPU CTest 和全部托管交互模型，但因第三方 PDB 发布残留未过单文件检查；`a65e5825` 修复发布规则后的检查仍待完成。下载的 EXE 导入表已核对无自有核心/Skia/HarfBuzz DLL，但不代表 GPU 或 GUI 验收通过。
+`02102163` 的 GitHub macOS arm64 / x64 job 已通过原生 SDK / Objective-C++ 编译、NativeAOT 链接、三项非 GPU 原生测试和托管交互模型、单可执行文件及静态依赖检查。详见 [macOS 证据与范围](macos-testing.md#2026-10-23-托管主机编译模型证据)。这些新增证据更新下文历史阶段的“尚未在 SDK 编译”状态；真实输入、源捕获、权限、GUI 和本轮 GPU 仍不因此通过。Windows 目标检查已修复 shader 路径/换行、MSVC 成员遮蔽/测试 CRT 用法、静态库与开发 DLL 导入库同名覆盖及测试夹具的 Linux env 路径假设。`43c43669` 的 Windows job 已通过原生 SDK/C++、AOT、三项非 GPU CTest 和全部托管交互模型，但因第三方 PDB 发布残留未过单文件检查；`a65e5825` 的 Windows、macOS arm64/x64 job 已通过发布规则修复后的原生编译/AOT/非 GPU 模型和单文件依赖检查。后续截图快捷键变更需要对应提交重新验证。下载的 EXE 导入表已核对无自有核心/Skia/HarfBuzz DLL，但不代表 GPU 或 GUI 验收通过。
 
 本机 AMD 并行回归捕获过一次 NNEDI3 configured/legacy 像素不一致；随后 3 次隔离 core 和 50 次与原生 Vulkan 用例重叠的 core 重复均通过，尚未定位首次失败原因。失败日志保留，新增不改变断言的 RGBA/逐通道差异诊断；没有放宽算法比较或将重复通过当作问题已解决。
 
@@ -69,7 +69,7 @@
 
 | 项目 | 当前状态 / 剩余工作 |
 | --- | --- |
-| 全局快捷键 | Linux 协议路径、Windows RegisterHotKey、macOS Carbon 和配置事务已有；目标桌面真实注册/冲突、键盘布局、权限、重启恢复及源应用/工具栏共存仍需验收。 |
+| 全局快捷键 | 已补原版截图快捷键偏好（默认 Alt+Shift+S）、主页编辑、四项注册/冲突事务和缩放会话截图队列；本地回退与全局绑定去重，F12 保留；macOS 将截图组合键预留给本地动作。Linux 协议路径、Windows RegisterHotKey、macOS Carbon 和配置事务已有；目标桌面真实注册/冲突、键盘布局、权限、重启恢复及源应用/工具栏共存仍需验收。 |
 | 托盘 / 菜单栏 | 共用生命周期及 Linux 隔离测试已有；macOS 菜单栏图标、菜单、关闭后驻留、隐藏启动/恢复及运行中退出的完整实测未完成；Windows 同样待验收。 |
 | 登录启动 | Linux XDG、Windows Run、macOS LaunchAgent 已写；macOS/Windows 登录后真实启动、bundle 路径、移动/更新后的恢复、关闭开关和失败提示未验收。 |
 | 保持屏幕常亮 | 设置、真实系统后端、事务替身/ABI 已有；macOS/Windows 实际系统申请和释放、睡眠策略，以及 Linux 真实桌面策略仍未验收。 |
@@ -82,6 +82,12 @@
 | 开发者选项 | 只有 FP16、重复帧、统计、最低 FPS、GPU 计时等已接；日志定位、Debug、Benchmark、禁用置顶/效果缓存/字体缓存、保存效果源码、warnings-as-errors，以及主页 Inline Params 开关均未接完整后端或保存。 |
 | 原生 UI 手感 | Avalonia 页面外观迁移不等于 WinUI 2 交互一致；原生弹层定位/遮挡、键盘导航、Tab 顺序、默认按钮、辅助功能语义、屏幕阅读器、不同 DPI 的控件命中和状态反馈尚未全面验收。 |
 | 实际呈现性能 | CPU 回读/拷贝、UI bitmap 提交仍在；零拷贝、低延迟呈现、长时间源捕获、GPU/显示器移除、设备错误恢复未完成，不能只以 GPU 回归 FPS 代表实际交互延迟。 |
+
+## 截图快捷键补齐
+
+原版 `AppSettings` 默认 `Alt+Shift+S` 已接入第四项全局动作和主页快捷键编辑。快捷键偏好与默认/应用复制分离，原版 `shortcuts.takeScreenshot` 可迁移；四项重复键校验和原生注册失败回滚包含截图项。编辑后取消旧注册，需明确重新启用。运行中系统激活只给当前缩放会话排队截图，停止后忽略；按当前输出位图和源身份保存，不重新选源。输出窗口无全局绑定时采用配置组合键，有绑定时不重复执行本地动作；兼容原有 F12。
+
+macOS Cocoa 输入桥增加截图预留键的字符/原生键码/修饰键，截图组合不转发源应用。C ABI 同步更新，必须重新编译托管/原生部分；不混用旧库。Linux 原生归档和 AOT 同步发布，截图路由用实际 Avalonia KeyDown/对话框、PNG 文件和像素回读验证；系统输入使用替身/私有 D-Bus。最终 Linux NativeAOT 核心、23 项原生 CTest、7 项中英隔离 UI、10 项私有 D-Bus 和实际 UI 上下文的 Portal 注册测试通过，报告 `artifacts/desktop/screenshot-shortcut-test-summary.json`。三平台真实系统注册、输出焦点与源应用共存、权限/布局变化的截图行为仍待验收；这不补齐其余输入/光标/自动缩放缺口。
 
 ## 后续建议顺序
 

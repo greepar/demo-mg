@@ -34,6 +34,7 @@ public partial class MainWindow
                 case "fullscreen":StartScaling(true,0);break;
                 case "windowed":StartScaling(false,0);break;
                 case "toolbar":_scalingSession?.ToggleToolbar();break;
+                case "screenshot":_scalingSession?.RequestScreenshot();break;
             }
         };
         portal.Changed+=()=> { if(ReferenceEquals(_globalShortcuts,portal)) { RefreshBoundShortcutStatus();GlobalShortcutsChanged?.Invoke(); } };
@@ -77,7 +78,7 @@ public partial class MainWindow
     internal readonly List<string> ShortcutProbeActivations=[];
     internal async Task SaveShortcutAsync(Controls.ShortcutControl control,string key,string modifiers)
     {
-        string id=control.Name switch { "FullscreenShortcut"=>"fullscreen","WindowedShortcut"=>"windowed","ToolbarShortcut"=>"toolbar",_=>throw new InvalidDataException("Unknown shortcut action.") };
+        string id=control.Name switch { "FullscreenShortcut"=>"fullscreen","WindowedShortcut"=>"windowed","ToolbarShortcut"=>"toolbar","ScreenshotShortcut"=>"screenshot",_=>throw new InvalidDataException("Unknown shortcut action.") };
         var binding=GlobalShortcutSettings.Binding(RuntimeSettings.Current,id);string oldKey=binding.Key,oldModifiers=binding.Modifiers;
         binding.Key=key;binding.Modifiers=modifiers;
         try { RuntimeSettings.Current.Save(); }

@@ -26,6 +26,13 @@ internal sealed partial class ScalingSession
             try { keyCode=(int)NativeShortcutMapping.MacSpecial(symbol); }catch(InvalidDataException) { }
         ulong flags=((modifiers&4)!=0?1ul<<17:0)|((modifiers&2)!=0?1ul<<18:0)|
             ((modifiers&1)!=0?1ul<<19:0)|((modifiers&8)!=0?1ul<<20:0);
+        var (screenshotSymbol,screenshotModifiers)=NativeShortcutMapping.Parse(RuntimeSettings.Current.ScreenshotShortcut.Trigger);
+        string screenshotCharacter=NativeShortcutMapping.Character(screenshotSymbol)?.ToString() ?? "";
+        int screenshotCode=-1;
+        if(screenshotCharacter.Length==0)
+            try { screenshotCode=(int)NativeShortcutMapping.MacSpecial(screenshotSymbol); }catch(InvalidDataException) { }
+        ulong screenshotFlags=((screenshotModifiers&4)!=0?1ul<<17:0)|((screenshotModifiers&2)!=0?1ul<<18:0)|
+            ((screenshotModifiers&1)!=0?1ul<<19:0)|((screenshotModifiers&8)!=0?1ul<<20:0);
         int state;
         lock(_captureLock)
         {
@@ -33,7 +40,7 @@ internal sealed partial class ScalingSession
             state=NativeCore.CaptureConfigureInput(capture,handle.Handle,bounds.X,bounds.Y,bounds.Width,bounds.Height,
                 (double)crop.X/_captureFrameWidth,(double)crop.Y/_captureFrameHeight,
                 (double)crop.Width/_captureFrameWidth,(double)crop.Height/_captureFrameHeight,
-                _toolbar is { IsVisible:true,IsHitTestVisible:true }?_toolbar.Bounds.Bottom:0,character,keyCode,flags,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId,_lastSourceSequence);
+                _toolbar is { IsVisible:true,IsHitTestVisible:true }?_toolbar.Bounds.Bottom:0,character,keyCode,flags,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId,_lastSourceSequence,screenshotCharacter,screenshotCode,screenshotFlags);
         }
         UpdateInputStatus(state);
     }

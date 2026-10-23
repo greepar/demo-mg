@@ -43,13 +43,13 @@ internal static class NativeGlobalShortcutTests
         var fixture=new FixtureShortcutApi();var session=new NativeGlobalShortcuts(fixture);var activations=new List<string>();var closed=new List<string>();
         session.Activated+=activations.Add;session.Closed+=closed.Add;
         session.BindAsync(definitions,"",default).GetAwaiter().GetResult();
-        Check(session.Bound.Count==3&&fixture.Registered.Count==3&&session.Bound.All(b=>b.TriggerDescription.StartsWith("Fixture ")),"Register actual mapped results");
+        Check(session.Bound.Count==4&&fixture.Registered.Count==4&&session.Bound.All(b=>b.TriggerDescription.StartsWith("Fixture ")),"Register actual mapped results");
         int first=fixture.Registered.Keys.First();fixture.Emit(first,true);fixture.Emit(first,true);fixture.Emit(first,false);fixture.Emit(first,true);fixture.Emit(first+1000,true);
         Check(activations.SequenceEqual(new[]{"fullscreen","fullscreen"}),"Press/release dedup and foreign IDs");
         fixture.LayoutIsCurrent=false;session.CheckLayout();fixture.Emit(first,false);fixture.Emit(first,true);
         Check(session.Bound.Count==0&&fixture.Registered.Count==0&&fixture.Disposed&&closed.Count==1&&activations.Count==2,"Layout change clears registrations and disables callbacks");
-        session.DisposeAsync().GetAwaiter().GetResult();Check(fixture.Removed.Count==3,"Idempotent disposal");
-        for(int fail=0;fail<3;fail++)
+        session.DisposeAsync().GetAwaiter().GetResult();Check(fixture.Removed.Count==4,"Idempotent disposal");
+        for(int fail=0;fail<4;fail++)
         {
             fixture=new FixtureShortcutApi { FailRegistration=fail };session=new NativeGlobalShortcuts(fixture);
             try { session.BindAsync(definitions,"",default).GetAwaiter().GetResult();throw new InvalidOperationException("Conflict accepted."); }catch(IOException) { }
@@ -64,11 +64,11 @@ internal static class NativeGlobalShortcutTests
         using var stop=new CancellationTokenSource();fixture=new FixtureShortcutApi { AfterRegister=()=>stop.Cancel() };session=new NativeGlobalShortcuts(fixture);
         try { session.BindAsync(definitions,"",stop.Token).GetAwaiter().GetResult();throw new InvalidOperationException("Cancellation accepted."); }catch(OperationCanceledException) { }
         Check(fixture.Registered.Count==0&&fixture.Removed.Count==1&&session.Bound.Count==0,"Mid-registration cancellation rollback");
-        fixture=new FixtureShortcutApi();session=new NativeGlobalShortcuts(fixture);session.BindAsync(definitions,"",default).GetAwaiter().GetResult();session.DisposeAsync().GetAwaiter().GetResult();Check(fixture.Registered.Count==0&&fixture.Removed.Count==3,"Explicit unregister all");
+        fixture=new FixtureShortcutApi();session=new NativeGlobalShortcuts(fixture);session.BindAsync(definitions,"",default).GetAwaiter().GetResult();session.DisposeAsync().GetAwaiter().GetResult();Check(fixture.Registered.Count==0&&fixture.Removed.Count==4,"Explicit unregister all");
         fixture=new FixtureShortcutApi { FailCleanup=true };session=new NativeGlobalShortcuts(fixture);var cleanupErrors=new List<string>();session.Closed+=cleanupErrors.Add;
         session.BindAsync(definitions,"",default).GetAwaiter().GetResult();int stale=fixture.Registered.Keys.First();
         try { session.DisposeAsync().GetAwaiter().GetResult();throw new InvalidOperationException("Cleanup failure was reported as success."); }catch(AggregateException) { }
-        fixture.Emit(stale,true);Check(session.Bound.Count==0&&cleanupErrors.Count==1&&fixture.Registered.Count==3,"Cleanup failure disables dispatch and is explicit");
+        fixture.Emit(stale,true);Check(session.Bound.Count==0&&cleanupErrors.Count==1&&fixture.Registered.Count==4,"Cleanup failure disables dispatch and is explicit");
         fixture.FailCleanup=false;fixture.Dispose();
         Console.WriteLine("NATIVE SHORTCUT CONTRACT PASS: Windows/macOS key tables, Carbon LP64/UTF16 declarations, atomic registration/conflict/mapped-collision rollback, cancellation, activation dedup, layout invalidation, explicit/idempotent cleanup. OS calls are fixture-backed, not target-system runtime verification.");
     }

@@ -16,6 +16,9 @@
     double _toolbarHeight;
     NSString* _reservedCharacter;
     int _reservedCode;
+    NSString* _screenshotCharacter;
+    int _screenshotCode;
+    CGEventFlags _screenshotModifiers;
     CGEventFlags _reservedModifiers;
 }
 - (void)setSourceWindow:(CGWindowID)window process:(pid_t)process {
@@ -28,6 +31,9 @@
 }
 - (void)setReservedCharacter:(NSString*)character keyCode:(int)keyCode modifiers:(CGEventFlags)modifiers {
     _reservedCharacter=character;_reservedCode=keyCode;_reservedModifiers=modifiers;
+}
+- (void)setScreenshotCharacter:(NSString*)character keyCode:(int)keyCode modifiers:(CGEventFlags)modifiers {
+    _screenshotCharacter=character;_screenshotCode=keyCode;_screenshotModifiers=modifiers;
 }
 - (int)configureWindow:(NSWindow*)window destination:(CGRect)destination crop:(CGRect)crop toolbarHeight:(double)toolbarHeight {
     if(_window!=window) {
@@ -83,6 +89,8 @@
         if(event.keyCode==53 || event.keyCode==111)return event;
         if(type!=NSEventTypeFlagsChanged) {
             const auto flags=event.modifierFlags&(NSEventModifierFlagShift|NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagCommand);
+            if(flags==_screenshotModifiers && (int(event.keyCode)==_screenshotCode ||
+                (_screenshotCharacter.length && [event.charactersIgnoringModifiers.lowercaseString isEqualToString:_screenshotCharacter])))return event;
             if(flags==_reservedModifiers && (int(event.keyCode)==_reservedCode ||
                 (_reservedCharacter.length && [event.charactersIgnoringModifiers.lowercaseString isEqualToString:_reservedCharacter])))return event;
         }

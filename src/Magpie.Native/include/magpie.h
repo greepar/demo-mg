@@ -128,7 +128,7 @@ void mp_capture_cancel(void* capture);
 // pending source change disables forwarding until its matching frame is shown.
 int mp_capture_configure_input(void* capture,void* native_window,double x,double y,double width,double height,
     double crop_x,double crop_y,double crop_width,double crop_height,double toolbar_height,
-    const char* reserved_character,int reserved_key_code,uint64_t reserved_modifiers,uint64_t expected_window,uint32_t expected_process,uint64_t expected_sequence);
+    const char* reserved_character,int reserved_key_code,uint64_t reserved_modifiers,uint64_t expected_window,uint32_t expected_process,uint64_t expected_sequence,const char* screenshot_character,int screenshot_key_code,uint64_t screenshot_modifiers);
 // 1=new frame, 0=waiting for frame, -1=error. No X11 window identifiers.
 // Returned pixels remain valid until the next non-waiting frame call or capture destruction.
 // Waiting calls and asynchronous producer callbacks do not alter the delivered buffer.
