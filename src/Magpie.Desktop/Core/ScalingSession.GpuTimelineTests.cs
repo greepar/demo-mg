@@ -11,7 +11,7 @@ internal sealed partial class ScalingSession
     internal async Task VerifyGpuTimelineAsync(MainWindow owner,bool compact)
     {
         if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("GPU timeline fixtures require preview mode.");
-        var global=RuntimeSettings.Current;bool previousGpu=global.GpuProfilingEnabled,previousDeveloper=global.DeveloperMode;
+        var global=RuntimeSettings.Current;bool previousGpu=global.GpuProfilingEnabled,previousDeveloper=global.DeveloperMode;var previousPlacement=global.ProfilerPlacement;
         using var engine=NativeCore.Create();if(engine.IsInvalid)throw NativeCore.Error();
         try
         {
@@ -26,7 +26,7 @@ internal sealed partial class ScalingSession
             await Task.Delay(100);
             var view=_gpuTimingView!;var toggle=_gpuSwitchView!;
             if(toggle.IsVisible||view.Presentation.ShowPasses||view.Presentation.Rows.Length!=2)throw new InvalidOperationException("Normal mode exposed developer pass rows.");
-            CheckWidths();
+            CheckWidths();await VerifyFloatingProfilerGesturesAsync();
             var effectKey=new GpuTimingKey(0);Enter(view.TimingRows[effectKey]);
             if(view.Highlighted!=effectKey||view.SegmentButton(effectKey).BorderThickness.Left!=1)throw new InvalidOperationException("Timing row hover did not highlight its timeline segment.");
             Exit(view.TimingRows[effectKey]);if(view.Highlighted is not null)throw new InvalidOperationException("Row exit retained a selection.");
@@ -42,13 +42,15 @@ internal sealed partial class ScalingSession
             if((ToolTip.GetTip(segment) as TextBlock)?.Text!=expected||!expected.Contains(PassExportCatalog.All[11][pass.Key.Pass].Name))throw new InvalidOperationException("Actual timeline tooltip lacks original pass name or measured values.");
             Exit(segment);
             _output.FocusManager!.Focus(null);segment.Focus(NavigationMethod.Tab);
-            if(view.Highlighted!=pass.Key||!_toolbar!.IsKeyboardFocusWithin)throw new InvalidOperationException("Keyboard focus did not expose timeline selection.");
-            _toolbarPointer=null;UpdateToolbarVisibility();if(_toolbar.Opacity!=1)throw new InvalidOperationException("Keyboard timing interaction hid the toolbar.");
+            if(view.Highlighted!=pass.Key||!_profilerWindow!.IsKeyboardFocusWithin)throw new InvalidOperationException("Keyboard focus did not expose timeline selection.");
+            _toolbarPointer=null;SetToolbarState(ToolbarState.Off);UpdateToolbarVisibility();
+            if(!_profilerWindow!.IsVisible)throw new InvalidOperationException("Toolbar hide also hid the independent profiler.");
+            SetToolbarState(ToolbarState.AlwaysShow);
             RefreshGpuProfile();await Task.Delay(60);
             segment=view.SegmentButton(pass.Key);
             if(!segment.IsFocused||view.Highlighted!=pass.Key)throw new InvalidOperationException("Timing refresh lost keyboard interaction identity.");
             _output.FocusManager.Focus(null);
-            if(IsToolbarCaption(segment,_toolbar)||IsToolbarCaption(view.TimingRows[pass.Key],_toolbar))throw new InvalidOperationException("Timing content can accidentally initiate native move.");
+            if(IsToolbarCaption(segment,_toolbar!)||IsToolbarCaption(view.TimingRows[pass.Key],_toolbar!))throw new InvalidOperationException("Timing content can accidentally initiate native move.");
             // Developer mode can change while the session and sample remain.
             global.DeveloperMode=false;UpdateGpuProfile(processor.GpuProfile);
             if(toggle.IsVisible||_gpuPassView||view.Presentation.ShowPasses||view.Highlighted is not null)throw new InvalidOperationException("Disabling developer mode retained pass controls or stale hover.");
@@ -73,7 +75,8 @@ internal sealed partial class ScalingSession
             if(profiling.IsChecked!=false||_gpuPanel!.IsVisible||view.IsVisible)throw new InvalidOperationException("External profiler preference did not synchronize the running output toggle.");
             global.GpuProfilingEnabled=true;UpdateGpuProfile(processor.GpuProfile);
             if(profiling.IsChecked!=true||!_gpuPanel.IsVisible||!view.IsVisible)throw new InvalidOperationException("External profiler enable did not restore the running toggle/sample.");
-            profiling.IsChecked=false;
+            _output.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="CloseProfilerButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if(_profilerWindow!.IsVisible)throw new InvalidOperationException("Profiler close did not hide its independent window.");
             if(view.IsVisible||_gpuPanel!.IsVisible||view.Presentation.Rows.Length!=0)throw new InvalidOperationException("Disabling profiler retained timing content.");
             Console.WriteLine("GPU TIMELINE UI PASS: actual CuNNy/nearest Vulkan timestamps, proportional native layout, actual effect/pass switch and mode guards, original tooltip text, row/segment routed hover, keyboard selection/refresh continuity, caption exclusion, compact scrolling and disable cleanup. Source pixels and pointer events are injected; no real capture or OS input delivery.");
 
@@ -97,7 +100,7 @@ internal sealed partial class ScalingSession
         }
         finally
         {
-            global.GpuProfilingEnabled=previousGpu;global.DeveloperMode=previousDeveloper;
+            global.GpuProfilingEnabled=previousGpu;global.DeveloperMode=previousDeveloper;global.ProfilerPlacement=previousPlacement;
             _finished=true;_output?.Close();_output=null;_bitmap?.Dispose();_bitmap=null;_stageEngine=null;_stop.Dispose();
         }
     }

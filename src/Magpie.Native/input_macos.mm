@@ -1,5 +1,6 @@
 #import "input_macos.h"
 #include <algorithm>
+#include "local_input_region.h"
 #include <map>
 #include <unistd.h>
 
@@ -9,6 +10,7 @@
     CGWindowID _sourceWindow;
     pid_t _sourceProcess;
     CGRect _destination, _crop;
+    magpie::LocalInputRegion _overlayRegion;
     CGPoint _lastPoint;
     bool _keyboardFocus, _requestedAccess;
     std::map<int, CGEventRef> _pressed;
@@ -21,6 +23,7 @@
     CGEventFlags _screenshotModifiers;
     CGEventFlags _reservedModifiers;
 }
+- (void)setOverlayRegion:(CGRect)region { _overlayRegion={region.origin.x,region.origin.y,region.size.width,region.size.height}; }
 - (void)setSourceWindow:(CGWindowID)window process:(pid_t)process {
     if(process==getpid()) {window=0;process=0;}
     if(_sourceWindow==window && _sourceProcess==process)return;
@@ -98,7 +101,7 @@
     } else {
         NSPoint point=[_window.contentView convertPoint:event.locationInWindow fromView:nil];
         if(!_window.contentView.isFlipped)point.y=_window.contentView.bounds.size.height-point.y;
-        if((!CGRectContainsPoint(_destination,point) || point.y<_toolbarHeight) && !dragging) {
+        if((!CGRectContainsPoint(_destination,point) || point.y<_toolbarHeight || _overlayRegion.contains(point.x,point.y)) && !dragging) {
             if(down)[self releaseInput];
             return event;
         }

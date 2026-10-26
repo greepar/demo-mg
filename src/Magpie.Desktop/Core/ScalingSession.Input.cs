@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Avalonia.Threading;
 namespace Magpie.Desktop.Core;
 
@@ -37,10 +39,15 @@ internal sealed partial class ScalingSession
         lock(_captureLock)
         {
             if(_capture is not { IsClosed:false,IsInvalid:false } capture)return;
+            Rect region=default;
+            if(_profilerWindow is { IsVisible:true } profiler&&profiler.TranslatePoint(default,(Visual)_output.Content!) is {} origin)
+                region=new Rect(origin,profiler.Bounds.Size);
+            if(_profilerDragStart is not null)region=new Rect(_output.ClientSize);
+            bool regionReady=NativeCore.CaptureOverlayRegion(capture,region.X,region.Y,region.Width,region.Height)==1;
             state=NativeCore.CaptureConfigureInput(capture,handle.Handle,bounds.X,bounds.Y,bounds.Width,bounds.Height,
                 (double)crop.X/_captureFrameWidth,(double)crop.Y/_captureFrameHeight,
                 (double)crop.Width/_captureFrameWidth,(double)crop.Height/_captureFrameHeight,
-                _toolbar is { IsVisible:true,IsHitTestVisible:true }?_toolbar.Bounds.Bottom:0,character,keyCode,flags,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId,_lastSourceSequence,screenshotCharacter,screenshotCode,screenshotFlags);
+                !regionReady?_output.ClientSize.Height:_toolbar is { IsVisible:true,IsHitTestVisible:true }?_toolbar.Bounds.Bottom:0,character,keyCode,flags,regionReady?_lastSourceInfo.WindowId:0,regionReady?_lastSourceInfo.ProcessId:0,_lastSourceSequence,screenshotCharacter,screenshotCode,screenshotFlags);
         }
         UpdateInputStatus(state);
     }

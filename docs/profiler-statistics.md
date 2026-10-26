@@ -28,3 +28,14 @@
 2026-10-26 时间条阶段：Linux NativeAOT 核心、模型及八项中英私有 Wayland UI 验证通过。模型验证原始描述/通道顺序、普通/开发者门控、占比、零/阈值占位、重复效果身份及颜色稳定性。隔离 UI 用实际 CuNNy→nearest Vulkan 时间戳验证按测量值分配的实际布局宽度，行/色块的合成指针悬停、键盘 focus、模式切换、设置外部修改同步、caption 排除和关闭清理。宽/窄输出的真实 tooltip 经外部 Wayland ack/commit 与内容边界验证，再合成到同一输出内容截图；已查看图像。录制等待正常 tooltip fade-in 完成，以免截到半透明过渡。
 
 最终结果与二进制散列记录于 `artifacts/desktop/profiler-timeline-test-summary.json`；实际源像素、帧调度及输入事件为注入测试。这里不把布局/事件模型算作系统鼠标、源输入送达或所有平台 GPU 验收。C++ 与 shaders 本轮未变，原生 CTest 不重复计作本轮新证据。
+
+
+## 独立浮动面板
+
+Profiler 已从自动隐藏工具栏中分离，采用输出内容区内的独立面板；不创建另一个系统顶层窗口，也不依赖 Wayland 全局窗口坐标。按原版默认宽度 310 DIP、最高 500 DIP、右边距 60 DIP 和垂直中心定位，小视口约束到内容区并滚动。关闭按钮关闭统计并同步工具栏开关，工具栏 Off 不再隐藏 profiler。
+
+标题栏以本地 pointer capture 拖动。释放保存原版 `OverlayWindowOption` 的左右/上下贴边或中心比例，输出 resize 保留贴靠关系；取消抓取/失焦恢复已保存位置，保存失败回退并提示。配置使用不可变位置记录并走现有原子保存，原版 `overlay.windows.profiler` 的 hArea/vArea/hPos/vPos 可以迁移，未知浮层字段仍报告未应用。
+
+新增 `mp_capture_overlay_region` 作为单独 C ABI，不修改已有输入配置签名。Cocoa 在命中 profiler 时把事件交回本地 UI；拖动时临时排除整个输出内容，结束后恢复面板矩形。设置区域失败时不绑定源窗口/PID，并排除整个客户区，避免在本地交互信息不完整时继续转发。可移植区域谓词覆盖边界、空区域、非有限值与负尺寸，macOS 使用相同谓词；Linux/Windows 尚无输出输入桥，此 API 明确返回不支持。
+
+本阶段 Linux 最终 NativeAOT 核心、模型、23/23 原生 CTest 及八项中英私有 Wayland UI 通过，报告 `artifacts/desktop/profiler-floating-test-summary.json`。UI 通过实际浮层验证拖动/抓取/释放、边界、保存与取消、输出 resize 后贴边、工具栏独立显隐及关闭同步；指针/源数据为注入，位置序列化与原版迁移为模型检查。已查看宽/窄实际输出和有 ack/commit 证据的提示框。当前提交 Windows/macOS SDK 编译待 CI。区域谓词/ABI 编译检查与 Linux UI 事件模型不代表 macOS 输入事件实际送达或拖动隔离已在真实源应用验收；原版 profiler 的 GPU/捕获设备元信息、FP16 标签等仍有后续工作。

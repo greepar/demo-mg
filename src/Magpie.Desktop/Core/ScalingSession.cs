@@ -286,8 +286,8 @@ internal sealed partial class ScalingSession
         _toolbarActions=row;
         _powerStatus=new TextBlock { Name="OutputPowerStatus",IsVisible=false,Foreground=Brushes.Goldenrod,TextWrapping=TextWrapping.Wrap };
         _inputStatus=new TextBlock { Name="OutputInputStatus",IsVisible=false,Foreground=Brushes.Goldenrod,TextWrapping=TextWrapping.Wrap };
-        _toolbar = new Border { Background = Brush.Parse("#D0202020"), Padding = new Thickness(12), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Child = new ScrollViewer { Content=new StackPanel { Spacing = 6, Children = { _statistics,row, parameters, fsrParameters,ssimParameters,_gpuPanel,_powerStatus,_inputStatus, _message } } } };
-        var content = new Grid { ClipToBounds = true, Children = { image, _toolbar } };
+        _toolbar = new Border { Background = Brush.Parse("#D0202020"), Padding = new Thickness(12), VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Child = new ScrollViewer { Content=new StackPanel { Spacing = 6, Children = { _statistics,row, parameters, fsrParameters,ssimParameters,_powerStatus,_inputStatus, _message } } } };
+        var content = new Grid { ClipToBounds = true, Children = { image, _toolbar,CreateProfilerWindow() } };
         content.LayoutUpdated+=(_,_)=>ConfigureMacInput();
         InitialWindowSize? initial=null;double initialScale=owner.RenderScaling;
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)
@@ -302,6 +302,8 @@ internal sealed partial class ScalingSession
             MinWidth = initial is {} minimum ? minimum.MinimumWidth/initialScale : 320, MinHeight = initial is {} minimumSize ? minimumSize.MinimumHeight/initialScale : 200, Background = Brushes.Black,
             Content = content, WindowStartupLocation = WindowStartupLocation.CenterScreen
         };
+        _output.Deactivated+=(_,_)=>EndProfilerDrag(false);
+        _output.Closed+=(_,_)=>EndProfilerDrag(false);
         _initialSizingApplied=initial.HasValue;
         _output.SizeChanged += (_, _) => UpdateSize();
         _output.ScalingChanged += (_,_)=>UpdateSize();
@@ -348,6 +350,7 @@ internal sealed partial class ScalingSession
         if(!ReferenceEquals(_gpuSample,averaged)||_gpuViewDeveloper!=RuntimeSettings.Current.DeveloperMode) { _gpuSample=averaged;RefreshGpuProfile(); }
         bool enabled=RuntimeSettings.Current.GpuProfilingEnabled;
         if(_gpuPanel is not null)_gpuPanel.IsVisible=enabled;
+        PositionProfiler();
         if(_gpuProfilingToggle is {} toggle&&toggle.IsChecked!=enabled)
         {
             _syncingGpuProfiling=true;try { toggle.IsChecked=enabled; }finally { _syncingGpuProfiling=false; }
@@ -361,6 +364,7 @@ internal sealed partial class ScalingSession
         if(_gpuSwitchView is {} button) { button.IsVisible=canShowPasses;button.Content=Localization.Get(_gpuPassView?"Overlay_Profiler_Timings_SwitchToEffects":"Overlay_Profiler_Timings_SwitchToPasses"); }
         _gpuTimingView?.Update(_gpuSample,_gpuPassView,developer);
         if(_gpuDetails is not null) { _gpuDetails.Text=_gpuSample.Describe(_gpuPassView);_gpuDetails.IsVisible=!_gpuSample.Valid; }
+        PositionProfiler();
     }
     private void UpdateSize()
     {

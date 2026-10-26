@@ -24,6 +24,7 @@ internal sealed class RuntimeSettings
     public ToolbarState WindowedInitialToolbarState { get; set; }=ToolbarState.AutoHide;
     public bool DeveloperMode { get; set; }
     public bool GpuProfilingEnabled { get; set; }
+    public OverlayPlacement ProfilerPlacement { get; set; }=new();
     public bool DisableFP16 { get; set; }
     public bool KeepScreenOn { get; set; }
     public DuplicateFrameMode DuplicateFrameDetection { get; set; } = DuplicateFrameMode.Dynamic;
@@ -174,6 +175,8 @@ internal sealed class RuntimeSettings
     private void ValidateOptions()
     {
         GlobalShortcutSettings.Validate(this);
+        if(ProfilerPlacement is null)throw new InvalidDataException("Profiler placement is missing.");
+        ProfilerPlacement.Validate();
         if(CountdownSeconds is <1 or >5)throw new InvalidDataException("Invalid countdown duration.");
         ValidateCropping();
         if(InitialWindowedScaleFactor is <0 or >6 || !float.IsFinite(CustomInitialWindowedScaleFactor) || CustomInitialWindowedScaleFactor is <1 or >10 || OutputAlignment is <0 or >8)throw new InvalidDataException("Invalid window scale or output alignment.");

@@ -152,7 +152,23 @@ internal static class OriginalConfiguration
                     profile.Settings.ScreenshotDirectory=settings.ScreenshotDirectory;
                 }
             }
-            Preserved(overlay,new HashSet<string>(["fullscreenInitialToolbarState","windowedInitialToolbarState","initialToolbarState","screenshotsDir"],StringComparer.Ordinal),"overlay.",warnings);
+            if(Find(overlay,"windows") is {} windows)
+            {
+                Object(windows);
+                if(Find(windows,"profiler") is {} profiler)
+                {
+                    Object(profiler);
+                    settings.ProfilerPlacement=new OverlayPlacement(
+                        Find(profiler,"hArea") is {} h?Integer(h,0,2):2,
+                        Find(profiler,"vArea") is {} v?Integer(v,0,2):1,
+                        Find(profiler,"hPos") is {} x?x.GetDouble():60,
+                        Find(profiler,"vPos") is {} y?y.GetDouble():.5);
+                    settings.ProfilerPlacement.Validate();
+                    Preserved(profiler,new HashSet<string>(["hArea","vArea","hPos","vPos"],StringComparer.Ordinal),"overlay.windows.profiler.",warnings);
+                }
+                Preserved(windows,new HashSet<string>(["profiler"],StringComparer.Ordinal),"overlay.windows.",warnings);
+            }
+            Preserved(overlay,new HashSet<string>(["fullscreenInitialToolbarState","windowedInitialToolbarState","initialToolbarState","screenshotsDir","windows"],StringComparer.Ordinal),"overlay.",warnings);
         }
         if(modes.Any(m=>!m.IsAvailable))warnings.Add("scalingModes: empty modes or unsupported effects remain unavailable; original effect data is preserved.");
         settings.Validate();return new(settings,warnings);

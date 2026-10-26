@@ -53,6 +53,8 @@ internal static class NativeCore
         double x,double y,double width,double height,double cropX,double cropY,double cropWidth,double cropHeight,double toolbarHeight,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers,ulong expectedWindow,uint expectedProcess,ulong expectedSequence,[MarshalAs(UnmanagedType.LPUTF8Str)] string screenshotCharacter,int screenshotCode,ulong screenshotModifiers);
 
+    [DllImport(Library,EntryPoint="mp_capture_overlay_region")] internal static extern int CaptureOverlayRegion(CaptureHandle capture,double x,double y,double width,double height);
+
     internal static void VerifyInteractionModels()
     {
         NativeGlobalShortcutTests.Run();
@@ -70,6 +72,7 @@ internal static class NativeCore
         DdsExportTests.Verify();
         GpuTimingAveragesTests.Verify();
         GpuTimingPresentationTests.Verify();
+        OverlayPlacementTests.Verify();
         Console.WriteLine("INTERACTION MODEL PASS: native source ABI and non-GPU settings/shortcut/countdown/toolbar/configuration tests; no UI, capture picker or permission dialog.");
     }
 

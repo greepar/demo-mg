@@ -1,4 +1,6 @@
 #include "source_info.h"
+#include "local_input_region.h"
+#include <limits>
 #include <iostream>
 #include <stdexcept>
 #include <memory>
@@ -7,6 +9,17 @@
 void require(bool value,const char* message) { if(!value)throw std::runtime_error(message); }
 int main() {
     try {
+        const magpie::LocalInputRegion overlay{10,20,310,250};
+        require(overlay.contains(10,20)&&overlay.contains(319.9,269.9),"Profiler local region lost interior/near edge");
+        require(!overlay.contains(320,20)&&!overlay.contains(10,270)&&!overlay.contains(9,30),"Profiler local region excluded unrelated source pixels");
+        require(!magpie::LocalInputRegion{}.contains(0,0),"Cleared profiler region intercepted input");
+        require(!magpie::LocalInputRegion{0,0,-1,2}.valid()&&!magpie::LocalInputRegion{std::numeric_limits<double>::infinity(),0,2,2}.valid(),"Malformed profiler region accepted");
+        require(!overlay.contains(std::numeric_limits<double>::quiet_NaN(),30),"Nonfinite pointer entered profiler region");
+#ifdef __APPLE__
+        require(mp_capture_overlay_region(nullptr,0,0,0,0)==-1,"Null Cocoa capture accepted a local input region");
+#else
+        require(mp_capture_overlay_region(nullptr,0,0,0,0)==0,"Unsupported input backend fabricated local overlay support");
+#endif
         char shortText[5];magpie::sourceText(shortText,"AB\xf0\x9f\x98\x80Z");require(std::string(shortText)=="AB","Truncation split a UTF-8 scalar");
         char exact[7];magpie::sourceText(exact,"AB\xf0\x9f\x98\x80Z");require(std::string(exact)=="AB\xf0\x9f\x98\x80","Exact scalar boundary was truncated incorrectly");
         char one[1];magpie::sourceText(one,"text");require(one[0]==0,"Single-byte field is not terminated");

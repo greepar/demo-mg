@@ -6,6 +6,7 @@
 #include "error.h"
 #include "capture_mailbox.h"
 #include "capture_geometry.h"
+#include "local_input_region.h"
 #import "input_macos.h"
 #include <atomic>
 #include <cmath>
@@ -293,5 +294,15 @@ extern "C" int mp_capture_configure_input(void* c,void* window,double x,double y
         int result=[input configureWindow:(__bridge NSWindow*)window destination:CGRectMake(x,y,width,height)
             crop:CGRectMake(cropX,cropY,cropWidth,cropHeight) toolbarHeight:toolbarHeight];
         return pending?3:result;
+    }
+}
+
+extern "C" int mp_capture_overlay_region(void* c,double x,double y,double width,double height) {
+    @autoreleasepool {
+        if(!c||![NSThread isMainThread]||!magpie::LocalInputRegion{x,y,width,height}.valid())return -1;
+        auto capture=static_cast<Capture*>(c);
+        if(capture->state->cancelled)return -1;
+        auto input=capture->observer.input;if(!input)return 0;
+        [input setOverlayRegion:CGRectMake(x,y,width,height)];return 1;
     }
 }
