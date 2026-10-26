@@ -9,3 +9,9 @@
 新增可移植原生模型验证上述裁剪规则；Windows 一次性 fixture 的第三次独立捕获启用标题栏，查询真实 DWM/客户区边界、核对画面尺寸、实际标题栏与独立绘制客户区像素，检查活动会话不能切换几何；持续 resize、最小化恢复、销毁和重捕获沿用完整严格矩阵。主机不支持 WGC 时记录 unavailable，不计作标题栏通过。真实自绘窗口/UWP、滚动条、多屏 DPI 和系统实拖尚需目标验收。
 
 本阶段 Linux 三个原生模型通过，首次完整 AOT core 又出现已知 NNEDI3 configured/legacy 差异：112 个通道，最大差 255，首差 byte 256（0 / 150），诊断 `/tmp/magpie-nnedi3-mismatch-9c97d25a1ed54df88901cbd326ed00f3`。随后独立 core 重跑通过；这不解决该问题，没有放宽断言或改动 shader。标题栏新增的 Windows SDK/真实捕获及 macOS ABI 编译仍需对应提交 CI，完整交互目标未完成。
+
+## 目标机验证补充
+
+`dff10cd8` 的 [Windows job 121783304857](https://github.com/greepar/demo-mg/actions/runs/40382833769/job/121783304857) 已实际通过第三次独立 WGC 捕获，日志包含 `WINDOWS WGC TITLE BAR PASS`，并继续通过完整的连续 grow/shrink/return、等待缓冲保留、最小化恢复、生命周期和重捕获矩阵。首次 restore 失败已修复：临时小边界暂停等帧，发布门槛仍为 64×64。Windows SDK/AOT、原生/托管模型、单文件和静态依赖检查通过；两个 macOS 架构 SDK/AOT/模型 job 也成功。这更新前述历史待验收状态，不把 native fixture 当成 Windows Avalonia 的真实鼠标操作或特殊窗口兼容验收。
+
+Linux 最终 AOT core 及六项中英私有 Wayland UI 通过，包含标题栏卡片的宽/窄布局、实际 disabled 控件处理器拒绝修改、保存偏好及重新打开页面回显。Linux 不支持独立切换标题栏，UI 未用替身把能力改成支持；Windows enabled 控件的真实指针操作仍未验收。NNEDI3 首次失败诊断另存 `artifacts/desktop/title-bar-evidence/nnedi3-mismatch/`，按行/通道定位到 4、5、9 行的 28 个像素（含 alpha），该问题仍未解决。

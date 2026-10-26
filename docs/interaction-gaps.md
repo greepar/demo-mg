@@ -26,7 +26,7 @@
 
 ## 2026-10-27 标题栏阶段
 
-已接 WGC 标题栏开关、原版源区域规则、配置保存/复制和 `captureTitleBar` / `reserveTitleBar` 迁移，见 [标题栏与源窗口边界](windows-title-bar.md)。首次 Windows SDK 编译通过，普通 GDI/WGC 实测继续通过；新增标题栏实测通过初始/连续 resize，在恢复短暂小边界失败，已改为保持 64×64 发布门槛并暂停等待。Windows 完整标题栏矩阵仍需后续结果，不能沿用普通 WGC 的成功。Linux 三个原生模型、中英六项隔离 UI 和最终 AOT core 通过；首次 core 再现 NNEDI3 configured/legacy 112 通道差异，诊断已保存，独立重跑通过不算解决该算法问题。完整目标未完成。
+已接 WGC 标题栏开关、原版源区域规则、配置保存/复制和 `captureTitleBar` / `reserveTitleBar` 迁移，见 [标题栏与源窗口边界](windows-title-bar.md)。首次 Windows SDK 编译通过，普通 GDI/WGC 实测继续通过；新增标题栏实测通过初始/连续 resize，在恢复短暂小边界失败，已改为保持 64×64 发布门槛并暂停等待。随后 `dff10cd8` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40382833769/job/121783304857) 已明确实际通过 WGC TITLE BAR、连续 resize、最小化恢复和重捕获，以及 SDK/AOT/单文件检查；两种 macOS 架构构建/模型也成功。Linux 三个原生模型、中英六项隔离 UI 和最终 AOT core 通过；首次 core 再现 NNEDI3 configured/legacy 112 通道差异，诊断已保存，独立重跑通过不算解决该算法问题。完整目标未完成。
 
 ## 本次 macOS 阶段提交的边界
 
@@ -59,7 +59,7 @@
 | 项目 | 当前状态 / 剩余工作 |
 | --- | --- |
 | 捕获方式选择 | 已接运行时能力位掩码、显式创建及会话实际后端查询。Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI / 系统支持的 WGC。默认优先本机 WGC（仅 Native 且不支持 WGC 时选 GDI），显式 GDI/WGC 不互相回退。配置/迁移保存独立偏好，不可用项保留且禁用；启动前校验。Linux AOT 核心/隔离 UI 已过；`3c165562` 的默认选择模型、连续 resize GDI/WGC 实测及 Windows AOT/单文件检查已通过，DXGI/DWM 仍缺。 |
-| 捕获标题栏 | WGC 已接原版源区域分类/裁剪、标题栏开关、原版/旧版配置迁移和独立持久化；原生框架、自绘非客户区、滚动条、UWP、Win11 显示器 DPI 边框与最大化裁剪见 [标题栏移植](windows-title-bar.md)。GDI / Portal / 当前 ScreenCaptureKit 不支持独立开关，禁用控件但保留偏好。Linux 原生模型与中英隔离 UI 通过；Windows 初次真实标题栏/连续 resize 通过，恢复时的暂态小边界已修复，仍需新提交的完整目标验收。真实特殊窗口、多屏 DPI 和输入命中未完成。 |
+| 捕获标题栏 | WGC 已接原版源区域分类/裁剪、标题栏开关、原版/旧版配置迁移和独立持久化；原生框架、自绘非客户区、滚动条、UWP、Win11 显示器 DPI 边框与最大化裁剪见 [标题栏移植](windows-title-bar.md)。GDI / Portal / 当前 ScreenCaptureKit 不支持独立开关，禁用控件但保留偏好。Linux 原生模型与中英隔离 UI 通过；`dff10cd8` 的实际标题栏像素/尺寸、连续 resize、最小化恢复/重捕获及 SDK/AOT/单文件均已通过。真实特殊窗口、多屏 DPI 和输入命中未完成。 |
 | 系统选源与权限生命周期 | macOS 已有选源/取消/停止代码，但选择窗口/整屏、拒绝/撤销、重新授权、快速取消/重启和更换源的完整矩阵未验收。用户已运行捕获，但不足以代表该矩阵通过。 |
 | 源窗口生命周期 | 最小化、隐藏、关闭、崩溃、最大化、全屏、尺寸/位置变化、重新出现和源弹窗需要三平台验收；macOS 换源已改成按新 filter 的尺寸重建流，用流身份/代次隔离旧样本与迟到启动/错误回调；非完整帧不发布，Stopped 报告源停止，取消重选保留现有流。相关状态/缓冲模型已做 Linux 验证，macOS 系统选源实测仍缺。已接同一源连续 resize：从每帧 contentRect / scaleFactor / contentScale 恢复自然像素尺寸，串行 updateConfiguration 并合并最新请求；按内容矩形裁剪有行填充的 BGRA，配置忽略单窗口阴影。旧配置的缩放/不完整帧等待匹配尺寸后才发布，Blank/Suspended 或空内容暂停输入，恢复需新的匹配帧。Retina/分数倍率、连续变大/变小/改回原尺寸、旧回调及裁剪→Vulkan 已有 Linux 模型/像素验证；macOS SDK/AOT 已通过，真实持续 resize、跨屏 DPI、阴影/标题栏命中仍需目标机验收。截图时的动态标题查询已接入 Windows/macOS：限定已提交画面的窗口/PID 与源/几何状态，查询前后复核身份；系统不给标题时保留已知快照，明确空标题采用本地化回退。真实窗口改名/权限变化仍需目标机验收。 |
 | 初始位置与缩放边框 | 已有 Auto/预设/自定义初始尺寸、比例与九宫格；准确源外框、跟随源位置、等比边框拖动及原版 hit-test 行为未补齐。 |
