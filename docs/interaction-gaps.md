@@ -18,7 +18,7 @@
 
 新增可选择的 Windows Graphics Capture 实现：独立 native MTA 线程持有 WinRT/D3D11，使用 HWND 建立单窗口会话、free-threaded frame pool、最新帧读回客户区并交给现有 Vulkan 链路。支持尺寸变化时重建帧池，暂停/几何变化后拒绝旧帧；异步生产者与 C ABI 已交付缓冲分离。后端能力位掩码、显式创建和实例查询已接入配置、迁移校验、会话及 profiler，显式请求不可用后端不会回退 GDI。GDI 仍是 Windows 默认；Graphics Capture 需在当前系统支持时手动选择。
 
-这更新后文历史审计中的“WGC 未移植”为“实现已接入，目标验证待完成”。Linux AOT 核心及三个捕获模型测试已通过；Windows SDK 编译、实际 WGC 像素和生命周期尚需本提交 CI。托管 Windows 若能力探测不支持 WGC，fixture 记录 unavailable，**不计作 WGC 验收通过**。测试窗口仅允许一次性 GitHub-hosted runner，本机仅私有 headless Wayland。WGC 当前仍只输出客户区，标题栏开关保持禁用；DXGI/DWM、源窗口特殊样式兼容、GPU 零拷贝、多屏 DPI/HDR 和真实游戏兼容性仍缺。完整交互清单未完成。
+这更新后文历史审计中的“WGC 未移植”为“实现已接入，目标验证待完成”。Linux AOT 核心及三个捕获模型测试已通过；`15ca1931` 的四平台 CI 已完成：Linux、macOS arm64/x64 成功，Windows SDK/AOT/单文件及 GDI fixture 成功；WGC fixture 收到首帧后报纹理格式/尺寸不匹配，尚未通过。已补实际格式/尺寸诊断，继续定位。托管 Windows 若能力探测不支持 WGC，fixture 记录 unavailable，**不计作 WGC 验收通过**。测试窗口仅允许一次性 GitHub-hosted runner，本机仅私有 headless Wayland。WGC 当前仍只输出客户区，标题栏开关保持禁用；DXGI/DWM、源窗口特殊样式兼容、GPU 零拷贝、多屏 DPI/HDR 和真实游戏兼容性仍缺。完整交互清单未完成。
 
 实现与证据范围见 [Windows Graphics Capture](windows-graphics-capture.md)。
 
@@ -63,7 +63,7 @@
 | 模拟独占全屏 | Toggle 只控制警告显示，没有原生行为；各平台需定义实际可用替代。 |
 | 禁用 DirectFlip / 置顶策略 | DirectFlip 是 Windows 专用语义，移植 Toggle 未适配；开发者“禁用置顶”等也未接后端，输出窗口未对齐原版层级策略。 |
 | 倒计时 | 已将待启动计时与捕获会话分离：按原版同模式再次点击取消、另一模式重置时长；25 ms UI tick 只负责刷新，剩余秒数/进度取单调时钟，接近到期时只启动一次。主页已接确定进度环和向上取整秒数、活动模式“取消”标签；即时缩放入口取消旧计时，Stop/真正关窗清理计时器。会话结束回调核对所属实例，避免旧回调清掉新状态。Linux AOT 时钟模型与隔离真实按钮处理器/自然到期测试通过，捕获使用替身，未打开系统选源；三平台真实快捷键、托盘计时、源应用聚焦/选源、正在缩放时主页按钮状态与原版完整对应仍待验收。 |
-| Windows 捕获兼容性 | GDI 已通过一次性 Windows CI 的实际绘制源/生命周期测试。WGC 原生实现与配置/会话链路已接，SDK/AOT 初次编译通过，但捕获 fixture 初次运行暴露访问异常；已修改 COM 工厂生命周期并补原生重复探测回归，需修复提交结果确认。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口兼容、真实 GPU/游戏、多屏 DPI/HDR 和完整 Vulkan 捕获渲染验收仍缺。 |
+| Windows 捕获兼容性 | GDI 已通过一次性 Windows CI 的实际绘制源/生命周期测试。WGC 原生实现与配置/会话链路已接，SDK/AOT 通过；初次 fixture 的访问异常通过局部 COM 工厂修复后，重复探测和 GDI 回归成功，WGC 仍在首帧后的纹理格式/尺寸检查失败，待诊断修复。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口兼容、真实 GPU/游戏、多屏 DPI/HDR 和完整 Vulkan 捕获渲染验收仍缺。 |
 
 ## 工具栏、截图、模式与应用配置
 
