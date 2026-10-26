@@ -50,11 +50,14 @@ jobs:
       - name: Prepare pinned Windows/macOS native dependencies
         if: runner.os != 'Linux'
         run: python scripts/prepare-desktop-ci.py
-      - name: Native SDK, AOT, interaction models and single executable
-        run: python scripts/verify-platform-build.py --rid ${{ matrix.rid }}
+      - name: Build Windows native capture core before AOT
+        if: runner.os == 'Windows'
+        run: python scripts/build-native.py --rid win-x64 --configuration Release --build-dir artifacts/native/win-x64/Release
       - name: Disposable Windows source-window capture regression
         if: runner.os == 'Windows'
         run: python scripts/verify-windows-capture-fixture.py
+      - name: Native SDK, AOT, interaction models and single executable
+        run: python scripts/verify-platform-build.py --rid ${{ matrix.rid }}
       - name: Linux software Vulkan regression
         if: runner.os == 'Linux'
         run: python scripts/verify-platform.py --rid ${{ matrix.rid }}
