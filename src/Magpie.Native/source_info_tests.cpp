@@ -9,6 +9,23 @@
 void require(bool value,const char* message) { if(!value)throw std::runtime_error(message); }
 int main() {
     try {
+        // Repeat on a plain native entry thread with no pre-initialized COM.
+        // A managed host can keep an MTA alive and conceal stale WinRT factory
+        // caches between otherwise balanced capability probes.
+        for(int repeat=0;repeat<4;++repeat) {
+            auto backend=mp_capture_backend(),mask=mp_capture_backend_mask();
+            require(backend>0&&backend<7&&(mask&(1u<<backend))!=0,"Default backend missing from runtime capabilities");
+            for(uint32_t requested=0;requested<7;++requested) {
+                bool supported=requested==0||(mask&(1u<<requested))!=0;
+                std::unique_ptr<void,decltype(&mp_capture_destroy)> selected(mp_capture_create_backend(requested),mp_capture_destroy);
+                require(bool(selected)==supported,"Native create differs from advertised capability");
+                require(mp_capture_instance_backend(selected.get())==(supported?(requested?requested:backend):0),"Capture instance substituted a different backend");
+                if(selected)require(mp_capture_frame_sequence(selected.get())==0,"Backend selection fabricated a frame");
+            }
+            std::unique_ptr<void,decltype(&mp_capture_destroy)> invalid(mp_capture_create_backend(99),mp_capture_destroy);
+            require(!invalid,"Invalid capture backend accepted");
+        }
+        std::cout<<"CAPTURE CAPABILITIES NATIVE PASS: repeated plain-native probes, explicit/default instance selection, unsupported/invalid rejection; no device, window or picker.\n";
         magpie::InputMapping mapping{{100,50,800,400},{-200,30,400,200},{.25,.1,.5,.8}};
         magpie::InputPoint mapped{999,999};
         require(mapping.map(500,250,false,mapped)&&mapped.x==0&&mapped.y==130,"Cropped/negative-origin source coordinate mapping differs");
