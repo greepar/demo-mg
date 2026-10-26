@@ -4,6 +4,22 @@ namespace Magpie.Desktop.Views;
 
 public partial class ProfilePage
 {
+    internal async Task VerifyTitleBarInteractionAsync()
+    {
+        if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Title bar fixtures require isolated preview mode.");
+        Settings.CaptureTitleBar=true;RefreshCaptureMethod();
+        bool supported=CaptureBackendPolicy.CanCaptureTitleBar(Settings.CaptureBackend);
+        if(CaptureTitleBarCard.IsEnabled!=supported||CaptureTitleBarToggle.IsChecked!=true)throw new InvalidOperationException("Saved title bar preference/capability not reflected.");
+        CaptureTitleBarToggle.IsChecked=false;
+        if(Settings.CaptureTitleBar==supported)throw new InvalidOperationException("Title bar handler ignored availability or failed to save.");
+        if(supported) {CaptureTitleBarToggle.IsChecked=true;if(!Settings.CaptureTitleBar)throw new InvalidOperationException("Enabled title bar handler failed to restore preference.");}
+        RefreshCaptureMethod();
+        var reopened=new ProfilePage();if(_profile is not null)reopened.ConfigureProfile(_profile);
+        if(!reopened.Settings.CaptureTitleBar||reopened.CaptureTitleBarToggle.IsChecked!=true||reopened.CaptureTitleBarCard.IsEnabled!=supported)
+            throw new InvalidOperationException("Reopening profile lost the title bar preference or changed capability.");
+        CaptureTitleBarCard.BringIntoView();await Task.Delay(80);
+        Console.WriteLine("TITLE BAR UI PASS: actual toggle handlers respect backend capability, unsupported backends preserve saved preferences, reopened profile restores value; no capture or system picker.");
+    }
     internal async Task VerifyCaptureInteractionAsync(Window owner,bool leaveWarning)
     {
         if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Capture fixtures require isolated preview mode.");

@@ -216,6 +216,7 @@ internal static class UiPreview
             case "ProfileCapturePolicy":case "ProfileCaptureWarning":
                 await First<ProfilePage>().VerifyCaptureInteractionAsync(window,scenario=="ProfileCaptureWarning");break;
             case "ProfileCapture": await OpenCombo(First<ProfilePage>().FindControl<ComboBox>("CaptureMethod")!); break;
+            case "ProfileTitleBar":await First<ProfilePage>().VerifyTitleBarInteractionAsync();break;
             case "ProfileMode": await OpenCombo(First<ComboBox>()); break;
             case "ProfileLimiter":
                 var limiter = First<ProfilePage>().FindControl<SettingsExpander>("FrameLimiterExpander")!;
