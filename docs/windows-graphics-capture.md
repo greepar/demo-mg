@@ -20,6 +20,8 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 
 `5d237039` 的 Windows SDK/AOT 和 GDI fixture 通过，WGC fixture 在 initial frame 后以 `0xC0000005` 退出；同实现的后续 CI 在 initial frame 报 WinRT “Catastrophic failure”。因此不能称 resize 修复或恢复路径已验收，也不能把异常改记为后端不可用。已增加具体失败 API/HRESULT 及一次性 fixture 的首个访问异常模块/栈诊断，保持异常继续传递和原测试失败条件。新的 Windows CI 将真实捕获 fixture 放到原生编译之后、AOT 之前，后续 AOT/单文件检查保留，但捕获失败时不会声称其已执行。完整三平台交互仍未完成。
 
+`0cdbd8ad` 的 [Windows 实测日志](https://github.com/greepar/demo-mg/actions/runs/40377713748) 将 E_UNEXPECTED（-2147418113）定位到 `restart capture session for resize/resume`，并非 D3D11 格式或客户端颜色错误。重启已改为关闭旧 pool、用 CreateFreeThreaded 创建全新 pool，并重新订阅 FrameArrived，再创建/配置/启动会话；不在已关闭会话的旧 pool 上创建第二个会话。此修复在 `c579228a`，需对应 Windows 实测结果确认，不能沿用此前构建或 GDI 的通过。
+
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 
 API 依据：[Microsoft HWND capture interop](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow)、[free-threaded frame pool](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded)、[SDK 中的 C++/WinRT](https://learn.microsoft.com/en-us/windows/apps/develop/cpp-winrt/intro-to-using-cpp-with-winrt)。
