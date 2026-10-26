@@ -130,13 +130,16 @@ struct WindowsGraphicsCapture::State {
         if(size.Width<=0||size.Height<=0||uint64_t(size.Width)*uint32_t(size.Height)>16777216)throw std::runtime_error("Unsupported Graphics Capture dimensions");
         auto pool=factory<Direct3D11CaptureFramePool,IDirect3D11CaptureFramePoolStatics2>().CreateFreeThreaded(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);
         auto session=pool.CreateCaptureSession(item);
+        auto configure=[](const GraphicsCaptureSession& target) {
+            if(factory<ApiInformation,IApiInformationStatics>().IsPropertyPresent(L"Windows.Graphics.Capture.GraphicsCaptureSession",L"IsCursorCaptureEnabled"))target.IsCursorCaptureEnabled(false);
+        };
         struct Close {
             GraphicsCaptureSession& session;Direct3D11CaptureFramePool& pool;
             ~Close() {try {session.Close();}catch(...) {}try {pool.Close();}catch(...) {}}
         } close{session,pool};
         // No access request/picker is triggered. Keep the system capture border
         // where permission is required; omit captured cursor like the other ports.
-        if(factory<ApiInformation,IApiInformationStatics>().IsPropertyPresent(L"Windows.Graphics.Capture.GraphicsCaptureSession",L"IsCursorCaptureEnabled"))session.IsCursorCaptureEnabled(false);
+        configure(session);
         std::weak_ptr<Wake> weak=wake;
         auto arrived=pool.FrameArrived(auto_revoke,[weak](const auto&,const auto&) {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->arrived=true;state->changed.notify_one();}
@@ -164,8 +167,14 @@ struct WindowsGraphicsCapture::State {
             }
             if(inactive) {
                 // Drop buffered pre-suspension content even when the restored
-                // client has the same size. A fresh frame is required.
-                pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);inactive=false;continue;
+                // client has the same size. Recreate alone can discard the sole
+                // restore update of a static source. Restart the session too,
+                // requiring a new initial frame without repainting the source.
+                session.Close();
+                pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);
+                session=pool.CreateCaptureSession(item);configure(session);session.StartCapture();
+                {std::lock_guard lock(mutex);waiting="Waiting for a fresh frame from the restarted restored-source session";}
+                inactive=false;continue;
             }
             auto before=geometry(window);
             if(!haveGeometry||!(before==previous)) {
