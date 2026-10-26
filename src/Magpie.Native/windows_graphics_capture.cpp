@@ -1,5 +1,8 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
 #include "windows_graphics_capture.h"
 #include "capture_mailbox.h"
 #include "windows_capture_region.h"
@@ -8,6 +11,7 @@
 #include <dxgi.h>
 #include <dwmapi.h>
 #include <roapi.h>
+#include <combaseapi.h>
 #include <shellscalingapi.h>
 #include <windows.graphics.capture.interop.h>
 #include <windows.graphics.directx.direct3d11.interop.h>
@@ -37,8 +41,20 @@ template<class Class,class Interface> auto factory() {
     return value;
 }
 struct Apartment {
-    HRESULT result=RoInitialize(RO_INIT_MULTITHREADED);
-    Apartment() {if(FAILED(result)&&result!=RPC_E_CHANGED_MODE)check_hresult(result);}
+    struct Runtime {
+        CO_MTA_USAGE_COOKIE cookie{};
+        Runtime(){check_hresult(CoIncrementMTAUsage(&cookie));}
+        ~Runtime(){if(cookie)CoDecrementMTAUsage(cookie);}
+    };
+    HRESULT result{};
+    Apartment() {
+        // Native probes and capture workers can leave no explicit MTA thread
+        // between sessions. Keep COM's MTA resources alive across that gap:
+        // out-of-context WinRT work must not jump into unloaded server code.
+        static Runtime runtime;
+        result=RoInitialize(RO_INIT_MULTITHREADED);
+        if(FAILED(result)&&result!=RPC_E_CHANGED_MODE)check_hresult(result);
+    }
     ~Apartment() {if(SUCCEEDED(result))RoUninitialize();}
 };
 struct Geometry {
