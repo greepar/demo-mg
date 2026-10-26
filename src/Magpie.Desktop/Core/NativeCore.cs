@@ -38,6 +38,7 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_copy_pass_snapshot")] internal static extern unsafe int CopyPassSnapshot(EngineHandle engine,ulong serial,uint stage,uint pass,uint output,byte* pixels,ulong bytes);
     [DllImport(Library, EntryPoint = "mp_stage_snapshot")] internal static extern int StageSnapshotInfo(EngineHandle engine,uint index,out StageSnapshot output,uint size);
     [DllImport(Library, EntryPoint = "mp_copy_stage_snapshot")] internal static extern unsafe int CopyStageSnapshot(EngineHandle engine,ulong serial,uint index,byte* output,ulong bytes);
+    [DllImport(Library, EntryPoint = "mp_probe_stage_readback")] internal static extern unsafe int ProbeStageReadback(EngineHandle engine,ulong serial,uint index,byte* output,ulong bytes);
     [DllImport(Library, EntryPoint = "mp_set_gpu_profiling")] internal static extern int SetGpuProfiling(EngineHandle engine,int enabled);
     [DllImport(Library, EntryPoint = "mp_get_gpu_profile_v2")] internal static extern int GetGpuProfile(EngineHandle engine,out NativeGpuProfile profile);
     [DllImport(Library, EntryPoint = "mp_capture_create")] internal static extern CaptureHandle CaptureCreate();

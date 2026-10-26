@@ -7,6 +7,11 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if(args.Length==3&&args[0]=="--nnedi3-stress")
+        {
+            try {Core.RuntimeSettings.PersistenceEnabled=false;Core.Nnedi3Stress.Run(int.Parse(args[1],System.Globalization.CultureInfo.InvariantCulture),args[2]);return 0;}
+            catch(Exception error){Console.Error.WriteLine(error);return 1;}
+        }
         if(args.Length==2&&args[0]=="--dds-export-probe")
         {
             try { Core.DdsExportTests.WriteProbe(args[1]);return 0; }

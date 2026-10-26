@@ -24,23 +24,52 @@ internal static class Nnedi3Tests
             fixed(byte* pixels=source)return processor.Process(engine,(nint)pixels,7,5,fresh,graph,DuplicateFrameMode.Always,false,0,0,time,true);
         }
         Require(Run(true,0,plan),"NNEDI3 AOT Vulkan processing did not execute.");
+        byte[]? snapshotBeforeLegacy=null;
+        byte[]? gpuCopyBeforeLegacy=null;
+        string? diagnosticsBeforeLegacy=null;
+        // The observed failure contains whole zero RGBA pixels. Preserve the
+        // existing native buffer before the legacy call overwrites it, without
+        // another GPU submission, to distinguish copy/visibility from rerender.
+        bool invalidAlpha=false;for(int i=3;i<processor.Pixels.Length;i+=4)invalidAlpha|=processor.Pixels[i]!=255;
+        if(invalidAlpha)
+        {
+            try {
+                var snapshot=StageSnapshot.Read(engine).Single();snapshotBeforeLegacy=snapshot.Copy(engine);
+                byte[] copy=new byte[snapshotBeforeLegacy.Length];
+                fixed(byte* target=copy)
+                    if(NativeCore.ProbeStageReadback(engine,snapshot.Serial,0,target,(ulong)copy.Length)!=1)throw NativeCore.Error();
+                gpuCopyBeforeLegacy=copy;
+            }
+            catch(Exception failure){Console.Error.WriteLine("Could not preserve pre-legacy NNEDI3 native output: "+failure.Message);}
+            try {
+                diagnosticsBeforeLegacy=Path.Combine(Path.GetTempPath(),"magpie-nnedi3-mismatch-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(diagnosticsBeforeLegacy);
+                File.WriteAllBytes(Path.Combine(diagnosticsBeforeLegacy,"input-7x5.rgba"),source);
+                File.WriteAllBytes(Path.Combine(diagnosticsBeforeLegacy,"configured-14x10.rgba"),processor.Pixels);
+                if(snapshotBeforeLegacy is not null)File.WriteAllBytes(Path.Combine(diagnosticsBeforeLegacy,"native-before-legacy-14x10.rgba"),snapshotBeforeLegacy);
+                if(gpuCopyBeforeLegacy is not null)File.WriteAllBytes(Path.Combine(diagnosticsBeforeLegacy,"gpu-copy-before-legacy-14x10.rgba"),gpuCopyBeforeLegacy);
+                Console.Error.WriteLine("NNEDI3 pre-legacy diagnostics: "+diagnosticsBeforeLegacy);
+            }catch(Exception failure){Console.Error.WriteLine("Could not save pre-legacy NNEDI3 pixels: "+failure.Message);}
+        }
         byte[] expected=new byte[14*10*4];
         fixed(byte* pixels=source,target=expected)
             Require(NativeCore.ScaleExtended(engine,(nint)pixels,7,5,target,14,10,13,0,0)!=0,"Standalone NNEDI3 failed.");
-        if(!processor.Pixels.SequenceEqual(expected))
+        if(!processor.Pixels.SequenceEqual(expected)||invalidAlpha)
         {
             int first=-1,differences=0,maximumDelta=0;
             for(int i=0;i<expected.Length;i++)if(processor.Pixels[i]!=expected[i])
             {
                 if(first<0)first=i;differences++;maximumDelta=Math.Max(maximumDelta,Math.Abs(processor.Pixels[i]-expected[i]));
             }
-            string details=$"NNEDI3 configured and legacy APIs differ: {differences} channels, max delta {maximumDelta}, first byte {first} ({processor.Pixels[first]} vs {expected[first]}).";
+            string details=first>=0?$"NNEDI3 configured and legacy APIs differ: {differences} channels, max delta {maximumDelta}, first byte {first} ({processor.Pixels[first]} vs {expected[first]}).":
+                "NNEDI3 configured and legacy outputs agree but contain non-opaque alpha; the original shader always writes alpha 1.";
             try
             {
-                string diagnostics=Path.Combine(Path.GetTempPath(),"magpie-nnedi3-mismatch-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(diagnostics);
+                string diagnostics=diagnosticsBeforeLegacy??Path.Combine(Path.GetTempPath(),"magpie-nnedi3-mismatch-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(diagnostics);
                 File.WriteAllBytes(Path.Combine(diagnostics,"input-7x5.rgba"),source);
                 File.WriteAllBytes(Path.Combine(diagnostics,"configured-14x10.rgba"),processor.Pixels);
                 File.WriteAllBytes(Path.Combine(diagnostics,"legacy-14x10.rgba"),expected);
+                if(snapshotBeforeLegacy is not null)File.WriteAllBytes(Path.Combine(diagnostics,"native-before-legacy-14x10.rgba"),snapshotBeforeLegacy);
+                if(gpuCopyBeforeLegacy is not null)File.WriteAllBytes(Path.Combine(diagnostics,"gpu-copy-before-legacy-14x10.rgba"),gpuCopyBeforeLegacy);
                 File.WriteAllText(Path.Combine(diagnostics,"comparison.txt"),details+"\nDevice: "+System.Runtime.InteropServices.Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))+"\n");
                 Console.Error.WriteLine("NNEDI3 mismatch diagnostics: "+diagnostics);
             }

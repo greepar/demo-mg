@@ -600,6 +600,30 @@ extern "C" int mp_copy_stage_snapshot(void* engine,uint64_t serial,uint32_t inde
     }catch(const std::exception& error){magpie::error=error.what();return 0;}
 }
 
+extern "C" int mp_probe_stage_readback(void* engine,uint64_t serial,uint32_t index,uint8_t* rgba,uint64_t bytes) {
+    try {
+        if(!engine||!rgba)throw std::runtime_error("Invalid readback probe arguments");
+        auto& target=*static_cast<Engine*>(engine);std::lock_guard lock(target.mutex);
+        if(!serial||serial!=target.snapshotSerial||index>=target.snapshotCount)throw std::runtime_error("Readback probe requires the current completed frame");
+        const auto& frame=*target.frames[index];
+        if(bytes!=uint64_t(frame.outWidth)*frame.outHeight*4)throw std::runtime_error("Readback probe output size differs");
+        auto readback=target.buffer(bytes,VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        check(vkResetCommandBuffer(target.command,0),"probe reset command buffer");
+        VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};begin.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        check(vkBeginCommandBuffer(target.command,&begin),"probe begin command buffer");
+        VkMemoryBarrier source{VK_STRUCTURE_TYPE_MEMORY_BARRIER};source.srcAccessMask=VK_ACCESS_SHADER_WRITE_BIT;source.dstAccessMask=VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(target.command,VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,0,1,&source,0,nullptr,0,nullptr);
+        VkBufferCopy region{0,0,bytes};vkCmdCopyBuffer(target.command,frame.output->handle,readback->handle,1,&region);
+        VkMemoryBarrier host{VK_STRUCTURE_TYPE_MEMORY_BARRIER};host.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;host.dstAccessMask=VK_ACCESS_HOST_READ_BIT;
+        vkCmdPipelineBarrier(target.command,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_HOST_BIT,0,1,&host,0,nullptr,0,nullptr);
+        check(vkEndCommandBuffer(target.command),"probe end command buffer");check(vkResetFences(target.device,1,&target.fence),"probe reset fence");
+        VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO};submit.commandBufferCount=1;submit.pCommandBuffers=&target.command;
+        check(vkQueueSubmit(target.queue,1,&submit,target.fence),"probe submit copy");
+        check(vkWaitForFences(target.device,1,&target.fence,VK_TRUE,UINT64_MAX),"probe wait copy");
+        std::memcpy(rgba,readback->mapped,size_t(bytes));return 1;
+    }catch(const std::exception& error){magpie::error=error.what();return 0;}
+}
+
 extern "C" int mp_pass_snapshot(void* engine,uint32_t stage,uint32_t pass,uint32_t output,mp_pass_snapshot_info* info,uint32_t size) {
     try {
         if(!engine||!info||size!=sizeof(*info))throw std::runtime_error("Invalid pass snapshot arguments");

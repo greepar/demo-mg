@@ -136,6 +136,9 @@ typedef struct mp_stage_snapshot_info {
 } mp_stage_snapshot_info;
 int mp_stage_snapshot(void* engine,uint32_t index,mp_stage_snapshot_info* output,uint32_t size);
 int mp_copy_stage_snapshot(void* engine,uint64_t serial,uint32_t index,uint8_t* rgba,uint64_t bytes);
+// Numerical diagnostics only: submit a GPU buffer copy into separate host memory,
+// with no shader rerender or snapshot/profiler sequence change. Not used by UI exports.
+int mp_probe_stage_readback(void* engine,uint64_t serial,uint32_t index,uint8_t* rgba,uint64_t bytes);
 // Developer pass outputs: format codes 0=RGBA16F, 1=RGBA8, 2=R16F,
 // 3=RG16F, 4=R8, 5=RG8. texture=UINT32_MAX is final RGBA8 OUTPUT.
 // Internal textures are raw tightly packed texels, suitable for lossless DDS.
