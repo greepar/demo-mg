@@ -28,6 +28,8 @@
 
 已接 WGC 标题栏开关、原版源区域规则、配置保存/复制和 `captureTitleBar` / `reserveTitleBar` 迁移，见 [标题栏与源窗口边界](windows-title-bar.md)。首次 Windows SDK 编译通过，普通 GDI/WGC 实测继续通过；新增标题栏实测通过初始/连续 resize，在恢复短暂小边界失败，已改为保持 64×64 发布门槛并暂停等待。随后 `dff10cd8` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40382833769/job/121783304857) 已明确实际通过 WGC TITLE BAR、连续 resize、最小化恢复和重捕获，以及 SDK/AOT/单文件检查；两种 macOS 架构构建/模型也成功。Linux 三个原生模型、中英六项隔离 UI 和最终 AOT core 通过；首次 core 再现 NNEDI3 configured/legacy 112 通道差异，诊断已保存，独立重跑通过不算解决该算法问题。完整目标未完成。
 
+NNEDI3 后续调查见 [专项诊断](nnedi3-investigation.md)：已确认 28 个像素连同 alpha 全零；新增失败时的重渲染前 CPU / 独立 GPU 复制现场保存、opaque alpha 断言和无界面压力入口。1,000 次基线完整核心进程及 10,000 次专项切换通过，未重新触发，不能据此宣布修复。没有改变 shader/精度或增加运行时重试掩盖问题；完整交互与全显卡数值一致仍未达到。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。
