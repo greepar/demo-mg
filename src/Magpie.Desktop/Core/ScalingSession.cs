@@ -43,6 +43,7 @@ internal sealed partial class ScalingSession
     private TextBlock? _gpuDetails;
     private StackPanel? _gpuPanel;
     private GpuProfileSnapshot _gpuSample=GpuProfileSnapshot.Off;
+    private readonly GpuTimingAverages _gpuAverages=new();
     private bool _gpuPassView;
     private Image? _image;
     private TextBlock? _message;
@@ -140,13 +141,18 @@ internal sealed partial class ScalingSession
                     try
                     {
                     long now=Stopwatch.GetTimestamp();
+                    var previousGpu=processor.GpuProfile;
                     bool scaled=processor.Process(engine,lastSource,sourceWidth,sourceHeight,result==1,plan.Chain,plan.Detection,plan.DynamicStatistics,plan.Minimum,plan.Maximum,now,plan.Gpu,plan.Crop);
+                    // Disabling profiling may not require rendering a new
+                    // image. Still clear the UI accumulator before re-enabling.
+                    if(!scaled&&!ReferenceEquals(previousGpu,processor.GpuProfile))
+                        await Dispatcher.UIThread.InvokeAsync(()=>UpdateGpuProfile(processor.GpuProfile));
                     if(scaled)
                     {
                         pacer.MarkFrame(now);
                         long submitBegin=Stopwatch.GetTimestamp();
-                        var output=plan.Chain[^1];
-                        if(await Dispatcher.UIThread.InvokeAsync(()=> { if(processor.Performance.TotalScaled==1 && _statistics is not null)_statistics.Text="Measuring frame rates…";if(processor.Performance.TotalScaled==1)UpdateGpuProfile(processor.GpuProfile);bool presented=PresentCapturedFrame(processor.Pixels,output.Width,output.Height,frameSource,frameSequence);if(presented)SetDisplayedStages(engine,plan.Chain);return presented; }))processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
+                        if(await Dispatcher.UIThread.InvokeAsync(()=>PresentProcessedFrame(processor,engine,plan.Chain,frameSource,frameSequence)))
+                            processor.Performance.Submit(Stopwatch.GetElapsedTime(submitBegin).TotalMilliseconds);
                     }
                     // Duplicate pixels still belong to the newly delivered
                     // source. The cached output is identical, so commit its
@@ -257,12 +263,12 @@ internal sealed partial class ScalingSession
         var profiler=new CheckBox { Name="GpuProfilingToggle",Content=Localization.Get("Overlay_Profiler"),IsChecked=RuntimeSettings.Current.GpuProfilingEnabled,Foreground=Brushes.White };
         _gpuDetails=new TextBlock { Foreground=Brushes.White,TextWrapping=TextWrapping.Wrap,FontSize=12 };
         var switchView=new Button { Name="GpuTimingView",Content=Localization.Get("Overlay_Profiler_Timings_SwitchToPasses") };
-        switchView.Click+=(_,_)=> { _gpuPassView=!_gpuPassView;switchView.Content=Localization.Get(_gpuPassView?"Overlay_Profiler_Timings_SwitchToEffects":"Overlay_Profiler_Timings_SwitchToPasses");UpdateGpuProfile(_gpuSample); };
+        switchView.Click+=(_,_)=> { _gpuPassView=!_gpuPassView;switchView.Content=Localization.Get(_gpuPassView?"Overlay_Profiler_Timings_SwitchToEffects":"Overlay_Profiler_Timings_SwitchToPasses");RefreshGpuProfile(); };
         _gpuPanel=new StackPanel { Name="GpuTimingPanel",Spacing=4,IsVisible=profiler.IsChecked==true,Children={ switchView,new ScrollViewer { MaxHeight=120,Content=_gpuDetails } } };
         profiler.IsCheckedChanged+=(_,_)=>
         {
             bool previous=RuntimeSettings.Current.GpuProfilingEnabled;
-            try { RuntimeSettings.Current.GpuProfilingEnabled=profiler.IsChecked==true;RuntimeSettings.Current.Save();_gpuPanel.IsVisible=profiler.IsChecked==true;if(_gpuDetails is not null)_gpuDetails.Text="Waiting for GPU timing sample…"; }
+            try { RuntimeSettings.Current.GpuProfilingEnabled=profiler.IsChecked==true;RuntimeSettings.Current.Save();_gpuPanel.IsVisible=profiler.IsChecked==true;_gpuAverages.Reset();_gpuSample=GpuProfileSnapshot.Off;if(_gpuDetails is not null)_gpuDetails.Text="Waiting for GPU timing sample…"; }
             catch(Exception error) { RuntimeSettings.Current.GpuProfilingEnabled=previous;profiler.IsChecked=previous;if(_message is not null) { _message.Text=error.Message;_message.IsVisible=true; } }
         };
         var row = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { pin,modes, effect,graphParameters, screenshot, stop,profiler } };
@@ -316,11 +322,24 @@ internal sealed partial class ScalingSession
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner,true);
         UpdateSize();
     }
+    private bool PresentProcessedFrame(ScalingFrameProcessor processor,EngineHandle engine,NativeEffectStep[] plan,CaptureSource source,ulong sequence)
+    {
+        var output=plan[^1];
+        if(!PresentCapturedFrame(processor.Pixels,output.Width,output.Height,source,sequence))return false;
+        SetDisplayedStages(engine,plan);
+        if(processor.Performance.TotalScaled==1&&_statistics is not null)_statistics.Text="Measuring frame rates…";
+        UpdateGpuProfile(processor.GpuProfile);
+        return true;
+    }
     private void UpdateGpuProfile(GpuProfileSnapshot sample)
     {
-        _gpuSample=sample;
-        if(_gpuDetails is not null)_gpuDetails.Text=sample.Describe(_gpuPassView);
+        var averaged=_gpuAverages.Push(sample,Stopwatch.GetTimestamp());
+        if(!ReferenceEquals(_gpuSample,averaged)) { _gpuSample=averaged;RefreshGpuProfile(); }
         if(_gpuPanel is not null)_gpuPanel.IsVisible=RuntimeSettings.Current.GpuProfilingEnabled;
+    }
+    private void RefreshGpuProfile()
+    {
+        if(_gpuDetails is not null)_gpuDetails.Text=_gpuSample.Describe(_gpuPassView);
     }
     private void UpdateSize()
     {

@@ -45,19 +45,40 @@ internal sealed partial class ScalingSession
             _output!.Width=480;_output.Height=320;await Task.Delay(150);
             if(Math.Abs(_output.ClientSize.Width-480)>1 || Math.Abs(_output.ClientSize.Height-320)>1)throw new InvalidOperationException("The compact output fixture did not receive its requested client size: "+_output.ClientSize);
             var toggle=_output.GetVisualDescendants().OfType<CheckBox>().Single(c=>c.Name=="GpuProfilingToggle");
-            toggle.IsChecked=true;
+            toggle.IsChecked=true;SetToolbarState(ToolbarState.AlwaysShow);
             if(!RuntimeSettings.Current.GpuProfilingEnabled || _gpuPanel?.IsVisible!=true)throw new InvalidOperationException("Profiler UI toggle did not enable settings/panel.");
-            ReplayFrame(processor,engine,source,plan,false,Stopwatch.Frequency+1,gpu:true);UpdateGpuProfile(processor.GpuProfile);
+            ReplayFrame(processor,engine,source,plan,false,Stopwatch.Frequency+1,gpu:true);
+            if(!PresentProcessedFrame(processor,engine,plan,CaptureSource.Unknown,1))throw new InvalidOperationException("Profiled frame commit failed.");
             if(_gpuDetails is null || string.IsNullOrWhiteSpace(_gpuDetails.Text))throw new InvalidOperationException("GPU panel is empty.");
             var switchView=_output.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GpuTimingView");
             switchView.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             if(!_gpuPassView || (processor.GpuProfile.Valid && !_gpuDetails.Text.Contains("pass 1")))throw new InvalidOperationException("GPU pass view did not switch.");
+            int expectedGpuSamples=processor.GpuProfile.Valid?1:0;
+            if(processor.GpuProfile.Valid)
+            {
+                var firstDisplay=_gpuSample;string firstText=_gpuDetails.Text!;
+                for(int i=0;i<50;i++)UpdateGpuProfile(processor.GpuProfile);
+                if(!ReferenceEquals(firstDisplay,_gpuSample)||_gpuDetails.Text!=firstText)throw new InvalidOperationException("UI refresh counted the same native GPU sequence twice.");
+                // Real timestamp values, deterministic forced frame scheduling;
+                // wait past the original strict interval to exercise publishing.
+                await Task.Delay(550);
+                if(!ReplayFrame(processor,engine,source,plan,false,Stopwatch.Frequency*2,minimum:10,gpu:true))throw new InvalidOperationException("Second profiled frame was not executed.");
+                var secondSample=processor.GpuProfile;
+                if(!PresentProcessedFrame(processor,engine,plan,CaptureSource.Unknown,2))throw new InvalidOperationException("Second profiled frame commit failed.");
+                await Task.Delay(550);
+                if(!ReplayFrame(processor,engine,source,plan,false,Stopwatch.Frequency*3,minimum:10,gpu:true))throw new InvalidOperationException("Third profiled frame was not executed.");
+                if(!PresentProcessedFrame(processor,engine,plan,CaptureSource.Unknown,3))throw new InvalidOperationException("Third profiled frame commit failed.");
+                if(_gpuSample.Sequence!=secondSample.Sequence||!_gpuSample.Stages.SelectMany(s=>s.Passes).SequenceEqual(secondSample.Stages.SelectMany(s=>s.Passes).Select((value,index)=>value>1e-3?value:firstDisplay.Stages.SelectMany(s=>s.Passes).ElementAt(index))))throw new InvalidOperationException("Displayed average does not match the preceding real native sample.");
+                expectedGpuSamples=3;
+                Console.WriteLine("GPU AVERAGES UI PASS: real Vulkan sequences, repeated UI refresh deduplication, original delayed flush uses the preceding sample, pass view refresh does not feed averages; forced source schedule and waits are isolated fixtures.");
+            }
             await Task.Delay(100);
             var actions=_toolbarActions!;
             if(_toolbar!.Bounds.Height>_output.ClientSize.Height+1 || actions.Children.Any(action=>action.Bounds.Right>actions.Bounds.Width+1))throw new InvalidOperationException("Performance toolbar actions exceed the compact output window.");
-            if(!processor.Performance.TrySnapshot(Stopwatch.Frequency*2,out var gpuMetrics) || gpuMetrics.GpuSamples!=(processor.GpuProfile.Valid?1:0))throw new InvalidOperationException("Output GPU samples do not match real dispatches.");
+            if(!processor.Performance.TrySnapshot(Stopwatch.Frequency*4,out var gpuMetrics) || gpuMetrics.GpuSamples!=expectedGpuSamples)throw new InvalidOperationException("Output GPU samples do not match real dispatches.");
             if(_statistics is not null)_statistics.Text=FramePerformance.Describe(gpuMetrics,DuplicateFrameMode.Always,false,true);
-            await Task.Delay(50);
+            _gpuDetails.BringIntoView();await Task.Delay(80);
+            if(!_toolbar.IsVisible||_toolbar.Opacity!=1||!_gpuDetails.IsEffectivelyVisible)throw new InvalidOperationException("Profiler review must show actual timing content.");
             var arguments=Environment.GetCommandLineArgs();int captureIndex=Array.IndexOf(arguments,"--capture");
             if(captureIndex>=0 && captureIndex+1<arguments.Length)
             {
@@ -66,6 +87,8 @@ internal sealed partial class ScalingSession
             }
             toggle.IsChecked=false;if(RuntimeSettings.Current.GpuProfilingEnabled || _gpuPanel!.IsVisible)throw new InvalidOperationException("Profiler UI did not disable.");
             Stop();Stop();
+            var stoppedSample=_gpuSample;
+            if(PresentProcessedFrame(processor,engine,plan,CaptureSource.Unknown,4)||!ReferenceEquals(stoppedSample,_gpuSample))throw new InvalidOperationException("Rejected stopped frame updated profiler statistics.");
             Console.WriteLine("PROCESS OUTPUT PASS: actual Vulkan replay, duplicate skipped, queued screenshot without render, lossless PNG, idle resize/minimum-rate refresh/counters, GPU toggle, real timestamp/pass display and compact scrolling.");
         }
         finally

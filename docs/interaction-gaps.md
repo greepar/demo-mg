@@ -8,6 +8,8 @@
 
 本机 AMD 并行回归捕获过一次 NNEDI3 configured/legacy 像素不一致；随后 3 次隔离 core 和 50 次与原生 Vulkan 用例重叠的 core 重复均通过，尚未定位首次失败原因。失败日志保留，新增不改变断言的 RGBA/逐通道差异诊断；没有放宽算法比较或将重复通过当作问题已解决。
 
+`2d575adf` 的逐 pass 导出提交已通过 [四个原生 CI job](https://github.com/greepar/demo-mg/actions/runs/39950969742)：Windows x64、macOS arm64/x64、Linux x64。该证据补充开发者导出阶段提交时的待编译状态；目标机真实选源、输入、GPU 读回和菜单指针验收仍未因此通过。后续托管 profiler 变更需对应提交重新构建验证。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。
@@ -57,7 +59,7 @@
 | --- | --- |
 | 工具栏初始状态 | 已接通主页、默认/应用配置中的全屏/窗口独立 Off / Always Show / Auto Hide，下拉编辑/复制/保存/回显/失败回退已接，默认为 Auto Hide。输出开始时取对应初始状态；运行中快捷键按原版 Off → Always Show → Auto Hide 循环，不覆盖下一次会话的初始偏好。Linux AOT 持久化与六种模式/状态组合通过；Windows/macOS 真实键盘/显示仍待验收。 |
 | 工具栏自动显隐 | 已按原版 `_CalcToolbarAlpha` 的 10 DIP 内全显、随后 40 DIP 距离淡出接通指针移入/移出；控件拖拽、键盘焦点及原生下拉打开时保持显示。完全透明时禁用命中，macOS 输入桥同步排除条件；关窗停止计时器。已补固定按钮：常显/自动隐藏切换并与工具栏快捷键动作同步，不改下次会话的初始偏好；关闭按钮左键停止缩放，右键完成点击后只隐藏工具栏，保留帧循环并可由快捷键动作恢复。使用原版多语言固定/关闭/右键说明，关闭提示包含相应全屏/窗口快捷键。鼠标按钮焦点不再使自动隐藏永久保持显示，键盘焦点及文本编辑仍保留交互保护。Linux NativeAOT 隔离窗口/全屏验证真实控件辅助功能 Toggle/Invoke、合成指针按下/松开路由、帧循环继续、初始偏好不变和停止只清理一次；指针坐标为注入数据，事件按 Avalonia 12 最外层呈现根换算标题栏偏移。已补工具栏空白/只读区域的原生窗口移动请求，直接传递原始指针事件给 Avalonia `Window.BeginMoveDrag`，不写绝对 Position；全屏/最小化、已处理事件、非左键、工具栏外、隐藏/透明区域，以及按钮/下拉/文本/数字/滑块/滚动条等控件及模板子项不会启动移动。原生请求返回或失败后清除本地控件拖拽标记，避免 Wayland 抓取指针后收不到 mouse-up 而持续保持显隐保护；失败有提示并允许重试。Linux AOT 的合成路由/原始事件身份及排除矩阵通过，原生移动调用是替身，尚无系统实拖证据。移动/resize 全生命周期与透明度冻结、精确 overlay 布局和三平台真实指针/键盘/原生下拉交互仍未完成。原版此处按距离淡出，不是固定秒数延迟。 |
-| 原版完整 overlay / profiler | 已接普通模式截图按钮右键导出各效果真实输出（含实际尺寸、源身份、文件命名及失败重试）；详见 [中间结果导出](intermediate-export.md)。开发者逐 pass/多纹理菜单及原始 DDS/最终 PNG 读回已接，Linux GPU 与中英隔离 UI 通过；当前提交的 Windows/macOS 和真实交互仍待验证。有模式/参数、截图、停止、FPS 和 GPU pass 计时；原版浮层布局、状态、交互及计时图表尚未完整复刻。 |
+| 原版完整 overlay / profiler | 已接普通模式截图按钮右键导出各效果真实输出（含实际尺寸、源身份、文件命名及失败重试）；详见 [中间结果导出](intermediate-export.md)。开发者逐 pass/多纹理菜单及原始 DDS/最终 PNG 读回已接，Linux GPU 与中英隔离 UI 通过；当前提交的 Windows/macOS 和真实交互仍待验证。有模式/参数、截图、停止、FPS 和 GPU pass 计时；已接原版严格超过 500 ms 更新、跳过零耗时的 pass 平均统计、序号去重和原始 pass 描述，见 [profiler 统计](profiler-statistics.md)。原版浮层布局、状态、交互及计时图表尚未完整复刻。 |
 | 截图真实元数据 | 已新增 5400 字节版本化 C ABI 源快照并接入真实截图 `%WT%` / `%PN%`，取消固定 `Capture` / `Magpie` 占位。Windows 用已选 HWND 查询当前标题、PID 和实际可执行路径（校验 HWND/PID）；macOS 15.2+ 单窗口用系统选源的 SCWindow/owningApplication 和 NSRunningApplication 获取快照，重选时更新，较早系统保留未知字段。Linux 只使用 ScreenCast 返回的 source_type；通用 Portal 不提供标题/PID/可执行路径，因此不猜测 PipeWire 流名称或捕获进程身份，使用本地化“窗口/屏幕/捕获画面、未知应用”回退。Linux AOT ABI/PNG 与 Windows SDK 语法检查已过；已将元数据改为随捕获帧交付，并在 UI 提交位图时保存该帧快照；截图不再用可能已前进到新源的捕获器覆盖画面身份，重复像素也能更新源身份而不重复 GPU 执行，未知新源不会继承旧应用名称。当前标题只允许在同一窗口/PID 和有效几何帧状态下刷新：Windows GetWindowTextW，macOS 对选定 WindowID 查询 Core Graphics 元数据；查询前后复核状态，只覆盖当前这张截图的标题，不替换进程/路径/画面快照。元数据被系统省略时沿用已知快照，不推断权限也不请求授权；空标题与“无数据”分别处理。Linux 原生帧缓冲/输入身份模型、实际 Vulkan/PNG 以及排队提交前后快照验证已过；Windows/macOS 动态标题查询的代码已接入，真实重选/帧归属一致性及三平台真实截图元数据仍需目标机验收，Linux 完整身份能力仍缺。目录选择、打开目录、裁剪及错误提示在 macOS/Windows 的真实操作仍待验收。 |
 | 应用自动识别 / 自动缩放 | 配置 CRUD、复制、独立值、手动选择存在；只有路径匹配辅助函数，没有连接窗口身份监听/自动切换或启动缩放。AutoScale 控件隐藏且未接。 |
 | 新建配置的源选择 | 当前手填/选可执行文件；原版运行窗口枚举、应用图标/身份、打包应用，以及 macOS `.app` bundle 身份/启动语义尚未完整适配。 |
@@ -106,6 +108,12 @@ Linux 最终 AOT 核心与六项中英隔离 UI 通过，实际 Vulkan 与 PNG �
 开发者模式持久化、原版配置迁移、111 个 graph 的原始 pass 描述/输出纹理子菜单及内部 DDS/最终 PNG 导出已接。内部纹理按原始格式读回；被后续 pass 复用的纹理重新执行至所选 pass，不冒用最终纹理内容。沿用显示帧互斥门、执行序号、源身份/命名和错误恢复，内部重放有额外 GPU 工作但不制造显示帧/FPS/profiler 样本。
 
 Linux 最终 AOT 核心、23/23 原生测试、六种 DDS 独立解码及七项中英宽/窄私有 Wayland UI 通过。15 个 GPU pass 输出覆盖多输出、复用纹理重放、五种实际可写格式、NNEDI3 偶数行独立亮度期望、最终缓冲保留与正常渲染恢复。UI 实际 handler 导出七个文件并与 native 原始数据比较；输入、源身份和指针为注入。修复三级菜单底部越界，保留三层 native popup 的 ack/commit 坐标边界检查并查看合成图；取证菜单在关闭功能测试输出后重新生成。Khronos layer 加载的核心检查未报告 VUID/同步错误。报告 `artifacts/desktop/pass-export-test-summary.json`，细节见 [中间结果导出](intermediate-export.md)。新提交 Windows/macOS 编译/实际 GPU/菜单交互尚未验收；其他开发者空控件、完整 overlay/profiler 和整份目标仍未完成。
+
+## 2026-10-26 Profiler 平均计时阶段
+
+对齐原版严格超过 500 ms 才发布、当前帧计入下一区间、跳过零/极短耗时并保留旧有效值的统计。每次成功画面提交喂入对应 GPU 样本，汇总/视图切换按执行序号去重；改变效果/pass 映射、关闭、不可用或执行序号回退会清空旧统计。拒绝的已停止帧不更新面板；效果总计不混入尾段 barrier/query 时间，逐 pass 文本增加原始描述。
+
+最终 Linux AOT 核心、模型和七项中英隔离 Wayland UI 通过，共用生产提交路径验证真实 Vulkan 三帧采样、50 次重复刷新、延迟均值、开关和停止；已查看实际可见计时文本截图。录制器等待 popup 原生渲染帧，外部 ack/commit 证据门保持严格。报告 `artifacts/desktop/profiler-averages-test-summary.json`，详见 [统计说明](profiler-statistics.md)。本轮原生源码未改，无新增原生 CTest 声明；Windows/macOS 当前提交待 CI 与实际交互。浮动 profiler 布局、时间条/悬停、拖动及所有真实平台缺口继续保留，整体目标未完成。
 
 ## 后续建议顺序
 

@@ -886,6 +886,22 @@ internal static class UiPreview
         return popups;
     }
 
+    internal static async Task WaitForPopupFramesAsync(IEnumerable<Control> contents)
+    {
+        foreach(var root in contents.Select(TopLevel.GetTopLevel).OfType<PopupRoot>().Distinct())
+        {
+            // Allow the native host to process configure/ack and submit its
+            // initial buffer, rather than capturing immediately after creation.
+            // The external protocol verifier still requires actual ack/commit.
+            for(int frame=0;frame<3;frame++)
+            {
+                var completed=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                root.RequestAnimationFrame(_=>completed.TrySetResult());root.InvalidateVisual();
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            }
+        }
+    }
+
     public static void Save(Control visual, MainWindow window, IEnumerable<Control> popupContents, string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);

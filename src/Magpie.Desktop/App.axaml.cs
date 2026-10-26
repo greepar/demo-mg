@@ -65,7 +65,10 @@ public partial class App : Application
                         using var bitmap = new RenderTargetBitmap(size);
                         bitmap.Render(captureVisual);
                         if (captureIndex >= 0 && captureIndex + 1 < arguments.Length)
+                        {
+                            await UiPreview.WaitForPopupFramesAsync(popupContents);
                             UiPreview.Save(captureVisual, window, popupContents, arguments[captureIndex + 1]);
+                        }
                         Console.WriteLine($"SMOKE PASS: window opened and rendered ({size.Width}x{size.Height}).");
                         desktop.Shutdown(0);
                     }

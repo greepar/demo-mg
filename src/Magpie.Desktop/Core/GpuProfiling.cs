@@ -49,12 +49,16 @@ internal sealed record GpuProfileSnapshot(bool Supported,bool Enabled,uint Statu
         if(Error is not null)return Error;
         if(Status==2 || !Supported)return "Vulkan timestamp queries are unavailable on this queue.";
         if(!Valid)return Error ?? "No valid GPU timing sample yet.";
-        var text=new StringBuilder($"{Localization.Get("Overlay_Profiler_Timings_Total")}: {TotalMilliseconds:F3} ms · frame {Sequence}\n");
+        var text=new StringBuilder($"{Localization.Get("Overlay_Profiler_Timings_Total")}: {Stages.Sum(s=>s.Milliseconds):F3} ms\n");
         for(int i=0;i<Stages.Length;i++)
         {
             var stage=Stages[i];string name=EffectStageSettings.Name(stage.Effect);
             if(!passes)text.AppendLine($"{i+1}. {name}: {stage.Milliseconds:F3} ms");
-            else for(int p=0;p<stage.Passes.Length;p++)text.AppendLine($"{i+1}. {name} / pass {p+1}: {stage.Passes[p]:F3} ms");
+            else for(int p=0;p<stage.Passes.Length;p++)
+            {
+                string description=PassExportCatalog.All.TryGetValue(stage.Effect,out var descriptions)&&p<descriptions.Length?" · "+descriptions[p].Name:"";
+                text.AppendLine($"{i+1}. {name} / pass {p+1}{description}: {stage.Passes[p]:F3} ms");
+            }
         }
         text.Append($"Final barrier/query tail: {Math.Max(0,TotalMilliseconds-Stages.Sum(s=>s.Milliseconds)):F3} ms\nApproximate GPU intervals include transfers, barriers and query overhead.");
         return text.ToString();
