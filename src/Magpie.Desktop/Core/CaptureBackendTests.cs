@@ -5,9 +5,9 @@ internal static class CaptureBackendTests
 {
     internal static void Verify()
     {
-        var expected=OperatingSystem.IsWindows()?CaptureBackend.Gdi:OperatingSystem.IsMacOS()?CaptureBackend.ScreenCaptureKit:CaptureBackend.Portal;
-        if(CaptureBackendPolicy.Available!=expected)throw new InvalidOperationException("Capture backend ABI does not match the platform implementation.");
         uint mask=CaptureBackendPolicy.AvailableMask;
+        var expected=OperatingSystem.IsWindows()?((mask&(1u<<(int)CaptureBackend.GraphicsCapture))!=0?CaptureBackend.GraphicsCapture:CaptureBackend.Gdi):OperatingSystem.IsMacOS()?CaptureBackend.ScreenCaptureKit:CaptureBackend.Portal;
+        if(CaptureBackendPolicy.Available!=expected)throw new InvalidOperationException("Capture backend ABI does not match the platform implementation.");
         if((mask&(1u<<(int)expected))==0)throw new InvalidOperationException("Default backend is absent from runtime capabilities.");
         foreach(var requested in Enum.GetValues<CaptureBackend>())
         {
@@ -25,7 +25,7 @@ internal static class CaptureBackendTests
                 if(!supported||actual!=(requested==CaptureBackend.Native?CaptureBackend.Gdi:requested))throw new InvalidOperationException("Multiple-backend selection lost the explicit choice.");
             }catch(NotSupportedException){if(supported)throw;}
         }
-        foreach(var available in new[]{CaptureBackend.Portal,CaptureBackend.ScreenCaptureKit,CaptureBackend.Gdi})
+        foreach(var available in new[]{CaptureBackend.Portal,CaptureBackend.ScreenCaptureKit,CaptureBackend.Gdi,CaptureBackend.GraphicsCapture})
         foreach(var requested in Enum.GetValues<CaptureBackend>())
         {
             bool supported=requested==CaptureBackend.Native||requested==available;

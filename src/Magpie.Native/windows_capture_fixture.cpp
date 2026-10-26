@@ -100,7 +100,8 @@ int main(int argc,char** argv) {
         if(argc==3&&std::string(argv[1])=="--source")return child(DWORD(std::stoul(argv[2])));
         bool wgc=argc==2&&std::string(argv[1])=="--wgc";
         require(argc==1||wgc,"Unknown capture fixture arguments");
-        require(mp_capture_backend()==3,"Fixture is not linked to the actual Windows GDI backend");
+        const auto mask=mp_capture_backend_mask();
+        require(mp_capture_backend()==((mask&(1u<<4))?4u:3u),"Default Windows capture backend does not prefer available WGC");
         uint32_t backend=wgc?4u:3u;
         std::cerr<<"CAPTURE FIXTURE: capability probe "<<backend<<std::endl;
         if(!(mp_capture_backend_mask()&(1u<<backend))) {std::cout<<"WINDOWS WGC UNAVAILABLE: runtime capability probe rejected this hosted desktop; no WGC capture evidence.\n";return 77;}
@@ -157,6 +158,15 @@ int main(int argc,char** argv) {
         auto resized=frame("resized frame");require(resized>first,"Source resize did not advance delivered sequence");
         require(mp_capture_snapshot_title(capture.get(),window,info.process_id,first,&info,sizeof(info))==0,"Old sequence became valid again after resize");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==1,"Rejecting an old sequence invalidated the current matching source");
+        for(const SIZE dimensions: {SIZE{260,210},SIZE{540,370},SIZE{300,240},SIZE{420,310}}) {
+            const auto beforeResize=resized;
+            require(MoveWindow(process.window,100,100,dimensions.cx,dimensions.cy,TRUE)!=0,"Cannot continuously resize source");
+            require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,beforeResize,&info,sizeof(info))==0,"Previous geometry remained valid during continuous resize");
+            resized=frame("continuous grow/shrink/return frame");
+            require(resized>beforeResize,"Continuous resize did not advance the delivered sequence");
+            require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,beforeResize,&info,sizeof(info))==0,"Old sequence revived during return to an earlier source size");
+            require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==1,"Fresh continuous-resize geometry was rejected");
+        }
         ShowWindow(process.window,SW_MINIMIZE);Sleep(100);
         const uint8_t* pixels=nullptr;uint32_t width=0,height=0;
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Minimized source was captured as a valid frame");
@@ -185,6 +195,6 @@ int main(int argc,char** argv) {
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Closed source was captured as a valid frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,fresh,&info,sizeof(info))==0,"Closed source retained input/title identity");
         mp_capture_cancel(capture.get());
-        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, waiting-buffer preservation, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
+        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, continuous grow/shrink/return, waiting-buffer preservation, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

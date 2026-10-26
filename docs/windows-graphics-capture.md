@@ -2,7 +2,7 @@
 
 使用 Windows SDK 内置的 C++/WinRT 头文件，直接编入静态核心，不增加自有 runtime DLL 或单独的 .NET WinRT 运行时。D3D11、DXGI、DWM 和 Windows Runtime 为 Windows 系统依赖；NativeAOT 链接对应系统 import library。
 
-`mp_capture_backend_mask` 返回系统可用后端，`mp_capture_create_backend` 对显式选择严格创建，`mp_capture_instance_backend` 给 profiler 返回会话实际后端。能力探测只查询 WinRT 支持情况，不创建窗口、设备或系统选择器。Windows 仍默认 GDI，WGC 单独选择；不静默回退。
+`mp_capture_backend_mask` 返回系统可用后端，`mp_capture_create_backend` 对显式选择严格创建，`mp_capture_instance_backend` 给 profiler 返回会话实际后端。能力探测只查询 WinRT 支持情况，不创建窗口、设备或系统选择器。Windows 的 Native 默认优先 WGC，系统能力探测不支持时选择 GDI；显式保存的 GDI 继续使用 GDI，显式 WGC 启动失败也不回退。
 
 WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条 native MTA 线程持有，避免托管 async 续体换线程导致 COM 生命周期错误。FrameArrived/Closed 回调仅通过 weak signal state 通知，不持有 capture 指针。停止 join 生产者后才销毁源寿命监听器。启动、设备和运行错误传回 C ABI。
 
@@ -21,6 +21,12 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 `5d237039` 的 Windows SDK/AOT 和 GDI fixture 通过，WGC fixture 在 initial frame 后以 `0xC0000005` 退出；同实现的后续 CI 在 initial frame 报 WinRT “Catastrophic failure”。因此不能称 resize 修复或恢复路径已验收，也不能把异常改记为后端不可用。已增加具体失败 API/HRESULT 及一次性 fixture 的首个访问异常模块/栈诊断，保持异常继续传递和原测试失败条件。新的 Windows CI 将真实捕获 fixture 放到原生编译之后、AOT 之前，后续 AOT/单文件检查保留，但捕获失败时不会声称其已执行。完整三平台交互仍未完成。
 
 `0cdbd8ad` 的 [Windows 实测日志](https://github.com/greepar/demo-mg/actions/runs/40377713748) 将 E_UNEXPECTED（-2147418113）定位到 `restart capture session for resize/resume`，并非 D3D11 格式或客户端颜色错误。重启已改为关闭旧 pool、用 CreateFreeThreaded 创建全新 pool，并重新订阅 FrameArrived，再创建/配置/启动会话；不在已关闭会话的旧 pool 上创建第二个会话。此修复在 `c579228a`，需对应 Windows 实测结果确认，不能沿用此前构建或 GDI 的通过。
+
+## 已确认的目标机结果
+
+`c579228a` 的 [Windows job 121768099359](https://github.com/greepar/demo-mg/actions/runs/40378523241/job/121768099359) 已通过实际 GDI 和 **WGC** fixture，日志明确有 `WINDOWS WGC FIXTURE PASS`，不是 unavailable 跳过。独立源进程的真实颜色/客户区尺寸、标题、一次 resize 与旧序号拒绝、Waiting 缓冲保留、最小化恢复、销毁通知永久拒绝、独立重捕获、真实退出和清理通过；随后 SDK/AOT、三项原生模型、托管模型、单文件/静态依赖检查也通过。macOS arm64/x64 job 成功；Linux 软件 GPU 任务当时仍在运行。该证据更新本页前述历史阶段的未通过状态。
+
+后续改动将 Native 默认切换到系统可用的 WGC，并增加连续变大/变小/改回旧尺寸/再放大的真实 fixture，包装器要求新增覆盖标记；此新矩阵仍需新提交 CI。上述成功不能扩展为 Vulkan 捕获渲染、真实游戏、多屏 DPI、Windows 输入、标题栏开关或整个交互清单通过。
 
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 

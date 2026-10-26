@@ -21,7 +21,7 @@ try:
     result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
     output=result.stdout+result.stderr
     (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
-    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation')
+    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return')
     report.update(exit_code=result.returncode,passed=result.returncode==0 and all(marker in result.stdout for marker in required))
     print(output,flush=True)
 except subprocess.TimeoutExpired as failure:
@@ -36,7 +36,7 @@ if not report['passed']:raise SystemExit('Windows capture fixture did not produc
 wgc=dict(report,passed=False,capture_tested='independent synthetic Win32 source process via actual Windows Graphics Capture',gpu_tested=False,
          wgc_readback_tested=False,status='pending')
 try:
-    result=subprocess.run([str(binary),'--wgc'],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=60)
+    result=subprocess.run([str(binary),'--wgc'],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=90)
     output=result.stdout+result.stderr
     (folder/'windows-wgc-fixture.log').write_text(output,encoding='utf-8')
     unavailable=result.returncode==77 and 'WINDOWS WGC UNAVAILABLE:' in result.stdout

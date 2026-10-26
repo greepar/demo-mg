@@ -14,7 +14,7 @@ internal static class CaptureBackendPolicy
         get
         {
             var backend=(CaptureBackend)NativeCore.CaptureBackend();
-            if(backend is not (CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit or CaptureBackend.Gdi))throw new InvalidDataException("The native capture backend is unknown.");
+            if(backend is not (CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit or CaptureBackend.Gdi or CaptureBackend.GraphicsCapture))throw new InvalidDataException("The native capture backend is unknown.");
             return backend;
         }
     }
@@ -28,7 +28,7 @@ internal static class CaptureBackendPolicy
         =>Resolve(requested,available,1u<<(int)available);
     internal static CaptureBackend Resolve(CaptureBackend requested,CaptureBackend available,uint mask)
     {
-        if(available is not (CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit or CaptureBackend.Gdi))throw new InvalidDataException("Invalid native capture backend.");
+        if(available is not (CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit or CaptureBackend.Gdi or CaptureBackend.GraphicsCapture))throw new InvalidDataException("Invalid native capture backend.");
         if(!Enum.IsDefined(requested))throw new InvalidDataException("Invalid capture backend.");
         if(!Supported(requested,available,mask))throw new NotSupportedException(Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)
             ? $"当前版本无法使用 {Name(requested)} 捕获。请在配置中选择 {Name(available)}。"

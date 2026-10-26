@@ -167,16 +167,17 @@ extern "C" int mp_capture_snapshot_title(void* capture,uint64_t expectedWindow,u
     }catch(const std::exception& ex){magpie::error=ex.what();return 0;}
 }
 extern "C" void* mp_capture_create() {
-    try { return new Capture(); } catch(const std::exception& ex){magpie::error=ex.what();return nullptr;}
+    return mp_capture_create_backend(0);
 }
 extern "C" void mp_capture_destroy(void* c){delete static_cast<Capture*>(c);}
-extern "C" uint32_t mp_capture_backend(void){return 3;}
+extern "C" uint32_t mp_capture_backend(void){return magpie::WindowsGraphicsCapture::supported()?4u:3u;}
 extern "C" uint32_t mp_capture_backend_mask(void){return (1u<<3)|(magpie::WindowsGraphicsCapture::supported()?(1u<<4):0u);}
 extern "C" uint32_t mp_capture_instance_backend(void* capture){return capture?static_cast<Capture*>(capture)->backend:0;}
 extern "C" void* mp_capture_create_backend(uint32_t backend) {
     try {
-        if(backend==0)backend=mp_capture_backend();
-        if(backend>=32||!(mp_capture_backend_mask()&(1u<<backend)))throw std::runtime_error("The requested Windows capture backend is not supported by this desktop");
+        const auto mask=mp_capture_backend_mask();
+        if(backend==0)backend=(mask&(1u<<4))?4u:3u;
+        if(backend>=32||!(mask&(1u<<backend)))throw std::runtime_error("The requested Windows capture backend is not supported by this desktop");
         auto capture=std::make_unique<Capture>();capture->backend=backend;return capture.release();
     }catch(const std::exception& ex){magpie::error=ex.what();return nullptr;}
 }
