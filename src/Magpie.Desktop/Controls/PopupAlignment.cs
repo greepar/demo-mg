@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Primitives.PopupPositioning;
 using System.Runtime.CompilerServices;
+using Avalonia.VisualTree;
 namespace Magpie.Desktop.Controls;
 
 // WinUI flyouts are constrained to their XamlRoot by default. Compute the same
@@ -70,6 +71,22 @@ internal static class PopupAlignment
         });
     }
 
+    internal static void TrackToolTip(Control anchor)
+    {
+        ToolTip.SetPlacement(anchor,PlacementMode.Custom);
+        ToolTip.SetCustomPopupPlacementCallback(anchor,placement=>
+        {
+            if(TopLevel.GetTopLevel(anchor) is not Window owner||owner.Content is not Control content)return;
+            var root=content.GetVisualAncestors().LastOrDefault()??owner;
+            if(content.TranslatePoint(default,root) is not {} origin||anchor.TranslatePoint(default,root) is not {} target)return;
+            // Tooltip positioner coordinates belong to the native root, which
+            // includes client decorations in Avalonia 12. Use actual visual
+            // transforms, not assumed titlebar/shadow offsets.
+            placement.AnchorRectangle=new Rect(target,anchor.Bounds.Size);
+            Constrain(new Rect(origin,content.Bounds.Size),PlacementMode.Top,placement);
+        });
+    }
+
     public static void Track(Control anchor, PopupFlyoutBase flyout)
     {
         if (flyout.Placement == PlacementMode.Custom) return;
@@ -86,6 +103,9 @@ internal static class PopupAlignment
     }
 
     private static void Constrain(Window owner,PlacementMode originalPlacement,CustomPopupPlacement placement)
+        =>Constrain(new Rect(owner.Bounds.Size),originalPlacement,placement);
+
+    private static void Constrain(Rect viewport,PlacementMode originalPlacement,CustomPopupPlacement placement)
     {
             var rect = placement.AnchorRectangle;
             var size = placement.PopupSize;
@@ -99,8 +119,8 @@ internal static class PopupAlignment
                 PlacementMode.BottomEdgeAlignedRight => new Point(rect.Right - size.Width, rect.Bottom),
                 _ => new Point(rect.Center.X - size.Width / 2, rect.Bottom)
             };
-            var x = Math.Clamp(point.X + placement.Offset.X, 2, Math.Max(2, owner.Bounds.Width - size.Width - 2));
-            var y = Math.Clamp(point.Y + placement.Offset.Y, 2, Math.Max(2, owner.Bounds.Height - size.Height - 2));
+            var x = Math.Clamp(point.X + placement.Offset.X, viewport.Left+2, Math.Max(viewport.Left+2, viewport.Right - size.Width - 2));
+            var y = Math.Clamp(point.Y + placement.Offset.Y, viewport.Top+2, Math.Max(viewport.Top+2, viewport.Bottom - size.Height - 2));
             placement.AnchorRectangle = new Rect(new Point(x, y), new Size(1, 1));
             placement.Anchor = PopupAnchor.TopLeft;
             placement.Gravity = PopupGravity.BottomRight;

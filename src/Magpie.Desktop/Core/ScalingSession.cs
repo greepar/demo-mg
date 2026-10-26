@@ -42,9 +42,13 @@ internal sealed partial class ScalingSession
     private WrapPanel? _toolbarActions;
     private TextBlock? _gpuDetails;
     private StackPanel? _gpuPanel;
+    private Controls.GpuTimingView? _gpuTimingView;
+    private Button? _gpuSwitchView;
+    private CheckBox? _gpuProfilingToggle;
+    private bool _syncingGpuProfiling;
     private GpuProfileSnapshot _gpuSample=GpuProfileSnapshot.Off;
     private readonly GpuTimingAverages _gpuAverages=new();
-    private bool _gpuPassView;
+    private bool _gpuPassView,_gpuViewDeveloper;
     private Image? _image;
     private TextBlock? _message;
     private int _screenshotPending;
@@ -260,16 +264,23 @@ internal sealed partial class ScalingSession
         effect.SelectionChanged+=(_,_)=>graphParameters.IsVisible=_settings.SelectedModeId is null && GraphEffects.HasParameters(_settings.Effect);
         modes.SelectionChanged+=(_,_)=>graphParameters.IsVisible=_settings.SelectedModeId is null && GraphEffects.HasParameters(_settings.Effect);
         effect.MaxWidth=240;modes.MaxWidth=240;
-        var profiler=new CheckBox { Name="GpuProfilingToggle",Content=Localization.Get("Overlay_Profiler"),IsChecked=RuntimeSettings.Current.GpuProfilingEnabled,Foreground=Brushes.White };
+        var profiler=_gpuProfilingToggle=new CheckBox { Name="GpuProfilingToggle",Content=Localization.Get("Overlay_Profiler"),IsChecked=RuntimeSettings.Current.GpuProfilingEnabled,Foreground=Brushes.White };
         _gpuDetails=new TextBlock { Foreground=Brushes.White,TextWrapping=TextWrapping.Wrap,FontSize=12 };
-        var switchView=new Button { Name="GpuTimingView",Content=Localization.Get("Overlay_Profiler_Timings_SwitchToPasses") };
-        switchView.Click+=(_,_)=> { _gpuPassView=!_gpuPassView;switchView.Content=Localization.Get(_gpuPassView?"Overlay_Profiler_Timings_SwitchToEffects":"Overlay_Profiler_Timings_SwitchToPasses");RefreshGpuProfile(); };
-        _gpuPanel=new StackPanel { Name="GpuTimingPanel",Spacing=4,IsVisible=profiler.IsChecked==true,Children={ switchView,new ScrollViewer { MaxHeight=120,Content=_gpuDetails } } };
+        var switchView=new Button { Name="GpuTimingView",IsVisible=false,Content=Localization.Get("Overlay_Profiler_Timings_SwitchToPasses") };
+        _gpuSwitchView=switchView;_gpuTimingView=new Controls.GpuTimingView { IsVisible=false };
+        switchView.Click+=(_,_)=> { if(RuntimeSettings.Current.DeveloperMode&&_gpuSample.Stages.Any(s=>s.Passes.Length>1))_gpuPassView=!_gpuPassView;RefreshGpuProfile(); };
+        _gpuPanel=new StackPanel { Name="GpuTimingPanel",Spacing=4,IsVisible=profiler.IsChecked==true,Children={ switchView,new ScrollViewer { MaxHeight=200,Content=new StackPanel { Spacing=4,Children={ _gpuTimingView,_gpuDetails } } } } };
         profiler.IsCheckedChanged+=(_,_)=>
         {
+            if(_syncingGpuProfiling)return;
             bool previous=RuntimeSettings.Current.GpuProfilingEnabled;
-            try { RuntimeSettings.Current.GpuProfilingEnabled=profiler.IsChecked==true;RuntimeSettings.Current.Save();_gpuPanel.IsVisible=profiler.IsChecked==true;_gpuAverages.Reset();_gpuSample=GpuProfileSnapshot.Off;if(_gpuDetails is not null)_gpuDetails.Text="Waiting for GPU timing sample…"; }
-            catch(Exception error) { RuntimeSettings.Current.GpuProfilingEnabled=previous;profiler.IsChecked=previous;if(_message is not null) { _message.Text=error.Message;_message.IsVisible=true; } }
+            try { RuntimeSettings.Current.GpuProfilingEnabled=profiler.IsChecked==true;RuntimeSettings.Current.Save();_gpuPanel.IsVisible=profiler.IsChecked==true;_gpuAverages.Reset();_gpuSample=GpuProfileSnapshot.Off;RefreshGpuProfile(); }
+            catch(Exception error)
+            {
+                RuntimeSettings.Current.GpuProfilingEnabled=previous;
+                _syncingGpuProfiling=true;try { profiler.IsChecked=previous; }finally { _syncingGpuProfiling=false; }
+                if(_message is not null) { _message.Text=error.Message;_message.IsVisible=true; }
+            }
         };
         var row = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { pin,modes, effect,graphParameters, screenshot, stop,profiler } };
         _toolbarActions=row;
@@ -334,12 +345,22 @@ internal sealed partial class ScalingSession
     private void UpdateGpuProfile(GpuProfileSnapshot sample)
     {
         var averaged=_gpuAverages.Push(sample,Stopwatch.GetTimestamp());
-        if(!ReferenceEquals(_gpuSample,averaged)) { _gpuSample=averaged;RefreshGpuProfile(); }
-        if(_gpuPanel is not null)_gpuPanel.IsVisible=RuntimeSettings.Current.GpuProfilingEnabled;
+        if(!ReferenceEquals(_gpuSample,averaged)||_gpuViewDeveloper!=RuntimeSettings.Current.DeveloperMode) { _gpuSample=averaged;RefreshGpuProfile(); }
+        bool enabled=RuntimeSettings.Current.GpuProfilingEnabled;
+        if(_gpuPanel is not null)_gpuPanel.IsVisible=enabled;
+        if(_gpuProfilingToggle is {} toggle&&toggle.IsChecked!=enabled)
+        {
+            _syncingGpuProfiling=true;try { toggle.IsChecked=enabled; }finally { _syncingGpuProfiling=false; }
+        }
     }
     private void RefreshGpuProfile()
     {
-        if(_gpuDetails is not null)_gpuDetails.Text=_gpuSample.Describe(_gpuPassView);
+        bool developer=RuntimeSettings.Current.DeveloperMode;_gpuViewDeveloper=developer;
+        bool canShowPasses=developer&&_gpuSample.Stages.Any(s=>s.Passes.Length>1);
+        if(!canShowPasses)_gpuPassView=false;
+        if(_gpuSwitchView is {} button) { button.IsVisible=canShowPasses;button.Content=Localization.Get(_gpuPassView?"Overlay_Profiler_Timings_SwitchToEffects":"Overlay_Profiler_Timings_SwitchToPasses"); }
+        _gpuTimingView?.Update(_gpuSample,_gpuPassView,developer);
+        if(_gpuDetails is not null) { _gpuDetails.Text=_gpuSample.Describe(_gpuPassView);_gpuDetails.IsVisible=!_gpuSample.Valid; }
     }
     private void UpdateSize()
     {

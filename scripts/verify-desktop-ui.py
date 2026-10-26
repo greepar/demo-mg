@@ -12,6 +12,7 @@ from wayland_popup_capture import compose
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
+    "GpuTimelineOutput", "NarrowGpuTimelineOutput",
     "StageExportOutput", "NarrowStageExportOutput", "PassExportOutput", "NarrowPassExportOutput",
     "ScreenshotShortcutEdit", "NarrowScreenshotShortcutEdit", "ScreenshotShortcutOutput",
     "SourceTitleOutput",
@@ -89,14 +90,20 @@ def main():
         if case == 'ModeTypes' and result.stdout.count('POPUP:') != 2:
             raise SystemExit('ModeTypes: nested dropdown did not render both popup layers.')
         proof=None
+        output_proof=None
         if env.get('WAYLAND_DISPLAY'):
             try:proof=compose(target,result.stderr)
             except (ValueError,KeyError,FileNotFoundError) as failure:raise SystemExit(f'{case}: native popup proof failed: {failure}')
+            if case.endswith('GpuTimelineOutput'):
+                try:
+                    output_proof=compose(target.with_suffix('.output.png'),result.stderr)
+                    if not output_proof or not output_proof['passed'] or len(output_proof['popups'])!=1:raise ValueError('Expected one actual timeline tooltip')
+                except (ValueError,KeyError,FileNotFoundError) as failure:raise SystemExit(f'{case}: output tooltip proof failed: {failure}')
         with target.open('rb') as image:
             header = image.read(24)
         if header[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', header[16:24]) != ((750, 750) if case.startswith('Narrow') else (1418, 1050)):
             raise SystemExit(f'{case}: unexpected capture dimensions.')
-        results.append({'case': case, 'image': target.name, 'app_sha256': hashlib.sha256(app.read_bytes()).hexdigest(), 'log': result.stdout.strip(),'native_popup_proof':None if proof is None else {'passed':proof['passed'],'popups':len(proof['popups']),'report':target.name+'.wayland.json'}})
+        results.append({'case': case, 'image': target.name, 'app_sha256': hashlib.sha256(app.read_bytes()).hexdigest(), 'log': result.stdout.strip(),'output_native_popup_proof':None if output_proof is None else {'passed':output_proof['passed'],'popups':len(output_proof['popups']),'report':target.with_suffix('.output.png').name+'.wayland.json'},'native_popup_proof':None if proof is None else {'passed':proof['passed'],'popups':len(proof['popups']),'report':target.name+'.wayland.json'}})
         (output / 'results.json').write_text(json.dumps(results, indent=2), encoding='utf-8')
         print(f'PASS {case}', flush=True)
     (output / 'results.json').write_text(json.dumps(results, indent=2), encoding='utf-8')

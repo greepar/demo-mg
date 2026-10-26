@@ -48,7 +48,7 @@ internal sealed partial class ScalingSession
             if(ReferenceEquals(item,toolbar))return true;
             // Include control templates: a click on a button label or combo
             // chevron belongs to that control, not to the window caption.
-            if(item is Button or SelectingItemsControl or TextBox or NumericUpDown or RangeBase or Thumb or Spinner)return false;
+            if(item is Controls.GpuTimingView or Button or SelectingItemsControl or TextBox or NumericUpDown or RangeBase or Thumb or Spinner)return false;
         }
         return false;
     }

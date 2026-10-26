@@ -49,6 +49,7 @@ internal static class UiPreview
         }
         switch (scenario)
         {
+            case "GpuTimelineOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyGpuTimelineAsync(window,narrow);break;
             case "StageExportOutput":case "PassExportOutput":popups.AddRange(await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyStageExportAsync(window,scenario=="PassExportOutput"));break;
             case "ScreenshotShortcutEdit":await window.VerifyScreenshotShortcutEditingAsync();break;
             case "ScreenshotShortcutOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyScreenshotShortcutAsync(window);break;
@@ -902,7 +903,7 @@ internal static class UiPreview
         }
     }
 
-    public static void Save(Control visual, MainWindow window, IEnumerable<Control> popupContents, string path)
+    public static void Save(Control visual, Window window, IEnumerable<Control> popupContents, string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         var roots=popupContents.Select(TopLevel.GetTopLevel).OfType<PopupRoot>().Distinct().ToArray();

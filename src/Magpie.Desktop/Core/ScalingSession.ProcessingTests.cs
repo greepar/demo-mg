@@ -52,7 +52,7 @@ internal sealed partial class ScalingSession
             if(_gpuDetails is null || string.IsNullOrWhiteSpace(_gpuDetails.Text))throw new InvalidOperationException("GPU panel is empty.");
             var switchView=_output.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GpuTimingView");
             switchView.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            if(!_gpuPassView || (processor.GpuProfile.Valid && !_gpuDetails.Text.Contains("pass 1")))throw new InvalidOperationException("GPU pass view did not switch.");
+            if(_gpuPassView||switchView.IsVisible)throw new InvalidOperationException("Single-pass/non-developer sample exposed the developer pass switch.");
             int expectedGpuSamples=processor.GpuProfile.Valid?1:0;
             if(processor.GpuProfile.Valid)
             {
@@ -77,8 +77,8 @@ internal sealed partial class ScalingSession
             if(_toolbar!.Bounds.Height>_output.ClientSize.Height+1 || actions.Children.Any(action=>action.Bounds.Right>actions.Bounds.Width+1))throw new InvalidOperationException("Performance toolbar actions exceed the compact output window.");
             if(!processor.Performance.TrySnapshot(Stopwatch.Frequency*4,out var gpuMetrics) || gpuMetrics.GpuSamples!=expectedGpuSamples)throw new InvalidOperationException("Output GPU samples do not match real dispatches.");
             if(_statistics is not null)_statistics.Text=FramePerformance.Describe(gpuMetrics,DuplicateFrameMode.Always,false,true);
-            _gpuDetails.BringIntoView();await Task.Delay(80);
-            if(!_toolbar.IsVisible||_toolbar.Opacity!=1||!_gpuDetails.IsEffectivelyVisible)throw new InvalidOperationException("Profiler review must show actual timing content.");
+            (_gpuSample.Valid?(Control)_gpuTimingView!:_gpuDetails).BringIntoView();await Task.Delay(80);
+            if(!_toolbar.IsVisible||_toolbar.Opacity!=1||!(_gpuSample.Valid?_gpuTimingView!.IsEffectivelyVisible:_gpuDetails.IsEffectivelyVisible))throw new InvalidOperationException("Profiler review must show actual timing content.");
             var arguments=Environment.GetCommandLineArgs();int captureIndex=Array.IndexOf(arguments,"--capture");
             if(captureIndex>=0 && captureIndex+1<arguments.Length)
             {
