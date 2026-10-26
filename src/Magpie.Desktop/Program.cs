@@ -7,8 +7,9 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        if(args.Length==3&&args[0]=="--nnedi3-stress")
+        if(args.Length>0&&args[0]=="--nnedi3-stress")
         {
+            if(args.Length!=3){Console.Error.WriteLine("Usage: --nnedi3-stress <iterations:1..10000> <output-directory>");return 1;}
             try {Core.RuntimeSettings.PersistenceEnabled=false;Core.Nnedi3Stress.Run(int.Parse(args[1],System.Globalization.CultureInfo.InvariantCulture),args[2]);return 0;}
             catch(Exception error){Console.Error.WriteLine(error);return 1;}
         }
