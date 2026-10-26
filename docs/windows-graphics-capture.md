@@ -28,6 +28,8 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 
 后续改动将 Native 默认切换到系统可用的 WGC，并增加连续变大/变小/改回旧尺寸/再放大的真实 fixture，包装器要求新增覆盖标记；此新矩阵仍需新提交 CI。上述成功不能扩展为 Vulkan 捕获渲染、真实游戏、多屏 DPI、Windows 输入、标题栏开关或整个交互清单通过。
 
+`3c165562` 的 [Windows job 121772304673](https://github.com/greepar/demo-mg/actions/runs/40379701894/job/121772304673) 已确认新增矩阵通过：GDI 与 WGC 均有包含 `continuous grow/shrink/return` 的实际 PASS，四次额外 resize 覆盖变小、变大、返回初始尺寸及再次放大，逐次核对真实颜色/尺寸、旧序号失效和 fresh frame 恢复；后续最小化/销毁/重捕获仍通过。默认选择能力查询、Native/显式会话身份、不可用后端拒绝和 AOT 持久化模型通过，随后 AOT/单文件/静态依赖检查成功。两个 macOS 架构 job 也成功；Linux 本机最终 AOT 核心、三个捕获原生模型和五项中英隔离 UI 通过，软件 Vulkan CI 当时仍在运行。这更新上一段的待验证状态，不扩大到上述未验收场景。
+
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 
 API 依据：[Microsoft HWND capture interop](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow)、[free-threaded frame pool](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded)、[SDK 中的 C++/WinRT](https://learn.microsoft.com/en-us/windows/apps/develop/cpp-winrt/intro-to-using-cpp-with-winrt)。

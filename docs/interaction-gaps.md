@@ -20,7 +20,7 @@
 
 这更新后文历史审计中的“WGC 未移植”为“实现已接入，目标验证待完成”。Linux AOT 核心及三个捕获模型测试已通过；`15ca1931` 的四平台 CI 已完成：Linux、macOS arm64/x64 成功，Windows SDK/AOT/单文件及 GDI fixture 成功；WGC fixture 收到首帧后报纹理格式/尺寸不匹配，尚未通过。后续诊断提交 `10ca4322` 的 GDI 继续通过，WGC 等帧超时被 fixture 误报为此前的最小化错误；已修复阶段化超时诊断，增加内容/边界/客户区信息，并在暂停恢复时同时重建会话，防止静态源唯一恢复帧被帧池清空丢失。`1915b8c0` / `ef4dffe3` 日志进一步确认 resized frame 的内容为 406×303、纹理仍为旧的 286×233，格式 87 正确；已将底层分配不足视为需丢弃/重建的 resize 过渡帧，同时重启会话。修复仍待 CI 验证，不能计作 WGC 已通过。托管 Windows 若能力探测不支持 WGC，fixture 记录 unavailable，**不计作 WGC 验收通过**。测试窗口仅允许一次性 GitHub-hosted runner，本机仅私有 headless Wayland。WGC 当前仍只输出客户区，标题栏开关保持禁用；DXGI/DWM、源窗口特殊样式兼容、GPU 零拷贝、多屏 DPI/HDR 和真实游戏兼容性仍缺。完整交互清单未完成。
 
-`c579228a` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40378523241/job/121768099359) 现已实际通过 GDI 和 WGC fixture（明确 WGC PASS，未跳过），以及后续 SDK/AOT、模型和单文件检查：独立绘制源的颜色/尺寸、标题、resize、最小化恢复、销毁通知和重捕获均通过。此结果更新上面的历史失败状态，不等于真实应用/GPU 渲染/输入或完整交互验收。随后默认选择改为优先系统可用 WGC，增加连续 grow/shrink/return 场景；这些新增变更需对应提交 CI。
+`c579228a` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40378523241/job/121768099359) 现已实际通过 GDI 和 WGC fixture（明确 WGC PASS，未跳过），以及后续 SDK/AOT、模型和单文件检查：独立绘制源的颜色/尺寸、标题、resize、最小化恢复、销毁通知和重捕获均通过。此结果更新上面的历史失败状态，不等于真实应用/GPU 渲染/输入或完整交互验收。随后 `3c165562` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40379701894/job/121772304673) 也已通过新增连续 grow/shrink/return 的 GDI/WGC 实测、默认后端选择模型及 AOT/单文件检查；macOS 两种架构构建成功。Linux 本机最终 AOT 核心、三个捕获模型和五项中英隔离 UI 通过，软件 Vulkan CI 当时仍在运行。
 
 实现与证据范围见 [Windows Graphics Capture](windows-graphics-capture.md)。
 
@@ -54,7 +54,7 @@
 
 | 项目 | 当前状态 / 剩余工作 |
 | --- | --- |
-| 捕获方式选择 | 已接运行时能力位掩码、显式创建及会话实际后端查询。Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI / 系统支持的 WGC。默认优先本机 WGC（仅 Native 且不支持 WGC 时选 GDI），显式 GDI/WGC 不互相回退。配置/迁移保存独立偏好，不可用项保留且禁用；启动前校验。Linux AOT 核心/隔离 UI 已过；原生 WGC fixture 通过，新增默认/连续 resize 矩阵需新 CI，DXGI/DWM 仍缺。 |
+| 捕获方式选择 | 已接运行时能力位掩码、显式创建及会话实际后端查询。Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI / 系统支持的 WGC。默认优先本机 WGC（仅 Native 且不支持 WGC 时选 GDI），显式 GDI/WGC 不互相回退。配置/迁移保存独立偏好，不可用项保留且禁用；启动前校验。Linux AOT 核心/隔离 UI 已过；`3c165562` 的默认选择模型、连续 resize GDI/WGC 实测及 Windows AOT/单文件检查已通过，DXGI/DWM 仍缺。 |
 | 捕获标题栏 | 当前实现仍禁用独立开关。原版允许 Graphics Capture / Desktop Duplication；移植的 WGC 暂时与 GDI 一样只输出客户区，Portal / ScreenCaptureKit 使用系统边界。原版标题栏开关、边框/阴影的裁剪和输入坐标一致性未完成。 |
 | 系统选源与权限生命周期 | macOS 已有选源/取消/停止代码，但选择窗口/整屏、拒绝/撤销、重新授权、快速取消/重启和更换源的完整矩阵未验收。用户已运行捕获，但不足以代表该矩阵通过。 |
 | 源窗口生命周期 | 最小化、隐藏、关闭、崩溃、最大化、全屏、尺寸/位置变化、重新出现和源弹窗需要三平台验收；macOS 换源已改成按新 filter 的尺寸重建流，用流身份/代次隔离旧样本与迟到启动/错误回调；非完整帧不发布，Stopped 报告源停止，取消重选保留现有流。相关状态/缓冲模型已做 Linux 验证，macOS 系统选源实测仍缺。已接同一源连续 resize：从每帧 contentRect / scaleFactor / contentScale 恢复自然像素尺寸，串行 updateConfiguration 并合并最新请求；按内容矩形裁剪有行填充的 BGRA，配置忽略单窗口阴影。旧配置的缩放/不完整帧等待匹配尺寸后才发布，Blank/Suspended 或空内容暂停输入，恢复需新的匹配帧。Retina/分数倍率、连续变大/变小/改回原尺寸、旧回调及裁剪→Vulkan 已有 Linux 模型/像素验证；macOS SDK/AOT 已通过，真实持续 resize、跨屏 DPI、阴影/标题栏命中仍需目标机验收。截图时的动态标题查询已接入 Windows/macOS：限定已提交画面的窗口/PID 与源/几何状态，查询前后复核身份；系统不给标题时保留已知快照，明确空标题采用本地化回退。真实窗口改名/权限变化仍需目标机验收。 |
@@ -65,7 +65,7 @@
 | 模拟独占全屏 | Toggle 只控制警告显示，没有原生行为；各平台需定义实际可用替代。 |
 | 禁用 DirectFlip / 置顶策略 | DirectFlip 是 Windows 专用语义，移植 Toggle 未适配；开发者“禁用置顶”等也未接后端，输出窗口未对齐原版层级策略。 |
 | 倒计时 | 已将待启动计时与捕获会话分离：按原版同模式再次点击取消、另一模式重置时长；25 ms UI tick 只负责刷新，剩余秒数/进度取单调时钟，接近到期时只启动一次。主页已接确定进度环和向上取整秒数、活动模式“取消”标签；即时缩放入口取消旧计时，Stop/真正关窗清理计时器。会话结束回调核对所属实例，避免旧回调清掉新状态。Linux AOT 时钟模型与隔离真实按钮处理器/自然到期测试通过，捕获使用替身，未打开系统选源；三平台真实快捷键、托盘计时、源应用聚焦/选源、正在缩放时主页按钮状态与原版完整对应仍待验收。 |
-| Windows 捕获兼容性 | `c579228a` 的 Windows SDK/AOT/单文件与实际 GDI、WGC fixture 均通过：独立绘制源的颜色/尺寸、标题、一次 resize、最小化恢复、销毁通知和独立重捕获。WGC 的旧纹理、会话重建及访问异常历史见本页阶段记录。新增连续 grow/shrink/return 和默认优先 WGC 尚需对应 CI。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口、真实游戏、多屏 DPI/HDR、输入与完整 Vulkan 捕获渲染验收仍缺。 |
+| Windows 捕获兼容性 | `c579228a` 的 Windows SDK/AOT/单文件与实际 GDI、WGC fixture 均通过：独立绘制源的颜色/尺寸、标题、一次 resize、最小化恢复、销毁通知和独立重捕获。WGC 的旧纹理、会话重建及访问异常历史见本页阶段记录。`3c165562` 的连续 grow/shrink/return 真实矩阵及默认后端模型也已通过。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口、真实游戏、多屏 DPI/HDR、输入与完整 Vulkan 捕获渲染验收仍缺。 |
 
 ## 工具栏、截图、模式与应用配置
 
