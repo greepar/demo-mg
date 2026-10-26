@@ -14,6 +14,8 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 
 窗口从暂停状态恢复时，同时重建 frame pool 和 capture session，要求新会话产生初始帧；只清空/重建帧池可能丢弃静态源唯一的恢复更新。不会靠主动修改/重画源窗口使测试通过。此恢复改动仍需对应 Windows CI 验证。fixture 的 initial/resize/restore/recapture 各阶段分别记录，Waiting 超时与 -1 捕获错误区分；不将线程上残留的上一错误当作本次超时原因，等待几何不匹配时附内容/边界/客户区信息。
 
+调用方在 frame 或标题快照校验中观察到最小化时，也会显式通知生产者暂停，不能假定异步读回线程一定能在短暂最小化期间轮询到状态。暂停立即清空待交付帧并推进几何修订；生产者消费通知后再次清空，防止正在读回的旧帧越过暂停点。发布前在同一状态锁下复核暂停标记，恢复仍要求重启会话后的新帧。此改动在 `dfe8056a`，严格 Windows 语法检查通过，实际系统竞态仍需目标回归。
+
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 
 API 依据：[Microsoft HWND capture interop](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow)、[free-threaded frame pool](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded)、[SDK 中的 C++/WinRT](https://learn.microsoft.com/en-us/windows/apps/develop/cpp-winrt/intro-to-using-cpp-with-winrt)。
