@@ -149,18 +149,26 @@ struct WindowsGraphicsCapture::State {
         // where permission is required; omit captured cursor like the other ports.
         configure(session);
         std::weak_ptr<Wake> weak=wake;
-        auto arrived=pool.FrameArrived(auto_revoke,[weak](const auto&,const auto&) {
+        auto onArrival=[weak](const Direct3D11CaptureFramePool&,const winrt::Windows::Foundation::IInspectable&) {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->arrived=true;state->changed.notify_one();}
-        });
+        };
+        auto arrived=pool.FrameArrived(auto_revoke,onArrival);
         auto closed=item.Closed(auto_revoke,[weak](const auto&,const auto&) {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->closed=true;state->changed.notify_one();}
         });
         operation="start capture session";session.StartCapture();
         auto restart=[&](winrt::Windows::Graphics::SizeInt32 replacement) {
+            arrived.revoke();
             operation="close capture session for resize/resume";
             session.Close();
-            operation="recreate frame pool for resize/resume";
-            pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,replacement);
+            operation="replace frame pool for resize/resume";
+            // Closing a capture session can leave its pool unable to create a
+            // second session (E_UNEXPECTED on supported Windows builds). A
+            // session restart must own a fresh pool and event subscription.
+            pool.Close();
+            pool=factory<Direct3D11CaptureFramePool,IDirect3D11CaptureFramePoolStatics2>().CreateFreeThreaded(
+                wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,replacement);
+            arrived=pool.FrameArrived(auto_revoke,onArrival);
             operation="restart capture session for resize/resume";
             session=pool.CreateCaptureSession(item);configure(session);session.StartCapture();size=replacement;
         };
