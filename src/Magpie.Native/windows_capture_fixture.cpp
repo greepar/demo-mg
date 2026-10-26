@@ -98,7 +98,8 @@ int main(int argc,char** argv) {
         native(bool(capture),"Create capture");native(mp_capture_start(capture.get())==1,"Start capture");
         std::cerr<<"CAPTURE FIXTURE: first frame"<<std::endl;
         const uint8_t* retained{};std::vector<uint8_t> retainedCopy;
-        auto frame=[&] {
+        auto frame=[&](const char* phase) {
+            std::cerr<<"CAPTURE FIXTURE: "<<phase<<std::endl;
             const uint8_t* pixels=nullptr;uint32_t width=0,height=0;
             int status=0;
             for(int i=0;i<500&&status==0;++i) {
@@ -108,7 +109,8 @@ int main(int argc,char** argv) {
                     Sleep(20);
                 }
             }
-            native(status==1,"Read capture frame");
+            if(status==0)throw std::runtime_error(std::string("Timed out waiting for ")+phase+": "+mp_last_error());
+            native(status==1,phase);
             require(width>40&&height>40&&pixels,"Fixture produced no actual capture frame");
             RECT actual{};require(GetClientRect(process.window,&actual)!=0&&width==uint32_t(actual.right-actual.left)&&height==uint32_t(actual.bottom-actual.top),"GDI dimensions do not match the live source client");
             const auto* sample=pixels+(size_t(height/2)*width+width/2)*4;
@@ -116,7 +118,7 @@ int main(int argc,char** argv) {
             retained=pixels;retainedCopy.assign(pixels,pixels+size_t(width)*height*4);
             return mp_capture_frame_sequence(capture.get());
         };
-        auto first=frame();mp_capture_source_info info{};
+        auto first=frame("initial frame");mp_capture_source_info info{};
         native(mp_capture_source(capture.get(),&info,sizeof(info))==1,"Read source metadata");
         const auto window=uint64_t(reinterpret_cast<uintptr_t>(process.window));
         require(info.window_id==window&&info.process_id==process.info.dwProcessId,"Captured window/PID differs from independent source");
@@ -125,7 +127,7 @@ int main(int argc,char** argv) {
         require(mp_capture_snapshot_title(capture.get(),window,info.process_id,first,&info,sizeof(info))==1&&std::string(info.title)=="Renamed Magpie fixture","Actual source rename was not reflected");
         require(MoveWindow(process.window,100,100,420,310,TRUE)!=0,"Cannot resize source");Sleep(100);
         require(mp_capture_snapshot_title(capture.get(),window,info.process_id,first,&info,sizeof(info))==0,"Old submitted geometry accepted after source resize");
-        auto resized=frame();require(resized>first,"Source resize did not advance delivered sequence");
+        auto resized=frame("resized frame");require(resized>first,"Source resize did not advance delivered sequence");
         require(mp_capture_snapshot_title(capture.get(),window,info.process_id,first,&info,sizeof(info))==0,"Old sequence became valid again after resize");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==1,"Rejecting an old sequence invalidated the current matching source");
         ShowWindow(process.window,SW_MINIMIZE);Sleep(100);
@@ -133,7 +135,7 @@ int main(int argc,char** argv) {
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Minimized source was captured as a valid frame");
         ShowWindow(process.window,SW_RESTORE);UpdateWindow(process.window);Sleep(100);
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==0,"Pre-minimize frame accepted before a restored source frame");
-        auto restored=frame();require(restored>resized,"Restored source did not publish a fresh frame");
+        auto restored=frame("restored frame");require(restored>resized,"Restored source did not publish a fresh frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==1,"Restored source metadata did not recover");
         DWORD liveProcess{};DWORD liveThread=GetWindowThreadProcessId(process.window,&liveProcess);
         require(liveThread&&liveProcess==process.info.dwProcessId,"Disposable source identity changed unexpectedly");
@@ -148,7 +150,7 @@ int main(int argc,char** argv) {
         auto oldCapture=std::move(capture);
         capture.reset(mp_capture_create_backend(backend));native(bool(capture),"Create fresh capture");SetForegroundWindow(process.window);
         native(mp_capture_start(capture.get())==1,"Start fresh capture");
-        auto fresh=frame();require(fresh!=0,"Fresh capture did not recover independently of the old lifetime");
+        auto fresh=frame("independent recapture frame");require(fresh!=0,"Fresh capture did not recover independently of the old lifetime");
         require(mp_capture_frame(oldCapture.get(),&pixels,&width,&height)==-1,"Old lifetime revived after another capture selected the same source tuple");
         oldCapture.reset();
         PostMessageW(process.window,WM_CLOSE,0,0);

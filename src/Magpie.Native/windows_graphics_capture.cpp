@@ -2,6 +2,7 @@
 #define NOMINMAX
 #include "windows_graphics_capture.h"
 #include "capture_mailbox.h"
+#include "error.h"
 #include <d3d11.h>
 #include <dxgi.h>
 #include <dwmapi.h>
@@ -93,6 +94,7 @@ struct WindowsGraphicsCapture::State {
     std::condition_variable started;
     CaptureMailbox mailbox;
     std::string failure;
+    std::string waiting="Waiting for the first Graphics Capture frame";
     bool ready{};
     uint64_t revision{};
     std::thread worker;
@@ -178,7 +180,14 @@ struct WindowsGraphicsCapture::State {
                 if(content.Width<=0||content.Height<=0||uint64_t(content.Width)*uint32_t(content.Height)>16777216)throw std::runtime_error("Unsupported resized Graphics Capture dimensions");
                 size=content;pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);continue;
             }
-            if(!fits(before,content.Width,content.Height)) {std::lock_guard lock(mutex);pause();continue;}
+            if(!fits(before,content.Width,content.Height)) {
+                std::lock_guard lock(mutex);pause();
+                waiting="Waiting for matching WGC geometry: content="+std::to_string(content.Width)+"x"+std::to_string(content.Height)+
+                    " frame="+std::to_string(before.frame.right-before.frame.left)+"x"+std::to_string(before.frame.bottom-before.frame.top)+
+                    " client-offset="+std::to_string(before.client.left-before.frame.left)+","+std::to_string(before.client.top-before.frame.top)+
+                    " client="+std::to_string(before.client.right-before.client.left)+"x"+std::to_string(before.client.bottom-before.client.top);
+                continue;
+            }
             auto access=frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
             com_ptr<ID3D11Texture2D> texture;check_hresult(access->GetInterface(__uuidof(ID3D11Texture2D),texture.put_void()));
             D3D11_TEXTURE2D_DESC description{};texture->GetDesc(&description);
@@ -201,6 +210,7 @@ struct WindowsGraphicsCapture::State {
             std::lock_guard lock(mutex);
             if(IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
+            waiting="Waiting for the next Graphics Capture frame";
         }
         // Revoke before closing; queued callbacks only hold weak signal state.
         arrived.revoke();closed.revoke();
@@ -223,7 +233,9 @@ WindowsGraphicsCapture::~WindowsGraphicsCapture()=default;
 int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t* height,uint64_t* revision) {
     std::lock_guard lock(state_->mutex);
     if(!state_->failure.empty())throw std::runtime_error(state_->failure);
-    state_->checkSource();*revision=state_->revision;return state_->mailbox.deliver(rgba,width,height)?1:0;
+    state_->checkSource();*revision=state_->revision;
+    if(state_->mailbox.deliver(rgba,width,height))return 1;
+    error=state_->waiting;return 0;
 }
 bool WindowsGraphicsCapture::paused() const {std::lock_guard lock(state_->mutex);return state_->mailbox.inputPaused()||!state_->failure.empty();}
 uint64_t WindowsGraphicsCapture::revision() const {std::lock_guard lock(state_->mutex);return state_->revision;}
