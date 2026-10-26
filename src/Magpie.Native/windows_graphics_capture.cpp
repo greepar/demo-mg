@@ -89,7 +89,6 @@ Geometry geometry(HWND window,bool titleBar) {
     auto region=windowCaptureRegion(g,titleBar);
     for(auto edge:{region.left,region.top,region.right,region.bottom})
         if(edge<std::numeric_limits<LONG>::min()||edge>std::numeric_limits<LONG>::max())throw std::runtime_error("Source capture bounds overflow");
-    if(region.width()<64||region.height()<64)throw std::runtime_error("The source capture area must be at least 64 by 64 pixels");
     result.region={LONG(region.left),LONG(region.top),LONG(region.right),LONG(region.bottom)};
     // Match original CalcWindowCapturedFrameBounds: maximized Windows 11 before
     // 24H2 has a different capture origin. RtlGetVersion avoids manifest-based
@@ -254,7 +253,8 @@ struct WindowsGraphicsCapture::State {
                 waiting="Waiting for matching WGC geometry: content="+std::to_string(content.Width)+"x"+std::to_string(content.Height)+
                     " frame="+std::to_string(before.frame.right-before.frame.left)+"x"+std::to_string(before.frame.bottom-before.frame.top)+
                     " client-offset="+std::to_string(before.client.left-before.frame.left)+","+std::to_string(before.client.top-before.frame.top)+
-                    " client="+std::to_string(before.client.right-before.client.left)+"x"+std::to_string(before.client.bottom-before.client.top);
+                    " client="+std::to_string(before.client.right-before.client.left)+"x"+std::to_string(before.client.bottom-before.client.top)+
+                    " region="+std::to_string(before.region.right-before.region.left)+"x"+std::to_string(before.region.bottom-before.region.top)+" (minimum 64x64)";
                 continue;
             }
             operation="access frame surface";
