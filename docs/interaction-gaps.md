@@ -52,8 +52,8 @@
 
 | 项目 | 当前状态 / 剩余工作 |
 | --- | --- |
-| 捕获方式选择 | 已新增原生实际后端查询，页面仅允许当前编译的实现：Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI。默认/应用配置保存独立捕获偏好；跨平台移动或载入未实现的捕获偏好时保留原值、显示禁用项和警告，需用户明确选回本机后端。启动在创建 Vulkan 引擎/捕获和系统选源前拒绝不可用后端，不静默替换。Linux NativeAOT 持久化/三平台策略矩阵和中英八项隔离 UI 已过；这不等于完成所有后端，Windows WGC/DXGI/DWM 仍未移植，macOS/Windows 本轮实际运行待验收。 |
-| 捕获标题栏 | 当前后端下已明确禁用并说明能力限制。原版 `CanCaptureTitleBar` 只允许 Graphics Capture / Desktop Duplication，GDI 仅客户区；Portal / ScreenCaptureKit 的当前实现使用系统边界，不能独立切换标题栏。实际开关后端仍缺，源窗口边框/标题栏/阴影的裁剪和输入坐标一致性未完成。 |
+| 捕获方式选择 | 已接运行时能力位掩码、显式后端创建及会话实际后端查询。Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI；Windows 系统支持时额外允许选择 WGC。配置/迁移保存独立偏好，不可用项保留且禁用；启动在创建引擎/捕获/选择器之前校验，不静默替换。多后端策略、NativeAOT 持久化和 Linux 隔离 UI 已验证；WGC 目标证据见本页 2026-10-26 更新，DXGI/DWM 仍未移植。 |
+| 捕获标题栏 | 当前实现仍禁用独立开关。原版允许 Graphics Capture / Desktop Duplication；移植的 WGC 暂时与 GDI 一样只输出客户区，Portal / ScreenCaptureKit 使用系统边界。原版标题栏开关、边框/阴影的裁剪和输入坐标一致性未完成。 |
 | 系统选源与权限生命周期 | macOS 已有选源/取消/停止代码，但选择窗口/整屏、拒绝/撤销、重新授权、快速取消/重启和更换源的完整矩阵未验收。用户已运行捕获，但不足以代表该矩阵通过。 |
 | 源窗口生命周期 | 最小化、隐藏、关闭、崩溃、最大化、全屏、尺寸/位置变化、重新出现和源弹窗需要三平台验收；macOS 换源已改成按新 filter 的尺寸重建流，用流身份/代次隔离旧样本与迟到启动/错误回调；非完整帧不发布，Stopped 报告源停止，取消重选保留现有流。相关状态/缓冲模型已做 Linux 验证，macOS 系统选源实测仍缺。已接同一源连续 resize：从每帧 contentRect / scaleFactor / contentScale 恢复自然像素尺寸，串行 updateConfiguration 并合并最新请求；按内容矩形裁剪有行填充的 BGRA，配置忽略单窗口阴影。旧配置的缩放/不完整帧等待匹配尺寸后才发布，Blank/Suspended 或空内容暂停输入，恢复需新的匹配帧。Retina/分数倍率、连续变大/变小/改回原尺寸、旧回调及裁剪→Vulkan 已有 Linux 模型/像素验证；macOS 新 Objective-C++ 未在 SDK 编译运行，真实持续 resize、跨屏 DPI、阴影/标题栏命中仍需目标机验收。截图时的动态标题查询已接入 Windows/macOS：限定已提交画面的窗口/PID 与源/几何状态，查询前后复核身份；系统不给标题时保留已知快照，明确空标题采用本地化回退。真实窗口改名/权限变化仍需目标机验收。 |
 | 初始位置与缩放边框 | 已有 Auto/预设/自定义初始尺寸、比例与九宫格；准确源外框、跟随源位置、等比边框拖动及原版 hit-test 行为未补齐。 |
@@ -63,7 +63,7 @@
 | 模拟独占全屏 | Toggle 只控制警告显示，没有原生行为；各平台需定义实际可用替代。 |
 | 禁用 DirectFlip / 置顶策略 | DirectFlip 是 Windows 专用语义，移植 Toggle 未适配；开发者“禁用置顶”等也未接后端，输出窗口未对齐原版层级策略。 |
 | 倒计时 | 已将待启动计时与捕获会话分离：按原版同模式再次点击取消、另一模式重置时长；25 ms UI tick 只负责刷新，剩余秒数/进度取单调时钟，接近到期时只启动一次。主页已接确定进度环和向上取整秒数、活动模式“取消”标签；即时缩放入口取消旧计时，Stop/真正关窗清理计时器。会话结束回调核对所属实例，避免旧回调清掉新状态。Linux AOT 时钟模型与隔离真实按钮处理器/自然到期测试通过，捕获使用替身，未打开系统选源；三平台真实快捷键、托盘计时、源应用聚焦/选源、正在缩放时主页按钮状态与原版完整对应仍待验收。 |
-| Windows 捕获兼容性 | WGC、DXGI Desktop Duplication、DwmSharedSurface 尚缺；GDI 不等于原版 GPU/游戏窗口捕获能力。Windows/MSVC/AOT/真实桌面仍未验收。 |
+| Windows 捕获兼容性 | GDI 已通过一次性 Windows CI 的实际绘制源/生命周期测试。WGC 原生实现与配置/会话链路已接，SDK/AOT 初次编译通过，但捕获 fixture 初次运行暴露访问异常；已修改 COM 工厂生命周期并补原生重复探测回归，需修复提交结果确认。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口兼容、真实 GPU/游戏、多屏 DPI/HDR 和完整 Vulkan 捕获渲染验收仍缺。 |
 
 ## 工具栏、截图、模式与应用配置
 

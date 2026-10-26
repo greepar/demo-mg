@@ -182,7 +182,11 @@ struct WindowsGraphicsCapture::State {
             auto access=frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
             com_ptr<ID3D11Texture2D> texture;check_hresult(access->GetInterface(__uuidof(ID3D11Texture2D),texture.put_void()));
             D3D11_TEXTURE2D_DESC description{};texture->GetDesc(&description);
-            if(description.Format!=DXGI_FORMAT_B8G8R8A8_UNORM||description.Width<uint32_t(content.Width)||description.Height<uint32_t(content.Height))throw std::runtime_error("Unexpected Graphics Capture texture format or dimensions");
+            if(description.Format!=DXGI_FORMAT_B8G8R8A8_UNORM||description.Width<uint32_t(content.Width)||description.Height<uint32_t(content.Height))
+                throw std::runtime_error("Unexpected Graphics Capture texture: format="+std::to_string(uint32_t(description.Format))+
+                    " texture="+std::to_string(description.Width)+"x"+std::to_string(description.Height)+
+                    " content="+std::to_string(content.Width)+"x"+std::to_string(content.Height)+
+                    " pool="+std::to_string(size.Width)+"x"+std::to_string(size.Height));
             uint32_t width=uint32_t(before.client.right-before.client.left),height=uint32_t(before.client.bottom-before.client.top);
             if(!staging||width!=stagingWidth||height!=stagingHeight) {
                 staging=nullptr;D3D11_TEXTURE2D_DESC desc{};desc.Width=width;desc.Height=height;desc.MipLevels=desc.ArraySize=1;

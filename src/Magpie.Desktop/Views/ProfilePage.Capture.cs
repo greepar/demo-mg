@@ -19,7 +19,7 @@ public partial class ProfilePage
             {
                 if(backend==available || (backend is CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit) && Settings.CaptureBackend!=backend)continue;
                 bool supported=CaptureBackendPolicy.Supported(backend);
-                CaptureMethod.Items.Add(new ComboBoxItem { Tag=backend,Content=CaptureBackendPolicy.Name(backend)+(supported?"":chinese?"（当前系统不可用）":" (unavailable on this system)"),IsEnabled=supported });
+                CaptureMethod.Items.Add(new ComboBoxItem { Tag=backend,Content=CaptureBackendPolicy.Name(backend)+(supported?"":chinese?"（当前系统不可用）":" (unavailable)"),IsEnabled=supported });
             }
             // An explicit selection matching the native implementation shares
             // the same visible row, while keeping its stored enum value.
@@ -27,7 +27,7 @@ public partial class ProfilePage
             CaptureMethod.SelectedIndex=selected==available||selected==CaptureBackend.Native?0:CaptureMethod.Items.Cast<ComboBoxItem>().ToList().FindIndex(i=>(CaptureBackend)i.Tag! ==selected);
             RefreshCaptureStatus();
             CaptureTitleBarCard.IsEnabled=false;
-            ToolTip.SetTip(CaptureTitleBarCard,chinese?"当前捕获后端不支持独立切换标题栏。GDI 保持原版仅捕获客户区；Portal / ScreenCaptureKit 由系统确定边界。":"This backend cannot toggle the title bar separately. GDI keeps the original client-area capture; Portal / ScreenCaptureKit use system-defined bounds.");
+            ToolTip.SetTip(CaptureTitleBarCard,chinese?"当前实现暂不支持独立切换标题栏。GDI / Graphics Capture 仅输出客户区；Portal / ScreenCaptureKit 使用系统边界。":"This implementation cannot toggle the title bar yet. GDI / Graphics Capture output the client area; Portal / ScreenCaptureKit use system-defined bounds.");
         }
         finally { _initialized=initialized; }
     }
