@@ -54,10 +54,10 @@
 
 | 项目 | 当前状态 / 剩余工作 |
 | --- | --- |
-| 捕获方式选择 | 已接运行时能力位掩码、显式后端创建及会话实际后端查询。Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI；Windows 系统支持时额外允许选择 WGC。配置/迁移保存独立偏好，不可用项保留且禁用；启动在创建引擎/捕获/选择器之前校验，不静默替换。多后端策略、NativeAOT 持久化和 Linux 隔离 UI 已验证；WGC 目标证据见本页 2026-10-26 更新，DXGI/DWM 仍未移植。 |
+| 捕获方式选择 | 已接运行时能力位掩码、显式创建及会话实际后端查询。Linux Portal/PipeWire、macOS ScreenCaptureKit、Windows GDI / 系统支持的 WGC。默认优先本机 WGC（仅 Native 且不支持 WGC 时选 GDI），显式 GDI/WGC 不互相回退。配置/迁移保存独立偏好，不可用项保留且禁用；启动前校验。Linux AOT 核心/隔离 UI 已过；原生 WGC fixture 通过，新增默认/连续 resize 矩阵需新 CI，DXGI/DWM 仍缺。 |
 | 捕获标题栏 | 当前实现仍禁用独立开关。原版允许 Graphics Capture / Desktop Duplication；移植的 WGC 暂时与 GDI 一样只输出客户区，Portal / ScreenCaptureKit 使用系统边界。原版标题栏开关、边框/阴影的裁剪和输入坐标一致性未完成。 |
 | 系统选源与权限生命周期 | macOS 已有选源/取消/停止代码，但选择窗口/整屏、拒绝/撤销、重新授权、快速取消/重启和更换源的完整矩阵未验收。用户已运行捕获，但不足以代表该矩阵通过。 |
-| 源窗口生命周期 | 最小化、隐藏、关闭、崩溃、最大化、全屏、尺寸/位置变化、重新出现和源弹窗需要三平台验收；macOS 换源已改成按新 filter 的尺寸重建流，用流身份/代次隔离旧样本与迟到启动/错误回调；非完整帧不发布，Stopped 报告源停止，取消重选保留现有流。相关状态/缓冲模型已做 Linux 验证，macOS 系统选源实测仍缺。已接同一源连续 resize：从每帧 contentRect / scaleFactor / contentScale 恢复自然像素尺寸，串行 updateConfiguration 并合并最新请求；按内容矩形裁剪有行填充的 BGRA，配置忽略单窗口阴影。旧配置的缩放/不完整帧等待匹配尺寸后才发布，Blank/Suspended 或空内容暂停输入，恢复需新的匹配帧。Retina/分数倍率、连续变大/变小/改回原尺寸、旧回调及裁剪→Vulkan 已有 Linux 模型/像素验证；macOS 新 Objective-C++ 未在 SDK 编译运行，真实持续 resize、跨屏 DPI、阴影/标题栏命中仍需目标机验收。截图时的动态标题查询已接入 Windows/macOS：限定已提交画面的窗口/PID 与源/几何状态，查询前后复核身份；系统不给标题时保留已知快照，明确空标题采用本地化回退。真实窗口改名/权限变化仍需目标机验收。 |
+| 源窗口生命周期 | 最小化、隐藏、关闭、崩溃、最大化、全屏、尺寸/位置变化、重新出现和源弹窗需要三平台验收；macOS 换源已改成按新 filter 的尺寸重建流，用流身份/代次隔离旧样本与迟到启动/错误回调；非完整帧不发布，Stopped 报告源停止，取消重选保留现有流。相关状态/缓冲模型已做 Linux 验证，macOS 系统选源实测仍缺。已接同一源连续 resize：从每帧 contentRect / scaleFactor / contentScale 恢复自然像素尺寸，串行 updateConfiguration 并合并最新请求；按内容矩形裁剪有行填充的 BGRA，配置忽略单窗口阴影。旧配置的缩放/不完整帧等待匹配尺寸后才发布，Blank/Suspended 或空内容暂停输入，恢复需新的匹配帧。Retina/分数倍率、连续变大/变小/改回原尺寸、旧回调及裁剪→Vulkan 已有 Linux 模型/像素验证；macOS SDK/AOT 已通过，真实持续 resize、跨屏 DPI、阴影/标题栏命中仍需目标机验收。截图时的动态标题查询已接入 Windows/macOS：限定已提交画面的窗口/PID 与源/几何状态，查询前后复核身份；系统不给标题时保留已知快照，明确空标题采用本地化回退。真实窗口改名/权限变化仍需目标机验收。 |
 | 初始位置与缩放边框 | 已有 Auto/预设/自定义初始尺寸、比例与九宫格；准确源外框、跟随源位置、等比边框拖动及原版 hit-test 行为未补齐。 |
 | 多显示器 | 未接原版“最近显示器 / 相交显示器 / 全部显示器”策略；UI 隐藏。不同 DPI、跨屏迁移、热插拔、旋转、负坐标与主屏切换未验收。 |
 | 全屏与 macOS Spaces | Cocoa 全屏窗口路径存在；全屏切换/恢复、Spaces、菜单栏/Dock、原版置顶/焦点及 Esc 退出的真实行为未验收。 |
@@ -65,7 +65,7 @@
 | 模拟独占全屏 | Toggle 只控制警告显示，没有原生行为；各平台需定义实际可用替代。 |
 | 禁用 DirectFlip / 置顶策略 | DirectFlip 是 Windows 专用语义，移植 Toggle 未适配；开发者“禁用置顶”等也未接后端，输出窗口未对齐原版层级策略。 |
 | 倒计时 | 已将待启动计时与捕获会话分离：按原版同模式再次点击取消、另一模式重置时长；25 ms UI tick 只负责刷新，剩余秒数/进度取单调时钟，接近到期时只启动一次。主页已接确定进度环和向上取整秒数、活动模式“取消”标签；即时缩放入口取消旧计时，Stop/真正关窗清理计时器。会话结束回调核对所属实例，避免旧回调清掉新状态。Linux AOT 时钟模型与隔离真实按钮处理器/自然到期测试通过，捕获使用替身，未打开系统选源；三平台真实快捷键、托盘计时、源应用聚焦/选源、正在缩放时主页按钮状态与原版完整对应仍待验收。 |
-| Windows 捕获兼容性 | GDI 已通过一次性 Windows CI 的实际绘制源/生命周期测试。WGC 原生实现与配置/会话链路已接，SDK/AOT 通过；初次 fixture 的访问异常通过局部 COM 工厂修复后，重复探测和 GDI 回归成功，WGC 仍在首帧后的纹理格式/尺寸检查失败，待诊断修复。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口兼容、真实 GPU/游戏、多屏 DPI/HDR 和完整 Vulkan 捕获渲染验收仍缺。 |
+| Windows 捕获兼容性 | `c579228a` 的 Windows SDK/AOT/单文件与实际 GDI、WGC fixture 均通过：独立绘制源的颜色/尺寸、标题、一次 resize、最小化恢复、销毁通知和独立重捕获。WGC 的旧纹理、会话重建及访问异常历史见本页阶段记录。新增连续 grow/shrink/return 和默认优先 WGC 尚需对应 CI。DXGI Desktop Duplication、DwmSharedSurface、特殊窗口、真实游戏、多屏 DPI/HDR、输入与完整 Vulkan 捕获渲染验收仍缺。 |
 
 ## 工具栏、截图、模式与应用配置
 
