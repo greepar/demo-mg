@@ -6,6 +6,7 @@
 #include "source_info.h"
 #include "capture_epoch.h"
 #include "windows_source_watch.h"
+#include "windows_graphics_capture.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -14,11 +15,14 @@
 
 namespace {
 struct Capture {
+    uint32_t backend=3;
     std::atomic<bool> cancelled{false};
     HWND window{};
     DWORD sourceProcess{};
     magpie::WindowIdentity identity;
     std::unique_ptr<magpie::WindowsSourceWatch> lifetimeWatch;
+    std::unique_ptr<magpie::WindowsGraphicsCapture> graphics;
+    uint64_t graphicsRevision{};
     HDC memory{};
     HBITMAP bitmap{};
     HGDIOBJ previous{};
@@ -39,12 +43,12 @@ struct Capture {
     }
     bool snapshotMatches(uint64_t sequence) {
         std::lock_guard lock(epochMutex);RECT rect{};
-        if(cancelled||!sameSource()||IsIconic(window)||!GetClientRect(window,&rect)) { epoch.pause();return false; }
+        if(cancelled||!sameSource()||IsIconic(window)||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
         const auto w=uint32_t(rect.right-rect.left),h=uint32_t(rect.bottom-rect.top);
         if(!epoch.accepts(epoch.sequence(),w,h)) { epoch.pause();return false; }
         return epoch.accepts(sequence,w,h)&&sameSource();
     }
-    ~Capture() { lifetimeWatch.reset();reset(); if (memory) DeleteDC(memory); }
+    ~Capture() { cancelled=true;graphics.reset();lifetimeWatch.reset();reset(); if (memory) DeleteDC(memory); }
     void reset() {
         if (previous) SelectObject(memory, previous);
         if (bitmap) DeleteObject(bitmap);
@@ -57,18 +61,31 @@ struct Capture {
         DWORD process{};
         DWORD thread=window?GetWindowThreadProcessId(window,&process):0;
         if (!window || !thread) throw std::runtime_error("No foreground window is available");
-        if (process==GetCurrentProcessId()) throw std::runtime_error("Select the source window during the start delay. Windows currently uses the GDI capture backend.");
+        if (process==GetCurrentProcessId()) throw std::runtime_error("Select another application's source window during the start delay.");
         sourceProcess=process;identity={uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread};
         requireSource();
         lifetimeWatch=std::make_unique<magpie::WindowsSourceWatch>(identity,cancelled);lifetimeWatch->start();
         requireSource();
+        if(backend==4) {graphics=std::make_unique<magpie::WindowsGraphicsCapture>(window,cancelled,[this]{return sameSource();});return;}
         memory=CreateCompatibleDC(nullptr);
         if (!memory) throw std::runtime_error("Cannot create a Windows capture DC");
     }
-    void frame(const uint8_t** rgba,uint32_t* w,uint32_t* h) {
+    int frame(const uint8_t** rgba,uint32_t* w,uint32_t* h) {
         if (cancelled) throw std::runtime_error("Capture was stopped");
         requireSource();
         if (IsIconic(window)) { std::lock_guard lock(epochMutex);epoch.pause();throw std::runtime_error("The source window is minimized"); }
+        if(graphics) {
+            uint64_t revision{};int result=graphics->frame(rgba,w,h,&revision);requireSource();
+            std::lock_guard lock(epochMutex);
+            if(revision!=graphics->revision()) {epoch.pause();return 0;}
+            if(graphics->paused()||revision!=graphicsRevision)epoch.pause();
+            if(result==1) {
+                RECT rect{};
+                if(!GetClientRect(window,&rect)||*w!=uint32_t(rect.right-rect.left)||*h!=uint32_t(rect.bottom-rect.top)) {epoch.pause();return 0;}
+                width=*w;height=*h;graphicsRevision=revision;epoch.deliver(width,height);
+            }
+            return result;
+        }
         RECT rect{};
         if (!GetClientRect(window,&rect)) throw std::runtime_error("Cannot read source window dimensions");
         const auto nw=uint32_t(rect.right-rect.left), nh=uint32_t(rect.bottom-rect.top);
@@ -94,6 +111,7 @@ struct Capture {
         requireSource();
         {std::lock_guard lock(epochMutex);epoch.deliver(width,height);}
         *rgba=pixels.data();*w=width;*h=height;
+        return 1;
     }
 };
 std::string utf8(const wchar_t* value,size_t length) {
@@ -146,10 +164,19 @@ extern "C" void* mp_capture_create() {
 }
 extern "C" void mp_capture_destroy(void* c){delete static_cast<Capture*>(c);}
 extern "C" uint32_t mp_capture_backend(void){return 3;}
+extern "C" uint32_t mp_capture_backend_mask(void){return (1u<<3)|(magpie::WindowsGraphicsCapture::supported()?(1u<<4):0u);}
+extern "C" uint32_t mp_capture_instance_backend(void* capture){return capture?static_cast<Capture*>(capture)->backend:0;}
+extern "C" void* mp_capture_create_backend(uint32_t backend) {
+    try {
+        if(backend==0)backend=mp_capture_backend();
+        if(backend>=32||!(mp_capture_backend_mask()&(1u<<backend)))throw std::runtime_error("The requested Windows capture backend is not supported by this desktop");
+        auto capture=std::make_unique<Capture>();capture->backend=backend;return capture.release();
+    }catch(const std::exception& ex){magpie::error=ex.what();return nullptr;}
+}
 extern "C" uint64_t mp_capture_frame_sequence(void* capture) {
     if(!capture)return 0;
     auto& c=*static_cast<Capture*>(capture);std::lock_guard lock(c.epochMutex);return c.epoch.sequence();
 }
 extern "C" void mp_capture_cancel(void* c){if(c)static_cast<Capture*>(c)->cancelled=true;}
 extern "C" int mp_capture_start(void* c){try {if(!c)throw std::runtime_error("Capture is not initialized");static_cast<Capture*>(c)->start();return 1;}catch(const std::exception& ex){magpie::error=ex.what();return 0;}}
-extern "C" int mp_capture_frame(void* c,const uint8_t** rgba,uint32_t* w,uint32_t* h){try{if(!c||!rgba||!w||!h)throw std::runtime_error("Invalid capture arguments");static_cast<Capture*>(c)->frame(rgba,w,h);return 1;}catch(const std::exception& ex){magpie::error=ex.what();return -1;}}
+extern "C" int mp_capture_frame(void* c,const uint8_t** rgba,uint32_t* w,uint32_t* h){try{if(!c||!rgba||!w||!h)throw std::runtime_error("Invalid capture arguments");return static_cast<Capture*>(c)->frame(rgba,w,h);}catch(const std::exception& ex){magpie::error=ex.what();return -1;}}

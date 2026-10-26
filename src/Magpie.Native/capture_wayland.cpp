@@ -233,6 +233,12 @@ extern "C" void* mp_capture_create() {
 }
 extern "C" void mp_capture_destroy(void* capture) { delete static_cast<Capture*>(capture); }
 extern "C" uint32_t mp_capture_backend(void) { return 1; }
+extern "C" uint32_t mp_capture_backend_mask(void) { return 1u<<1; }
+extern "C" uint32_t mp_capture_instance_backend(void* capture) { return capture?1:0; }
+extern "C" void* mp_capture_create_backend(uint32_t backend) {
+    if(backend!=0&&backend!=1) {magpie::error="The requested capture backend is not available on Wayland";return nullptr;}
+    return mp_capture_create();
+}
 extern "C" int mp_capture_snapshot_title(void*,uint64_t,uint32_t,uint64_t,mp_capture_source_info*,uint32_t) { return 0; }
 extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint32_t size) {
     if(!capture||!info||size!=sizeof(*info)){magpie::error="Invalid source metadata arguments";return 0;}

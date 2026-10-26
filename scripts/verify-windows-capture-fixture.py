@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in actual Win32 GDI fixture on disposable GitHub-hosted runners only."""
+"""Opt-in actual Win32 GDI/WGC fixture on disposable GitHub-hosted runners only."""
 import hashlib
 import json
 import os
@@ -30,3 +30,22 @@ except subprocess.TimeoutExpired as failure:
     report['failure']='timeout'
 (folder/'windows-capture-fixture.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
 if not report['passed']:raise SystemExit('Windows capture fixture did not produce successful actual source-window evidence.')
+
+# A server runner may lack WGC. Only the native capability probe may skip this
+# run; startup, device, pixel, geometry or lifecycle failures are failures.
+wgc=dict(report,passed=False,capture_tested='independent synthetic Win32 source process via actual Windows Graphics Capture',gpu_tested=False,
+         wgc_readback_tested=False,status='pending')
+try:
+    result=subprocess.run([str(binary),'--wgc'],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=60)
+    output=result.stdout+result.stderr
+    (folder/'windows-wgc-fixture.log').write_text(output,encoding='utf-8')
+    unavailable=result.returncode==77 and 'WINDOWS WGC UNAVAILABLE:' in result.stdout
+    passed=result.returncode==0 and all(marker in result.stdout for marker in ('WINDOWS WGC FIXTURE PASS:',*required[1:]))
+    wgc.update(exit_code=result.returncode,passed=passed,wgc_readback_tested=passed,status='unavailable' if unavailable else 'passed' if passed else 'failed')
+    print(output,flush=True)
+except subprocess.TimeoutExpired as failure:
+    def decode(value):return value.decode(errors='replace') if isinstance(value,bytes) else value or ''
+    (folder/'windows-wgc-fixture.log').write_text(decode(failure.stdout)+decode(failure.stderr),encoding='utf-8')
+    wgc.update(status='failed',failure='timeout')
+(folder/'windows-wgc-fixture.json').write_text(json.dumps(wgc,indent=2)+'\n',encoding='utf-8')
+if wgc['status']=='failed':raise SystemExit('Available Windows Graphics Capture failed the actual source-window fixture.')

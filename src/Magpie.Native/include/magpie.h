@@ -96,9 +96,14 @@ int mp_get_gpu_profile_v2(void* engine,mp_gpu_profile_v2* profile);
 int mp_set_gpu_profiling(void* engine,int enabled);
 int mp_get_gpu_profile(void* engine,mp_gpu_profile* profile);
 void* mp_capture_create(void);
-// Compiled capture implementation: 1=Portal/PipeWire, 2=ScreenCaptureKit,
-// 3=GDI. 4..6 reserved for GraphicsCapture/DesktopDuplication/DwmSharedSurface.
+// Default: 1=Portal/PipeWire, 2=ScreenCaptureKit, 3=GDI, 4=GraphicsCapture.
+// 5..6 reserved for DesktopDuplication/DwmSharedSurface.
 uint32_t mp_capture_backend(void);
+// Bit (1u << backend) denotes runtime availability; never opens a picker/device.
+uint32_t mp_capture_backend_mask(void);
+// 0 requests the default. Unavailable explicit choices fail without fallback.
+void* mp_capture_create_backend(uint32_t backend);
+uint32_t mp_capture_instance_backend(void* capture);
 // Delivered-frame sequence on Cocoa/GDI; 0 before delivery or on other backends.
 uint64_t mp_capture_frame_sequence(void* capture);
 // Version 1, caller-owned UTF-8 snapshot. Empty/unflagged fields are unknown;

@@ -7,6 +7,24 @@ internal static class CaptureBackendTests
     {
         var expected=OperatingSystem.IsWindows()?CaptureBackend.Gdi:OperatingSystem.IsMacOS()?CaptureBackend.ScreenCaptureKit:CaptureBackend.Portal;
         if(CaptureBackendPolicy.Available!=expected)throw new InvalidOperationException("Capture backend ABI does not match the platform implementation.");
+        uint mask=CaptureBackendPolicy.AvailableMask;
+        if((mask&(1u<<(int)expected))==0)throw new InvalidOperationException("Default backend is absent from runtime capabilities.");
+        foreach(var requested in Enum.GetValues<CaptureBackend>())
+        {
+            using var capture=NativeCore.CaptureCreateBackend((uint)requested);
+            bool supported=CaptureBackendPolicy.Supported(requested);
+            if(capture.IsInvalid==supported)throw new InvalidOperationException("Native backend selection differs from advertised capability.");
+            if(supported&&NativeCore.CaptureInstanceBackend(capture)!=(uint)(requested==CaptureBackend.Native?expected:requested))throw new InvalidOperationException("Capture instance silently substituted a backend.");
+        }
+        const uint windowsMask=(1u<<(int)CaptureBackend.Gdi)|(1u<<(int)CaptureBackend.GraphicsCapture);
+        foreach(var requested in Enum.GetValues<CaptureBackend>())
+        {
+            bool supported=requested is CaptureBackend.Native or CaptureBackend.Gdi or CaptureBackend.GraphicsCapture;
+            try {
+                var actual=CaptureBackendPolicy.Resolve(requested,CaptureBackend.Gdi,windowsMask);
+                if(!supported||actual!=(requested==CaptureBackend.Native?CaptureBackend.Gdi:requested))throw new InvalidOperationException("Multiple-backend selection lost the explicit choice.");
+            }catch(NotSupportedException){if(supported)throw;}
+        }
         foreach(var available in new[]{CaptureBackend.Portal,CaptureBackend.ScreenCaptureKit,CaptureBackend.Gdi})
         foreach(var requested in Enum.GetValues<CaptureBackend>())
         {
@@ -43,6 +61,6 @@ internal static class CaptureBackendTests
             try { CaptureBackendPolicy.Resolve(CaptureBackend.Native,CaptureBackend.Native);throw new InvalidOperationException("Unknown native backend accepted."); }catch(InvalidDataException) { }
         }
         finally { if(Directory.Exists(directory))Directory.Delete(directory,true); }
-        Console.WriteLine("CAPTURE BACKEND PASS: real native ABI, three-platform selection matrix, no silent fallback, AOT disk/profile preservation, invalid-save protection and legacy default.");
+        Console.WriteLine("CAPTURE BACKEND PASS: real native capabilities/instance ABI, three-platform and multiple-backend selection matrices, no silent fallback, AOT disk/profile preservation, invalid-save protection and legacy default; no capture started.");
     }
 }

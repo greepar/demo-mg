@@ -235,6 +235,12 @@ struct Capture {
 extern "C" void* mp_capture_create(){@autoreleasepool{try{if(@available(macOS 14.0,*))return new Capture();throw std::runtime_error("Screen capture requires macOS 14 or newer");}catch(const std::exception& ex){magpie::error=ex.what();return nullptr;}}}
 extern "C" void mp_capture_destroy(void* c){@autoreleasepool{delete static_cast<Capture*>(c);}}
 extern "C" uint32_t mp_capture_backend(void){return 2;}
+extern "C" uint32_t mp_capture_backend_mask(void){return 1u<<2;}
+extern "C" uint32_t mp_capture_instance_backend(void* capture){return capture?2:0;}
+extern "C" void* mp_capture_create_backend(uint32_t backend){
+    if(backend!=0&&backend!=2){magpie::error="The requested capture backend is not available on macOS";return nullptr;}
+    return mp_capture_create();
+}
 extern "C" uint64_t mp_capture_frame_sequence(void* capture) {
     if(!capture)return 0;
     auto state=static_cast<Capture*>(capture)->state;std::lock_guard lock(state->mutex);return state->frames.sequence();

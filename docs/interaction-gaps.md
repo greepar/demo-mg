@@ -12,6 +12,16 @@
 
 `250af84c` 的平均计时提交现已通过 [四平台 CI](https://github.com/greepar/demo-mg/actions/runs/40319664664)；后续浮层/信息提交仍需各自对应验证，CI 不替代真实系统交互。
 
+## 2026-10-26 Graphics Capture 接入阶段
+
+`86d31d18` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40331175994/job/121600682989) 已通过 SDK/AOT/单文件检查及新增真实 GDI fixture，包括 out-of-context 销毁 WinEvent、相同身份永久失效和独立重捕获；该生命周期事件由测试源进程主动发出，不是强制系统复用 HWND 的证据。
+
+新增可选择的 Windows Graphics Capture 实现：独立 native MTA 线程持有 WinRT/D3D11，使用 HWND 建立单窗口会话、free-threaded frame pool、最新帧读回客户区并交给现有 Vulkan 链路。支持尺寸变化时重建帧池，暂停/几何变化后拒绝旧帧；异步生产者与 C ABI 已交付缓冲分离。后端能力位掩码、显式创建和实例查询已接入配置、迁移校验、会话及 profiler，显式请求不可用后端不会回退 GDI。GDI 仍是 Windows 默认；Graphics Capture 需在当前系统支持时手动选择。
+
+这更新后文历史审计中的“WGC 未移植”为“实现已接入，目标验证待完成”。Linux AOT 核心及三个捕获模型测试已通过；Windows SDK 编译、实际 WGC 像素和生命周期尚需本提交 CI。托管 Windows 若能力探测不支持 WGC，fixture 记录 unavailable，**不计作 WGC 验收通过**。测试窗口仅允许一次性 GitHub-hosted runner，本机仅私有 headless Wayland。WGC 当前仍只输出客户区，标题栏开关保持禁用；DXGI/DWM、源窗口特殊样式兼容、GPU 零拷贝、多屏 DPI/HDR 和真实游戏兼容性仍缺。完整交互清单未完成。
+
+实现与证据范围见 [Windows Graphics Capture](windows-graphics-capture.md)。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

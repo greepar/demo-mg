@@ -44,6 +44,9 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_capture_frame_sequence")] internal static extern ulong CaptureFrameSequence(CaptureHandle capture);
     [DllImport(Library, EntryPoint = "mp_capture_snapshot_title")] internal static extern int CaptureSnapshotTitle(CaptureHandle capture,ulong window,uint process,ulong sequence,out NativeCaptureSource source,uint size);
     [DllImport(Library, EntryPoint = "mp_capture_backend")] internal static extern uint CaptureBackend();
+    [DllImport(Library, EntryPoint = "mp_capture_backend_mask")] internal static extern uint CaptureBackendMask();
+    [DllImport(Library, EntryPoint = "mp_capture_create_backend")] internal static extern CaptureHandle CaptureCreateBackend(uint backend);
+    [DllImport(Library, EntryPoint = "mp_capture_instance_backend")] internal static extern uint CaptureInstanceBackend(CaptureHandle capture);
     [DllImport(Library, EntryPoint = "mp_capture_source")] internal static extern int CaptureSourceInfo(CaptureHandle capture,out NativeCaptureSource source,uint size);
     [DllImport(Library, EntryPoint = "mp_capture_destroy")] internal static extern void CaptureDestroy(nint capture);
     [DllImport(Library, EntryPoint = "mp_capture_start")] internal static extern int CaptureStart(CaptureHandle capture);

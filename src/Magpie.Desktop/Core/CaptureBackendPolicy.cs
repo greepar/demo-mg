@@ -19,13 +19,20 @@ internal static class CaptureBackendPolicy
         }
     }
     internal static bool Supported(CaptureBackend requested,CaptureBackend available)=>requested==CaptureBackend.Native||requested==available;
+    internal static uint AvailableMask=>NativeCore.CaptureBackendMask();
+    internal static bool Supported(CaptureBackend requested)=>Supported(requested,Available,AvailableMask);
+    internal static bool Supported(CaptureBackend requested,CaptureBackend available,uint mask)
+        =>Enum.IsDefined(requested)&&(requested==CaptureBackend.Native?((mask&(1u<<(int)available))!=0):((mask&(1u<<(int)requested))!=0));
+    internal static CaptureBackend Resolve(CaptureBackend requested)=>Resolve(requested,Available,AvailableMask);
     internal static CaptureBackend Resolve(CaptureBackend requested,CaptureBackend available)
+        =>Resolve(requested,available,1u<<(int)available);
+    internal static CaptureBackend Resolve(CaptureBackend requested,CaptureBackend available,uint mask)
     {
         if(available is not (CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit or CaptureBackend.Gdi))throw new InvalidDataException("Invalid native capture backend.");
         if(!Enum.IsDefined(requested))throw new InvalidDataException("Invalid capture backend.");
-        if(!Supported(requested,available))throw new NotSupportedException(Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)
+        if(!Supported(requested,available,mask))throw new NotSupportedException(Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)
             ? $"当前版本无法使用 {Name(requested)} 捕获。请在配置中选择 {Name(available)}。"
             : $"This build cannot capture with {Name(requested)}. Select {Name(available)} in the profile.");
-        return available;
+        return requested==CaptureBackend.Native?available:requested;
     }
 }

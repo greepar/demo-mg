@@ -14,7 +14,7 @@ internal static class ProfilerSessionInfoTests
         string dynamic=info.Describe(metrics,DuplicateFrameMode.Dynamic,true);
         Check(dynamic.Contains("2/10")&&dynamic.Contains($"{20d:F1}%"),"Dynamic prediction counters or ratio differ.");
         Check(!info.Describe(metrics,DuplicateFrameMode.Dynamic,false).Contains("2/10"),"Disabled dynamic counters remained visible.");
-        foreach(var backend in new[]{CaptureBackend.Portal,CaptureBackend.ScreenCaptureKit,CaptureBackend.Gdi})
+        foreach(var backend in new[]{CaptureBackend.Portal,CaptureBackend.ScreenCaptureKit,CaptureBackend.Gdi,CaptureBackend.GraphicsCapture})
             Check((info with { Backend=backend }).Describe(metrics,DuplicateFrameMode.Always,false).Contains(CaptureBackendPolicy.Name(backend)),"Actual backend identity was substituted.");
         var sample=new GpuProfileSnapshot(true,true,1,1,3,[new(11,2,[1,1],true),new(0,1,[1])]);
         Check(!GpuTimingPresentation.Build(sample,false,false).Rows[0].Name.Contains("FP16"),"Ordinary mode exposed developer precision suffix.");
@@ -25,6 +25,6 @@ internal static class ProfilerSessionInfoTests
         Check(next.Stages[0].UsesFP16,"Averaging cleared pipeline precision metadata.");
         var changed=sample with { Sequence=4,Stages=[new(11,10,[5,5],false),new(0,1,[1])] };
         Check(!average.Push(changed,System.Diagnostics.Stopwatch.Frequency+1).Stages[0].UsesFP16&&average.Push(changed,System.Diagnostics.Stopwatch.Frequency+2).Stages[0].Milliseconds==10,"Precision change failed to reset prior averages.");
-        Console.WriteLine("PROFILER SESSION MODEL PASS: actual identity fields, absent/available metrics, dynamic counter gating, three capture labels, developer-only precision and averaged/changed pipeline precision.");
+        Console.WriteLine("PROFILER SESSION MODEL PASS: actual identity fields, absent/available metrics, dynamic counter gating, four capture labels, developer-only precision and averaged/changed pipeline precision.");
     }
 }

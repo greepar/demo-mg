@@ -13,18 +13,19 @@ public partial class ProfilePage
             var available=CaptureBackendPolicy.Available;
             // Saved preferences from a different platform remain intact until
             // the user explicitly chooses an available backend.
-            foreach(var foreign in Enum.GetValues<CaptureBackend>().Where(b=>b!=CaptureBackend.Native&&b!=available))
+            foreach(var foreign in Enum.GetValues<CaptureBackend>().Where(b=>!CaptureBackendPolicy.Supported(b)))
             {
                 Settings.CaptureBackend=foreign;RefreshCaptureMethod();
                 if(CaptureMethod.SelectedItem is not ComboBoxItem { Tag:CaptureBackend selected,IsEnabled:false }||selected!=foreign||!CaptureWarning.IsOpen||CaptureWarning.Severity!="Warning")throw new InvalidOperationException("Unavailable saved capture backend was hidden or overwritten.");
                 var reopened=new ProfilePage();if(_profile is not null)reopened.ConfigureProfile(_profile);
                 if(reopened.Settings.CaptureBackend!=foreign||Settings.CaptureBackend!=foreign)throw new InvalidOperationException("Opening profile replaced unavailable backend.");
-                if(CaptureMethod.Items.Cast<ComboBoxItem>().Count(i=>i.IsEnabled)!=1||CaptureTitleBarCard.IsEnabled)throw new InvalidOperationException("Capture controls advertise an unimplemented capability.");
+                int supported=Enum.GetValues<CaptureBackend>().Count(b=>b!=CaptureBackend.Native&&CaptureBackendPolicy.Supported(b));
+                if(CaptureMethod.Items.Cast<ComboBoxItem>().Count(i=>i.IsEnabled)!=supported||CaptureTitleBarCard.IsEnabled)throw new InvalidOperationException("Capture controls advertise an unimplemented capability.");
                 await ScalingSession.VerifyUnsupportedCaptureAsync(owner,Settings);
                 CaptureMethod.SelectedIndex=0;
                 if(Settings.CaptureBackend!=CaptureBackend.Native||CaptureWarning.Severity!="Informational")throw new InvalidOperationException($"Selecting native capture did not recover: previous={foreign}, actual={Settings.CaptureBackend}, severity={CaptureWarning.Severity}, index={CaptureMethod.SelectedIndex}, initialized={_initialized}.");
             }
-            if(leaveWarning) { Settings.CaptureBackend=CaptureBackend.GraphicsCapture;RefreshCaptureMethod(); }
+            if(leaveWarning) { Settings.CaptureBackend=CaptureBackend.DesktopDuplication;RefreshCaptureMethod(); }
             CaptureMethod.BringIntoView();await Task.Delay(80);
             Console.WriteLine("CAPTURE BACKEND UI PASS: actual profile selection handlers, unavailable foreign preferences preserved, truthful capabilities, explicit recovery and session rejection before capture/engine/picker.");
         }

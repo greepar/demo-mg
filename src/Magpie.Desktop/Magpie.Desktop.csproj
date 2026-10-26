@@ -67,6 +67,10 @@
     <NativeLibrary Include="$(VulkanSdkRoot)/Lib/vulkan-1.lib" />
     <LinkerArg Include="user32.lib" />
     <LinkerArg Include="gdi32.lib" />
+    <LinkerArg Include="d3d11.lib" />
+    <LinkerArg Include="dxgi.lib" />
+    <LinkerArg Include="dwmapi.lib" />
+    <LinkerArg Include="windowsapp.lib" />
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
     <NativeLibrary Include="$(MoltenVkPath)" />

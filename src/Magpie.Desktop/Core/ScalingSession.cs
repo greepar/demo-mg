@@ -80,7 +80,7 @@ internal sealed partial class ScalingSession
             {
                 await Task.Delay(TimeSpan.FromSeconds(delaySeconds), _stop.Token);
                 _settings.EnsureSelectedModeAvailable();
-                _=CaptureBackendPolicy.Resolve(_settings.CaptureBackend,CaptureBackendPolicy.Available);
+                var selectedBackend=CaptureBackendPolicy.Resolve(_settings.CaptureBackend);
                 if(_previewLoop is {} preview)
                 {
                     if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Synthetic capture requires isolated preview mode.");
@@ -89,12 +89,12 @@ internal sealed partial class ScalingSession
                 using var engine=NativeCore.CreateForSettings(_settings);
                 if(engine.IsInvalid)throw NativeCore.Error();
                 string deviceName=Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine)) ?? "Vulkan";
-                capture = NativeCore.CaptureCreate();
+                capture = NativeCore.CaptureCreateBackend((uint)selectedBackend);
                 if (capture.IsInvalid) throw NativeCore.Error();
                 lock (_captureLock) _capture = capture;
                 _stop.Token.ThrowIfCancellationRequested();
                 Status?.Invoke(OperatingSystem.IsWindows()
-                    ? "Capturing the foreground window with GDI. Select the source during the start delay."
+                    ? $"Capturing the foreground window with {CaptureBackendPolicy.Name(selectedBackend)}. Select the source during the start delay."
                     : "Select a window or screen in the system sharing dialog.");
                 if (NativeCore.CaptureStart(capture) == 0) throw NativeCore.Error();
                 _stop.Token.ThrowIfCancellationRequested();

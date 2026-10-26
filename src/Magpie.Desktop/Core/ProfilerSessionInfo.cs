@@ -5,7 +5,7 @@ namespace Magpie.Desktop.Core;
 internal sealed record ProfilerSessionInfo(string Device,CaptureBackend? Backend)
 {
     internal static ProfilerSessionInfo Read(EngineHandle engine,CaptureHandle? capture)
-        =>new(Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))??"Vulkan",capture is { IsClosed:false,IsInvalid:false }?CaptureBackendPolicy.Available:null);
+        =>new(Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))??"Vulkan",capture is { IsClosed:false,IsInvalid:false }?(CaptureBackend)NativeCore.CaptureInstanceBackend(capture):null);
 
     internal string Describe(PerformanceSnapshot? metrics,DuplicateFrameMode detection,bool dynamicStatistics)
     {

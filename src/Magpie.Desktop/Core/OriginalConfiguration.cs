@@ -93,7 +93,7 @@ internal static class OriginalConfiguration
             else target.SelectedModeId=originalModes[index].Id;
             int capture=Find(source,"captureMethod","captureMode") is {} method?Integer(method,0,3):0;
             target.CaptureBackend=capture switch { 0=>CaptureBackend.GraphicsCapture,1=>CaptureBackend.DesktopDuplication,2=>CaptureBackend.Gdi,_=>CaptureBackend.DwmSharedSurface };
-            if(!CaptureBackendPolicy.Supported(target.CaptureBackend,CaptureBackendPolicy.Available))warnings.Add(prefix+"captureMethod: preserved Windows backend is unavailable on this build; explicitly choose an available backend before capture.");
+            if(!CaptureBackendPolicy.Supported(target.CaptureBackend))warnings.Add(prefix+"captureMethod: preserved Windows backend is unavailable on this build; explicitly choose an available backend before capture.");
             if(Find(source,"initialWindowedScaleFactor") is {} initial)target.InitialWindowedScaleFactor=Integer(initial,0,6);
             if(Find(source,"customInitialWindowedScaleFactor") is {} custom)target.CustomInitialWindowedScaleFactor=Number(custom);
             if(Find(source,"outputAlignment") is {} alignment)target.OutputAlignment=Integer(alignment,0,8);

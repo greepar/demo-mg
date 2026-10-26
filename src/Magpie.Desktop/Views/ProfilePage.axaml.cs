@@ -71,7 +71,7 @@ public partial class ProfilePage : UserControl
         var previous=Settings.CaptureBackend;
         // Do not rebuild Items during the selection model's change callback.
         // Clearing it here invalidates Avalonia's in-flight selected indices.
-        try { _=Core.CaptureBackendPolicy.Resolve(backend,Core.CaptureBackendPolicy.Available);Settings.CaptureBackend=backend;Core.RuntimeSettings.Current.Save();RefreshCaptureStatus(); }
+        try { _=Core.CaptureBackendPolicy.Resolve(backend);Settings.CaptureBackend=backend;Core.RuntimeSettings.Current.Save();RefreshCaptureStatus(); }
         catch(Exception error)
         {
             Settings.CaptureBackend=previous;

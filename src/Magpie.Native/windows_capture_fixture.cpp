@@ -54,8 +54,11 @@ int main(int argc,char** argv) {
     try {
         if(!std::getenv("MAGPIE_HOSTED_WINDOWS_CAPTURE_FIXTURE"))throw std::runtime_error("This visible-window fixture requires an explicit disposable hosted-runner opt-in");
         if(argc==3&&std::string(argv[1])=="--source")return child(DWORD(std::stoul(argv[2])));
-        require(argc==1,"Unknown capture fixture arguments");
+        bool wgc=argc==2&&std::string(argv[1])=="--wgc";
+        require(argc==1||wgc,"Unknown capture fixture arguments");
         require(mp_capture_backend()==3,"Fixture is not linked to the actual Windows GDI backend");
+        uint32_t backend=wgc?4u:3u;
+        if(!(mp_capture_backend_mask()&(1u<<backend))) {std::cout<<"WINDOWS WGC UNAVAILABLE: runtime capability probe rejected this hosted desktop; no WGC capture evidence.\n";return 77;}
         wchar_t path[32768]{};require(GetModuleFileNameW(nullptr,path,DWORD(std::size(path)))!=0,"Cannot find fixture executable");
         std::wstring command=L"\""+std::wstring(path)+L"\" --source "+std::to_wstring(GetCurrentProcessId());
         STARTUPINFOW startup{};startup.cb=sizeof(startup);Process process;
@@ -70,12 +73,15 @@ int main(int argc,char** argv) {
         for(int i=0;i<100&&GetForegroundWindow()!=process.window;i++)Sleep(20);
         require(GetForegroundWindow()==process.window,"Runner cannot activate disposable source; capture evidence is unavailable");
         require(RedrawWindow(process.window,nullptr,nullptr,RDW_INVALIDATE|RDW_UPDATENOW)!=0,"Cannot paint disposable source");Sleep(100);
-        std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create(),mp_capture_destroy);
+        std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create_backend(backend),mp_capture_destroy);
+        require(mp_capture_instance_backend(capture.get())==backend,"Requested backend was silently replaced");
         require(bool(capture),mp_last_error());require(mp_capture_start(capture.get())==1,mp_last_error());
         auto frame=[&] {
             const uint8_t* pixels=nullptr;uint32_t width=0,height=0;
-            require(mp_capture_frame(capture.get(),&pixels,&width,&height)==1,mp_last_error());
-            require(width>40&&height>40&&pixels,"Fixture produced no actual GDI frame");
+            int status=0;
+            for(int i=0;i<500&&status==0;++i) {status=mp_capture_frame(capture.get(),&pixels,&width,&height);if(status==0)Sleep(20);}
+            require(status==1,mp_last_error());
+            require(width>40&&height>40&&pixels,"Fixture produced no actual capture frame");
             RECT actual{};require(GetClientRect(process.window,&actual)!=0&&width==uint32_t(actual.right-actual.left)&&height==uint32_t(actual.bottom-actual.top),"GDI dimensions do not match the live source client");
             const auto* sample=pixels+(size_t(height/2)*width+width/2)*4;
             require(sample[0]==23&&sample[1]==67&&sample[2]==109&&sample[3]==255,"GDI RGBA pixels differ from independently painted source");
@@ -111,7 +117,7 @@ int main(int argc,char** argv) {
         require(rejected&&IsWindow(process.window)&&GetWindowThreadProcessId(process.window,&stillProcess)==liveThread&&stillProcess==liveProcess,"Source lifetime event did not invalidate an otherwise matching live tuple");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Destroyed lifetime retained title/input identity");
         auto oldCapture=std::move(capture);
-        capture.reset(mp_capture_create());require(bool(capture),mp_last_error());SetForegroundWindow(process.window);
+        capture.reset(mp_capture_create_backend(backend));require(bool(capture),mp_last_error());SetForegroundWindow(process.window);
         require(mp_capture_start(capture.get())==1,mp_last_error());
         auto fresh=frame();require(fresh!=0,"Fresh capture did not recover independently of the old lifetime");
         require(mp_capture_frame(oldCapture.get(),&pixels,&width,&height)==-1,"Old lifetime revived after another capture selected the same source tuple");
@@ -121,6 +127,6 @@ int main(int argc,char** argv) {
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Closed source was captured as a valid frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,fresh,&info,sizeof(info))==0,"Closed source retained input/title identity");
         mp_capture_cancel(capture.get());
-        std::cout<<"WINDOWS GDI FIXTURE PASS: independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
+        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

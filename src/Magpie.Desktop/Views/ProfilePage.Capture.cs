@@ -18,7 +18,8 @@ public partial class ProfilePage
             foreach(var backend in choices)
             {
                 if(backend==available || (backend is CaptureBackend.Portal or CaptureBackend.ScreenCaptureKit) && Settings.CaptureBackend!=backend)continue;
-                CaptureMethod.Items.Add(new ComboBoxItem { Tag=backend,Content=CaptureBackendPolicy.Name(backend)+(chinese?"（此版本不可用）":" (unavailable in this build)"),IsEnabled=false });
+                bool supported=CaptureBackendPolicy.Supported(backend);
+                CaptureMethod.Items.Add(new ComboBoxItem { Tag=backend,Content=CaptureBackendPolicy.Name(backend)+(supported?"":chinese?"（当前系统不可用）":" (unavailable on this system)"),IsEnabled=supported });
             }
             // An explicit selection matching the native implementation shares
             // the same visible row, while keeping its stored enum value.
@@ -34,10 +35,10 @@ public partial class ProfilePage
     {
         var available=CaptureBackendPolicy.Available;
         bool chinese=Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase);
-        bool unsupported=!CaptureBackendPolicy.Supported(Settings.CaptureBackend,available);
+        bool unsupported=!CaptureBackendPolicy.Supported(Settings.CaptureBackend);
         CaptureWarning.Severity=unsupported?"Warning":"Informational";
         CaptureWarning.Title=unsupported?(chinese?"已保存的捕获方式在此版本不可用，请选择本机后端。":"The saved capture backend is unavailable in this build. Select the native backend."):
-            (chinese?"当前捕获后端：":"Current capture backend: ")+CaptureBackendPolicy.Name(available);
+            (chinese?"当前捕获后端：":"Current capture backend: ")+CaptureBackendPolicy.Name(Settings.CaptureBackend==CaptureBackend.Native?available:Settings.CaptureBackend);
         CaptureWarning.IsOpen=true;
     }
 }
