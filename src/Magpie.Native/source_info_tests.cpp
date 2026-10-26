@@ -1,5 +1,5 @@
 #include "source_info.h"
-#include "local_input_region.h"
+#include "input_mapping.h"
 #include <limits>
 #include <iostream>
 #include <stdexcept>
@@ -9,6 +9,21 @@
 void require(bool value,const char* message) { if(!value)throw std::runtime_error(message); }
 int main() {
     try {
+        magpie::InputMapping mapping{{100,50,800,400},{-200,30,400,200},{.25,.1,.5,.8}};
+        magpie::InputPoint mapped{999,999};
+        require(mapping.map(500,250,false,mapped)&&mapped.x==0&&mapped.y==130,"Cropped/negative-origin source coordinate mapping differs");
+        require(mapping.map(100,50,false,mapped)&&mapped.x==-100&&mapped.y==50,"Source crop near edge differs");
+        require(mapping.map(9999,9999,true,mapped)&&mapped.x<100&&mapped.x>99.999&&mapped.y<210&&mapped.y>209.999,"Captured drag leaked past source crop far edge");
+        magpie::InputMapping fractional{{12.5,27.25,600,337.5},{2048,-1536,400,225},{0,0,1,1}};
+        magpie::InputPoint center;
+        require(fractional.map(312.5,196,false,center)&&center.x==2248&&center.y==-1423.5,"Fractional output scale and negative monitor origin changed source center");
+        const auto kept=mapped;
+        require(!mapping.map(900,450,false,mapped)&&mapped.x==kept.x&&mapped.y==kept.y,"Outside non-drag mapped or changed caller result");
+        require(!mapping.map(std::numeric_limits<double>::quiet_NaN(),30,true,mapped),"Nonfinite pointer mapped");
+        auto invalid=mapping;invalid.crop.width=2;require(!invalid.map(500,250,true,mapped),"Crop outside source accepted");
+        invalid=mapping;invalid.destination.width=0;require(!invalid.map(500,250,true,mapped),"Empty displayed image accepted");
+        magpie::WindowIdentity identity{42,10,11};
+        require(identity.matches(42,10,11)&&!identity.matches(42,12,11)&&!identity.matches(42,10,12)&&!identity.matches(43,10,11)&&!magpie::WindowIdentity{}.matches(0,0,0),"Selected window/process/thread guard differs");
         const magpie::LocalInputRegion overlay{10,20,310,250};
         require(overlay.contains(10,20)&&overlay.contains(319.9,269.9),"Profiler local region lost interior/near edge");
         require(!overlay.contains(320,20)&&!overlay.contains(10,270)&&!overlay.contains(9,30),"Profiler local region excluded unrelated source pixels");
@@ -20,6 +35,7 @@ int main() {
 #else
         require(mp_capture_overlay_region(nullptr,0,0,0,0)==0,"Unsupported input backend fabricated local overlay support");
 #endif
+        std::cout<<"INPUT MAPPING MODEL PASS: crop, negative source origin, far-edge drag clamp, non-drag exclusion, malformed input and window/process/thread identity.\n";
         char shortText[5];magpie::sourceText(shortText,"AB\xf0\x9f\x98\x80Z");require(std::string(shortText)=="AB","Truncation split a UTF-8 scalar");
         char exact[7];magpie::sourceText(exact,"AB\xf0\x9f\x98\x80Z");require(std::string(exact)=="AB\xf0\x9f\x98\x80","Exact scalar boundary was truncated incorrectly");
         char one[1];magpie::sourceText(one,"text");require(one[0]==0,"Single-byte field is not terminated");

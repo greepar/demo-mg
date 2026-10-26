@@ -1,6 +1,6 @@
 #import "input_macos.h"
 #include <algorithm>
-#include "local_input_region.h"
+#include "input_mapping.h"
 #include <map>
 #include <unistd.h>
 
@@ -109,10 +109,13 @@
         if(_destination.size.width<=0 || _destination.size.height<=0)return event;
         CGRect source;
         if(![self sourceFrame:&source]) { [self releaseInput];return nil; }
-        double x=std::clamp((point.x-_destination.origin.x)/_destination.size.width,0.0,1.0);
-        double y=std::clamp((point.y-_destination.origin.y)/_destination.size.height,0.0,1.0);
-        _lastPoint=CGPointMake(source.origin.x+(_crop.origin.x+x*_crop.size.width)*source.size.width,
-                              source.origin.y+(_crop.origin.y+y*_crop.size.height)*source.size.height);
+        magpie::InputMapping mapping{
+            {_destination.origin.x,_destination.origin.y,_destination.size.width,_destination.size.height},
+            {source.origin.x,source.origin.y,source.size.width,source.size.height},
+            {_crop.origin.x,_crop.origin.y,_crop.size.width,_crop.size.height}};
+        magpie::InputPoint mapped;
+        if(!mapping.map(point.x,point.y,dragging,mapped)) { if(down)[self releaseInput];return event; }
+        _lastPoint=CGPointMake(mapped.x,mapped.y);
     }
     if(!CGPreflightPostEventAccess()) {
         if(down && !_requestedAccess) { _requestedAccess=true;CGRequestPostEventAccess(); }

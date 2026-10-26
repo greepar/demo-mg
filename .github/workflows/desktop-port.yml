@@ -52,6 +52,9 @@ jobs:
         run: python scripts/prepare-desktop-ci.py
       - name: Native SDK, AOT, interaction models and single executable
         run: python scripts/verify-platform-build.py --rid ${{ matrix.rid }}
+      - name: Disposable Windows source-window capture regression
+        if: runner.os == 'Windows'
+        run: python scripts/verify-windows-capture-fixture.py
       - name: Linux software Vulkan regression
         if: runner.os == 'Linux'
         run: python scripts/verify-platform.py --rid ${{ matrix.rid }}

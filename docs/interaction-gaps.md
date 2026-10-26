@@ -137,6 +137,14 @@ Cocoa 输入新增独立 profiler 本地命中矩形，拖动时临时排除整�
 
 Linux 最终 AOT 核心/模型与八项中英隔离 UI 通过；核心同时验证自动/禁用精度实际引擎的 profile 标签，UI 用自动精度 CuNNy/nearest 真 Vulkan 和实际性能区间，检查 GPU 名称、无源不假冒后端、FPS、FP16 标签、浮层位置与已提交 tooltip。动态计数规则/后端名称为模型，未打开用户桌面/捕获选源。报告 `artifacts/desktop/profiler-info-test-summary.json`，详见 [profiler 信息](profiler-statistics.md#会话信息与精度标识)。本轮无原生源码变更，不重复声明新 CTest；三平台真实捕获、输入、光标、多屏及完整交互目标继续未完成。
 
+## 2026-10-26 输入映射/Windows 源保护阶段
+
+新增可移植裁剪坐标映射并实际接入 macOS：越界拖拽保持源裁剪半开边界内，普通越界/非法参数拒绝；修正原来归一化夹到 1 后落在源右/下边界本身的数学问题。Windows GDI 在选择、取帧和标题查询中复核 HWND/PID/线程；最小化或几何失配暂停提交代次，直到新帧到达，过期序号拒绝不破坏有效新帧。相同元组全部复用的窗口生命周期仍需原生销毁跟踪。
+
+新增仅一次性托管 Windows CI 允许的独立源窗口/GDI 测试，覆盖真实绘制像素、源身份、改名、resize、最小化后新帧与销毁；不进入本机/default CTest，没有用户桌面回退。该 fixture 当前待本提交目标机执行，不能先算通过；它也不包含鼠标/键盘转发。Desktop 最小化错误后的自动恢复仍未完成。原版 Windows 需要透明/非激活输出与原生光标路径，不用 PostMessage 的近似实现替代原版输入。
+
+本机 Linux AOT 核心、23/23 CTest、最终分数倍率/source 用例及五项中英私有 Wayland UI 通过；Windows MinGW 严格语法通过，CI 包装器的非目标环境拒绝通过。报告 `artifacts/desktop/input-mapping-test-summary.json`，详见 [映射说明与待验收边界](input-mapping.md)。新 macOS/Windows SDK 与实际事件/捕获结果待相应 CI/目标机验证。Windows/Linux 输入转发、光标及整个三平台目标继续未完成。
+
 ## 后续建议顺序
 
 2026-10-22 后续实现记录：本轮主题与外链使用三平台共用托管代码，接入现有目标机 AOT 构建路径；本机 Linux NativeAOT 核心与七项私有 Wayland UI 场景通过。截图已查看浅色 About 和深色 Settings，新增链接拒绝提示有真实 xdg_popup 图层证据。记录为 `artifacts/desktop/interaction-settings-test-summary.json`、`artifacts/desktop/interaction-settings-review/` 和 `artifacts/desktop/interaction-settings-en/`。这不是整份清单完成记录，也不把已有 macOS 编译记录计作本轮变更的 macOS 验收。

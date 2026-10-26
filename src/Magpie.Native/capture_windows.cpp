@@ -5,6 +5,7 @@
 #include "error.h"
 #include "source_info.h"
 #include "capture_epoch.h"
+#include "input_mapping.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -16,6 +17,7 @@ struct Capture {
     std::atomic<bool> cancelled{false};
     HWND window{};
     DWORD sourceProcess{};
+    magpie::WindowIdentity identity;
     HDC memory{};
     HBITMAP bitmap{};
     HGDIOBJ previous{};
@@ -24,9 +26,21 @@ struct Capture {
     std::vector<uint8_t> pixels;
     std::mutex epochMutex;
     magpie::CaptureEpoch epoch;
+    bool sameSource() const {
+        DWORD process{};DWORD thread=window?GetWindowThreadProcessId(window,&process):0;
+        return identity.matches(uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread);
+    }
+    void requireSource() {
+        if(sameSource())return;
+        { std::lock_guard lock(epochMutex);epoch.pause(); }
+        throw std::runtime_error("The selected source window was closed or its process/thread identity changed");
+    }
     bool snapshotMatches(uint64_t sequence) {
         std::lock_guard lock(epochMutex);RECT rect{};
-        return !cancelled&&!IsIconic(window)&&GetClientRect(window,&rect)&&epoch.accepts(sequence,uint32_t(rect.right-rect.left),uint32_t(rect.bottom-rect.top));
+        if(cancelled||!sameSource()||IsIconic(window)||!GetClientRect(window,&rect)) { epoch.pause();return false; }
+        const auto w=uint32_t(rect.right-rect.left),h=uint32_t(rect.bottom-rect.top);
+        if(!epoch.accepts(epoch.sequence(),w,h)) { epoch.pause();return false; }
+        return epoch.accepts(sequence,w,h)&&sameSource();
     }
     ~Capture() { reset(); if (memory) DeleteDC(memory); }
     void reset() {
@@ -38,16 +52,18 @@ struct Capture {
         if (cancelled) throw std::runtime_error("Capture was cancelled");
         window=GetForegroundWindow();
         DWORD process{};
-        if (!window || !GetWindowThreadProcessId(window,&process)) throw std::runtime_error("No foreground window is available");
+        DWORD thread=window?GetWindowThreadProcessId(window,&process):0;
+        if (!window || !thread) throw std::runtime_error("No foreground window is available");
         if (process==GetCurrentProcessId()) throw std::runtime_error("Select the source window during the start delay. Windows currently uses the GDI capture backend.");
-        sourceProcess=process;
+        sourceProcess=process;identity={uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread};
+        requireSource();
         memory=CreateCompatibleDC(nullptr);
         if (!memory) throw std::runtime_error("Cannot create a Windows capture DC");
     }
     void frame(const uint8_t** rgba,uint32_t* w,uint32_t* h) {
         if (cancelled) throw std::runtime_error("Capture was stopped");
-        if (!IsWindow(window)) throw std::runtime_error("The source window was closed");
-        if (IsIconic(window)) throw std::runtime_error("The source window is minimized");
+        requireSource();
+        if (IsIconic(window)) { std::lock_guard lock(epochMutex);epoch.pause();throw std::runtime_error("The source window is minimized"); }
         RECT rect{};
         if (!GetClientRect(window,&rect)) throw std::runtime_error("Cannot read source window dimensions");
         const auto nw=uint32_t(rect.right-rect.left), nh=uint32_t(rect.bottom-rect.top);
@@ -67,9 +83,10 @@ struct Capture {
             width=nw;height=nh;pixels.resize(size_t(width)*height*4);
         }
         if (!BitBlt(memory,0,0,int(width),int(height),source,0,0,SRCCOPY|CAPTUREBLT)) throw std::runtime_error("GDI could not capture this window; GPU/protected content may require Graphics Capture");
-        GdiFlush();
+        GdiFlush();requireSource();
         const auto* bgra=static_cast<const uint8_t*>(bits);
         for (size_t i=0;i<pixels.size();i+=4) { pixels[i]=bgra[i+2];pixels[i+1]=bgra[i+1];pixels[i+2]=bgra[i];pixels[i+3]=255; }
+        requireSource();
         {std::lock_guard lock(epochMutex);epoch.deliver(width,height);}
         *rgba=pixels.data();*w=width;*h=height;
     }
@@ -87,7 +104,7 @@ extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint
         *info=magpie::emptySource();auto& c=*static_cast<Capture*>(capture);
         DWORD process{};
         if(!c.window)return 1;
-        if(!IsWindow(c.window)||!GetWindowThreadProcessId(c.window,&process)||process!=c.sourceProcess)throw std::runtime_error("The selected source window is no longer available");
+        if(!c.sameSource()||!GetWindowThreadProcessId(c.window,&process)||process!=c.sourceProcess)throw std::runtime_error("The selected source window is no longer available");
         info->kind=1;info->process_id=process;info->window_id=uint64_t(reinterpret_cast<uintptr_t>(c.window));info->flags=MP_SOURCE_PID|MP_SOURCE_WINDOW;
         wchar_t title[4096]{};int length=GetWindowTextW(c.window,title,int(std::size(title)));
         if(length>0){magpie::sourceText(info->title,utf8(title,size_t(length)));info->flags|=MP_SOURCE_TITLE;}
@@ -101,6 +118,7 @@ extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint
                 magpie::sourceText(info->process_name,name);if(!name.empty())info->flags|=MP_SOURCE_PROCESS_NAME;
             }
         }
+        if(!c.sameSource())throw std::runtime_error("The selected source identity changed during metadata query");
         return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return 0;}
 }

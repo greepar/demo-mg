@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Opt-in actual Win32 GDI fixture on disposable GitHub-hosted runners only."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT=Path(__file__).resolve().parents[1]
+if sys.platform!='win32' or os.environ.get('GITHUB_ACTIONS')!='true' or os.environ.get('RUNNER_ENVIRONMENT')!='github-hosted':
+    raise SystemExit('This visible source-window test is restricted to disposable GitHub-hosted Windows runners; no user-desktop fallback.')
+binary=ROOT/'artifacts/native/win-x64/Release/Release/windows_capture_fixture.exe'
+if not binary.is_file():raise SystemExit('Missing native Windows capture fixture: '+str(binary))
+folder=ROOT/'artifacts/platform-build-checks/win-x64';folder.mkdir(parents=True,exist_ok=True)
+env=dict(os.environ,MAGPIE_HOSTED_WINDOWS_CAPTURE_FIXTURE='1')
+report={'passed':False,'commit':os.environ.get('GITHUB_SHA'),'run_id':os.environ.get('GITHUB_RUN_ID'),'disposable_hosted_runner':True,'capture_tested':'independent synthetic Win32 source process via actual GDI',
+        'gpu_tested':False,'input_injected':False,'real_application_compatibility_tested':False,'full_interaction_parity':False,
+        'fixture_sha256':hashlib.sha256(binary.read_bytes()).hexdigest()}
+try:
+    result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
+    output=result.stdout+result.stderr
+    (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
+    report.update(exit_code=result.returncode,passed=result.returncode==0 and 'WINDOWS GDI FIXTURE PASS:' in result.stdout)
+    print(output,flush=True)
+except subprocess.TimeoutExpired as failure:
+    def decode(value):return value.decode(errors='replace') if isinstance(value,bytes) else value or ''
+    (folder/'windows-capture-fixture.log').write_text(decode(failure.stdout)+decode(failure.stderr),encoding='utf-8')
+    report['failure']='timeout'
+(folder/'windows-capture-fixture.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+if not report['passed']:raise SystemExit('Windows capture fixture did not produce successful actual source-window evidence.')
