@@ -16,6 +16,8 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 
 调用方在 frame 或标题快照校验中观察到最小化时，也会显式通知生产者暂停，不能假定异步读回线程一定能在短暂最小化期间轮询到状态。暂停立即清空待交付帧并推进几何修订；生产者消费通知后再次清空，防止正在读回的旧帧越过暂停点。发布前在同一状态锁下复核暂停标记，恢复仍要求重启会话后的新帧。此改动在 `dfe8056a`，严格 Windows 语法检查通过，实际系统竞态仍需目标回归。
 
+`1915b8c0` 和 `ef4dffe3` 的 Windows 日志均定位在 resized frame：格式为正确的 87/BGRA8，但底层纹理仍是 286×233，ContentSize 和记录的 pool size 已是 406×303。不是初始帧失败，也不是已证实的格式不支持。新实现对底层分配不足单独暂停并丢弃，在释放 frame/surface/texture 引用后重建帧池和会话；不会读取超出纹理分配的客户区，也不会用截断旧帧冒充成功。格式不符仍明确失败。参考 [Microsoft 帧内容、表面尺寸与重建说明](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)。该修复仍需对应 CI。
+
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 
 API 依据：[Microsoft HWND capture interop](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow)、[free-threaded frame pool](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded)、[SDK 中的 C++/WinRT](https://learn.microsoft.com/en-us/windows/apps/develop/cpp-winrt/intro-to-using-cpp-with-winrt)。

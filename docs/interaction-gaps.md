@@ -18,7 +18,7 @@
 
 新增可选择的 Windows Graphics Capture 实现：独立 native MTA 线程持有 WinRT/D3D11，使用 HWND 建立单窗口会话、free-threaded frame pool、最新帧读回客户区并交给现有 Vulkan 链路。支持尺寸变化时重建帧池，暂停/几何变化后拒绝旧帧；异步生产者与 C ABI 已交付缓冲分离。后端能力位掩码、显式创建和实例查询已接入配置、迁移校验、会话及 profiler，显式请求不可用后端不会回退 GDI。GDI 仍是 Windows 默认；Graphics Capture 需在当前系统支持时手动选择。
 
-这更新后文历史审计中的“WGC 未移植”为“实现已接入，目标验证待完成”。Linux AOT 核心及三个捕获模型测试已通过；`15ca1931` 的四平台 CI 已完成：Linux、macOS arm64/x64 成功，Windows SDK/AOT/单文件及 GDI fixture 成功；WGC fixture 收到首帧后报纹理格式/尺寸不匹配，尚未通过。后续诊断提交 `10ca4322` 的 GDI 继续通过，WGC 等帧超时被 fixture 误报为此前的最小化错误；已修复阶段化超时诊断，增加内容/边界/客户区信息，并在暂停恢复时同时重建会话，防止静态源唯一恢复帧被帧池清空丢失。恢复修复仍待 CI 验证，不能计作 WGC 已通过。托管 Windows 若能力探测不支持 WGC，fixture 记录 unavailable，**不计作 WGC 验收通过**。测试窗口仅允许一次性 GitHub-hosted runner，本机仅私有 headless Wayland。WGC 当前仍只输出客户区，标题栏开关保持禁用；DXGI/DWM、源窗口特殊样式兼容、GPU 零拷贝、多屏 DPI/HDR 和真实游戏兼容性仍缺。完整交互清单未完成。
+这更新后文历史审计中的“WGC 未移植”为“实现已接入，目标验证待完成”。Linux AOT 核心及三个捕获模型测试已通过；`15ca1931` 的四平台 CI 已完成：Linux、macOS arm64/x64 成功，Windows SDK/AOT/单文件及 GDI fixture 成功；WGC fixture 收到首帧后报纹理格式/尺寸不匹配，尚未通过。后续诊断提交 `10ca4322` 的 GDI 继续通过，WGC 等帧超时被 fixture 误报为此前的最小化错误；已修复阶段化超时诊断，增加内容/边界/客户区信息，并在暂停恢复时同时重建会话，防止静态源唯一恢复帧被帧池清空丢失。`1915b8c0` / `ef4dffe3` 日志进一步确认 resized frame 的内容为 406×303、纹理仍为旧的 286×233，格式 87 正确；已将底层分配不足视为需丢弃/重建的 resize 过渡帧，同时重启会话。修复仍待 CI 验证，不能计作 WGC 已通过。托管 Windows 若能力探测不支持 WGC，fixture 记录 unavailable，**不计作 WGC 验收通过**。测试窗口仅允许一次性 GitHub-hosted runner，本机仅私有 headless Wayland。WGC 当前仍只输出客户区，标题栏开关保持禁用；DXGI/DWM、源窗口特殊样式兼容、GPU 零拷贝、多屏 DPI/HDR 和真实游戏兼容性仍缺。完整交互清单未完成。
 
 实现与证据范围见 [Windows Graphics Capture](windows-graphics-capture.md)。
 

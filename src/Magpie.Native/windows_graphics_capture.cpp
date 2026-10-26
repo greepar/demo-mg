@@ -149,6 +149,11 @@ struct WindowsGraphicsCapture::State {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->closed=true;state->changed.notify_one();}
         });
         session.StartCapture();
+        auto restart=[&](winrt::Windows::Graphics::SizeInt32 replacement) {
+            session.Close();
+            pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,replacement);
+            session=pool.CreateCaptureSession(item);configure(session);session.StartCapture();size=replacement;
+        };
         {std::lock_guard lock(mutex);ready=true;started.notify_all();}
         com_ptr<ID3D11Texture2D> staging;uint32_t stagingWidth{},stagingHeight{};
         Geometry previous{};bool haveGeometry=false,inactive=false;
@@ -174,9 +179,7 @@ struct WindowsGraphicsCapture::State {
                 // client has the same size. Recreate alone can discard the sole
                 // restore update of a static source. Restart the session too,
                 // requiring a new initial frame without repainting the source.
-                session.Close();
-                pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);
-                session=pool.CreateCaptureSession(item);configure(session);session.StartCapture();
+                restart(size);
                 {std::lock_guard lock(mutex);waiting="Waiting for a fresh frame from the restarted restored-source session";}
                 inactive=false;continue;
             }
@@ -191,7 +194,7 @@ struct WindowsGraphicsCapture::State {
                 {std::lock_guard lock(mutex);pause();}
                 frame.Close();frame=nullptr;
                 if(content.Width<=0||content.Height<=0||uint64_t(content.Width)*uint32_t(content.Height)>16777216)throw std::runtime_error("Unsupported resized Graphics Capture dimensions");
-                size=content;pool.Recreate(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);continue;
+                restart(content);continue;
             }
             if(!fits(before,content.Width,content.Height)) {
                 std::lock_guard lock(mutex);pause();
@@ -204,11 +207,21 @@ struct WindowsGraphicsCapture::State {
             auto access=frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
             com_ptr<ID3D11Texture2D> texture;check_hresult(access->GetInterface(__uuidof(ID3D11Texture2D),texture.put_void()));
             D3D11_TEXTURE2D_DESC description{};texture->GetDesc(&description);
-            if(description.Format!=DXGI_FORMAT_B8G8R8A8_UNORM||description.Width<uint32_t(content.Width)||description.Height<uint32_t(content.Height))
+            if(description.Format!=DXGI_FORMAT_B8G8R8A8_UNORM)
                 throw std::runtime_error("Unexpected Graphics Capture texture: format="+std::to_string(uint32_t(description.Format))+
                     " texture="+std::to_string(description.Width)+"x"+std::to_string(description.Height)+
                     " content="+std::to_string(content.Width)+"x"+std::to_string(content.Height)+
                     " pool="+std::to_string(size.Width)+"x"+std::to_string(size.Height));
+            if(description.Width<uint32_t(content.Width)||description.Height<uint32_t(content.Height)) {
+                // Resize can expose updated ContentSize on a surface allocated
+                // for the old pool. Never read/crop outside that allocation.
+                // Release every frame/surface reference before recreating and
+                // restart to force fresh content even for an idle source.
+                {std::lock_guard lock(mutex);pause();waiting="Waiting for resized WGC surface: texture="+
+                    std::to_string(description.Width)+"x"+std::to_string(description.Height)+
+                    " content="+std::to_string(content.Width)+"x"+std::to_string(content.Height);}
+                texture=nullptr;access=nullptr;frame.Close();frame=nullptr;restart(content);continue;
+            }
             uint32_t width=uint32_t(before.client.right-before.client.left),height=uint32_t(before.client.bottom-before.client.top);
             if(!staging||width!=stagingWidth||height!=stagingHeight) {
                 staging=nullptr;D3D11_TEXTURE2D_DESC desc{};desc.Width=width;desc.Height=height;desc.MipLevels=desc.ArraySize=1;
