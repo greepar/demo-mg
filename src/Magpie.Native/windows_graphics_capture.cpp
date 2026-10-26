@@ -89,6 +89,7 @@ struct WindowsGraphicsCapture::State {
     const std::atomic<bool>& cancelled;
     std::function<bool()> valid;
     std::atomic<bool> stop{false};
+    std::atomic<bool> suspension{false};
     std::shared_ptr<Wake> wake=std::make_shared<Wake>();
     std::mutex mutex;
     std::condition_variable started;
@@ -159,6 +160,9 @@ struct WindowsGraphicsCapture::State {
                 wake->arrived=false;
             }
             checkSource();
+            if(suspension.exchange(false)) {
+                std::lock_guard lock(mutex);pause();inactive=true;haveGeometry=false;
+            }
             if(IsIconic(window)||!IsWindowVisible(window)) {
                 {std::lock_guard lock(mutex);if(!inactive)pause();}
                 inactive=true;haveGeometry=false;
@@ -217,7 +221,7 @@ struct WindowsGraphicsCapture::State {
             struct Unmap {ID3D11DeviceContext* context;ID3D11Texture2D* texture;~Unmap(){context->Unmap(texture,0);}} unmap{context.get(),staging.get()};
             checkSource();auto after=geometry(window);
             std::lock_guard lock(mutex);
-            if(IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
+            if(suspension||IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
             waiting="Waiting for the next Graphics Capture frame";
         }
@@ -243,9 +247,13 @@ int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t*
     std::lock_guard lock(state_->mutex);
     if(!state_->failure.empty())throw std::runtime_error(state_->failure);
     state_->checkSource();*revision=state_->revision;
+    if(state_->suspension) {error="Waiting for the Graphics Capture source to resume";return 0;}
     if(state_->mailbox.deliver(rgba,width,height))return 1;
     error=state_->waiting;return 0;
 }
 bool WindowsGraphicsCapture::paused() const {std::lock_guard lock(state_->mutex);return state_->mailbox.inputPaused()||!state_->failure.empty();}
 uint64_t WindowsGraphicsCapture::revision() const {std::lock_guard lock(state_->mutex);return state_->revision;}
+void WindowsGraphicsCapture::suspend() {
+    std::lock_guard lock(state_->mutex);state_->suspension=true;state_->pause();state_->wake->changed.notify_one();
+}
 }

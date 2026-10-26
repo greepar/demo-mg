@@ -18,5 +18,6 @@ public:
     int frame(const uint8_t** rgba,uint32_t* width,uint32_t* height,uint64_t* revision);
     bool paused() const;
     uint64_t revision() const;
+    void suspend();
 };
 }

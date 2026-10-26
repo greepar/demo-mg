@@ -43,6 +43,7 @@ struct Capture {
     }
     bool snapshotMatches(uint64_t sequence) {
         std::lock_guard lock(epochMutex);RECT rect{};
+        if(graphics&&IsIconic(window))graphics->suspend();
         if(cancelled||!sameSource()||IsIconic(window)||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
         const auto w=uint32_t(rect.right-rect.left),h=uint32_t(rect.bottom-rect.top);
         if(!epoch.accepts(epoch.sequence(),w,h)) { epoch.pause();return false; }
@@ -73,7 +74,7 @@ struct Capture {
     int frame(const uint8_t** rgba,uint32_t* w,uint32_t* h) {
         if (cancelled) throw std::runtime_error("Capture was stopped");
         requireSource();
-        if (IsIconic(window)) { std::lock_guard lock(epochMutex);epoch.pause();throw std::runtime_error("The source window is minimized"); }
+        if (IsIconic(window)) {if(graphics)graphics->suspend();std::lock_guard lock(epochMutex);epoch.pause();throw std::runtime_error("The source window is minimized"); }
         if(graphics) {
             const uint8_t* captured{};uint32_t capturedWidth{},capturedHeight{};
             uint64_t revision{};int result=graphics->frame(&captured,&capturedWidth,&capturedHeight,&revision);requireSource();
