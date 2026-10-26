@@ -4,6 +4,8 @@
 #include "magpie.h"
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
+#include <atomic>
 #include <iostream>
 #include <iterator>
 #include <memory>
@@ -40,6 +42,27 @@ LONG WINAPI crash(EXCEPTION_POINTERS* exception) {
         <<L" offset=0x"<<(reinterpret_cast<uintptr_t>(address)-reinterpret_cast<uintptr_t>(module))<<std::endl;
     return EXCEPTION_EXECUTE_HANDLER;
 }
+LONG WINAPI firstAccessViolation(EXCEPTION_POINTERS* exception) {
+    static std::atomic<bool> recorded{false};
+    if(exception->ExceptionRecord->ExceptionCode!=EXCEPTION_ACCESS_VIOLATION||recorded.exchange(true))return EXCEPTION_CONTINUE_SEARCH;
+    // First-chance diagnostics survive failures occurring inside a system
+    // component's own exception boundary. Do not consume or translate the AV.
+    auto address=exception->ExceptionRecord->ExceptionAddress;HMODULE module{};char path[32768]{};
+    GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        reinterpret_cast<LPCSTR>(address),&module);
+    if(module)GetModuleFileNameA(module,path,DWORD(std::size(path)));
+    std::fprintf(stderr,"CAPTURE FIRST AV: module=%s offset=0x%llx address=%p thread=%lu\n",path,
+        static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(address)-reinterpret_cast<uintptr_t>(module)),address,GetCurrentThreadId());
+    void* stack[24]{};USHORT count=CaptureStackBackTrace(0,USHORT(std::size(stack)),stack,nullptr);
+    for(USHORT i=0;i<count;++i) {
+        HMODULE owner{};char name[MAX_PATH]{};
+        GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,reinterpret_cast<LPCSTR>(stack[i]),&owner);
+        if(owner)GetModuleFileNameA(owner,name,DWORD(std::size(name)));
+        std::fprintf(stderr,"CAPTURE AV STACK: %s +0x%llx\n",name,
+            static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(stack[i])-reinterpret_cast<uintptr_t>(owner)));
+    }
+    std::fflush(stderr);return EXCEPTION_CONTINUE_SEARCH;
+}
 std::wstring title(DWORD parent) { return L"Magpie disposable GDI fixture "+std::to_wstring(parent); }
 int child(DWORD parent) {
     HINSTANCE instance=GetModuleHandleW(nullptr);
@@ -70,6 +93,10 @@ int main(int argc,char** argv) {
     SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);SetUnhandledExceptionFilter(crash);
     try {
         if(!std::getenv("MAGPIE_HOSTED_WINDOWS_CAPTURE_FIXTURE"))throw std::runtime_error("This visible-window fixture requires an explicit disposable hosted-runner opt-in");
+        struct Trace {
+            PVOID handle=AddVectoredExceptionHandler(1,firstAccessViolation);
+            ~Trace(){if(handle)RemoveVectoredExceptionHandler(handle);}
+        } trace;
         if(argc==3&&std::string(argv[1])=="--source")return child(DWORD(std::stoul(argv[2])));
         bool wgc=argc==2&&std::string(argv[1])=="--wgc";
         require(argc==1||wgc,"Unknown capture fixture arguments");
