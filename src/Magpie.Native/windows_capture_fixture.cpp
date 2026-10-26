@@ -3,11 +3,13 @@
 #include <windows.h>
 #include "magpie.h"
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // Opt-in only: creates a disposable source process/window on the hosted runner.
 // Never registered with the default CTest suite or run on the user's desktop.
@@ -76,15 +78,23 @@ int main(int argc,char** argv) {
         std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create_backend(backend),mp_capture_destroy);
         require(mp_capture_instance_backend(capture.get())==backend,"Requested backend was silently replaced");
         require(bool(capture),mp_last_error());require(mp_capture_start(capture.get())==1,mp_last_error());
+        const uint8_t* retained{};std::vector<uint8_t> retainedCopy;
         auto frame=[&] {
             const uint8_t* pixels=nullptr;uint32_t width=0,height=0;
             int status=0;
-            for(int i=0;i<500&&status==0;++i) {status=mp_capture_frame(capture.get(),&pixels,&width,&height);if(status==0)Sleep(20);}
+            for(int i=0;i<500&&status==0;++i) {
+                status=mp_capture_frame(capture.get(),&pixels,&width,&height);
+                if(status==0) {
+                    require(!retained||memcmp(retained,retainedCopy.data(),retainedCopy.size())==0,"Waiting changed the previously delivered C ABI pixel buffer");
+                    Sleep(20);
+                }
+            }
             require(status==1,mp_last_error());
             require(width>40&&height>40&&pixels,"Fixture produced no actual capture frame");
             RECT actual{};require(GetClientRect(process.window,&actual)!=0&&width==uint32_t(actual.right-actual.left)&&height==uint32_t(actual.bottom-actual.top),"GDI dimensions do not match the live source client");
             const auto* sample=pixels+(size_t(height/2)*width+width/2)*4;
             require(sample[0]==23&&sample[1]==67&&sample[2]==109&&sample[3]==255,"GDI RGBA pixels differ from independently painted source");
+            retained=pixels;retainedCopy.assign(pixels,pixels+size_t(width)*height*4);
             return mp_capture_frame_sequence(capture.get());
         };
         auto first=frame();mp_capture_source_info info{};
@@ -127,6 +137,6 @@ int main(int argc,char** argv) {
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Closed source was captured as a valid frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,fresh,&info,sizeof(info))==0,"Closed source retained input/title identity");
         mp_capture_cancel(capture.get());
-        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
+        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, waiting-buffer preservation, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

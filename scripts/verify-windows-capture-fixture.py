@@ -21,7 +21,7 @@ try:
     result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
     output=result.stdout+result.stderr
     (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
-    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture')
+    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation')
     report.update(exit_code=result.returncode,passed=result.returncode==0 and all(marker in result.stdout for marker in required))
     print(output,flush=True)
 except subprocess.TimeoutExpired as failure:

@@ -8,7 +8,7 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 
 使用 `CreateForWindow`，free-threaded frame pool 收取最新 BGRA 帧，D3D11 staging readback 后转换为现有 RGBA 数据路径。当前没有 D3D11/Vulkan 外部显存零拷贝，也没有完成原版的所有源兼容处理。裁剪参照原版 `CalcWindowCapturedFrameBounds`，包括 Win11 24H2 前最大化边界差异；裁剪前后检查几何，尺寸不匹配不发布。尺寸变化重建 frame pool；最小化/隐藏清除待交付数据，恢复后重新建池并等待新帧。client-only 限制在 UI 如实保留。
 
-异步生产使用 CaptureMailbox，等待时不更改已交付的像素缓冲。暂停/几何修订与帧在同一锁内交付；外层再次核对修订和当前客户区尺寸，旧修订不绑定为新画面。源窗口/PID/线程及永久销毁状态沿用 WindowsSourceWatch。
+异步生产使用 CaptureMailbox，等待时不更改已交付的像素缓冲。暂停/几何修订与帧在同一锁内交付；外层再次核对修订和当前客户区尺寸，旧修订不绑定为新画面。外层单独拥有交给 UI 的 RGBA 缓冲，仅接受帧时复制/替换，防止已取出但被几何校验拒绝的 mailbox 帧回收 UI 仍在使用的旧缓冲；fixture 对每次 Waiting 核对上次交付缓冲。当前读回包含此额外 CPU 复制。源窗口/PID/线程及永久销毁状态沿用 WindowsSourceWatch。
 
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 

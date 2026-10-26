@@ -75,14 +75,20 @@ struct Capture {
         requireSource();
         if (IsIconic(window)) { std::lock_guard lock(epochMutex);epoch.pause();throw std::runtime_error("The source window is minimized"); }
         if(graphics) {
-            uint64_t revision{};int result=graphics->frame(rgba,w,h,&revision);requireSource();
+            const uint8_t* captured{};uint32_t capturedWidth{},capturedHeight{};
+            uint64_t revision{};int result=graphics->frame(&captured,&capturedWidth,&capturedHeight,&revision);requireSource();
             std::lock_guard lock(epochMutex);
             if(revision!=graphics->revision()) {epoch.pause();return 0;}
             if(graphics->paused()||revision!=graphicsRevision)epoch.pause();
             if(result==1) {
                 RECT rect{};
-                if(!GetClientRect(window,&rect)||*w!=uint32_t(rect.right-rect.left)||*h!=uint32_t(rect.bottom-rect.top)) {epoch.pause();return 0;}
-                width=*w;height=*h;graphicsRevision=revision;epoch.deliver(width,height);
+                if(!GetClientRect(window,&rect)||capturedWidth!=uint32_t(rect.right-rect.left)||capturedHeight!=uint32_t(rect.bottom-rect.top)) {epoch.pause();return 0;}
+                // A rejected mailbox delivery must not recycle the buffer still
+                // held by the UI after we return Waiting. Own the outer C ABI
+                // buffer separately and replace it only for accepted frames.
+                pixels.assign(captured,captured+size_t(capturedWidth)*capturedHeight*4);
+                width=capturedWidth;height=capturedHeight;graphicsRevision=revision;epoch.deliver(width,height);
+                *rgba=pixels.data();*w=width;*h=height;
             }
             return result;
         }
