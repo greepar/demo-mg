@@ -24,6 +24,15 @@ using namespace winrt::Windows::Graphics::Capture;
 using namespace winrt::Windows::Graphics::DirectX;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 using winrt::Windows::Foundation::Metadata::ApiInformation;
+using winrt::Windows::Foundation::Metadata::IApiInformationStatics;
+// These apartments are shorter-lived than the process. Use uncached factory
+// references: C++/WinRT's convenience static calls keep process-wide factories
+// that can point into unloaded COM modules after the last RoUninitialize.
+template<class Class,class Interface> auto factory() {
+    auto value=try_get_activation_factory<Class,Interface>();
+    if(!value)throw std::runtime_error("Required Windows Graphics Capture factory is unavailable");
+    return value;
+}
 struct Apartment {
     HRESULT result=RoInitialize(RO_INIT_MULTITHREADED);
     Apartment() {if(FAILED(result)&&result!=RPC_E_CHANGED_MODE)check_hresult(result);}
@@ -106,18 +115,18 @@ struct WindowsGraphicsCapture::State {
     void produce() {
         Apartment apartment;
         checkSource();
-        if(!GraphicsCaptureSession::IsSupported())throw std::runtime_error("Windows Graphics Capture is not supported by this desktop");
+        if(!factory<GraphicsCaptureSession,IGraphicsCaptureSessionStatics>().IsSupported())throw std::runtime_error("Windows Graphics Capture is not supported by this desktop");
         com_ptr<ID3D11Device> device;com_ptr<ID3D11DeviceContext> context;
         check_hresult(D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             nullptr,0,D3D11_SDK_VERSION,device.put(),nullptr,context.put()));
         IDirect3DDevice wrapped{nullptr};auto dxgi=device.as<IDXGIDevice>();
         check_hresult(CreateDirect3D11DeviceFromDXGIDevice(dxgi.get(),reinterpret_cast<::IInspectable**>(put_abi(wrapped))));
         GraphicsCaptureItem item{nullptr};
-        auto interop=get_activation_factory<GraphicsCaptureItem,IGraphicsCaptureItemInterop>();
+        auto interop=factory<GraphicsCaptureItem,IGraphicsCaptureItemInterop>();
         check_hresult(interop->CreateForWindow(window,guid_of<GraphicsCaptureItem>(),put_abi(item)));
         auto size=item.Size();
         if(size.Width<=0||size.Height<=0||uint64_t(size.Width)*uint32_t(size.Height)>16777216)throw std::runtime_error("Unsupported Graphics Capture dimensions");
-        auto pool=Direct3D11CaptureFramePool::CreateFreeThreaded(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);
+        auto pool=factory<Direct3D11CaptureFramePool,IDirect3D11CaptureFramePoolStatics2>().CreateFreeThreaded(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);
         auto session=pool.CreateCaptureSession(item);
         struct Close {
             GraphicsCaptureSession& session;Direct3D11CaptureFramePool& pool;
@@ -125,7 +134,7 @@ struct WindowsGraphicsCapture::State {
         } close{session,pool};
         // No access request/picker is triggered. Keep the system capture border
         // where permission is required; omit captured cursor like the other ports.
-        if(ApiInformation::IsPropertyPresent(L"Windows.Graphics.Capture.GraphicsCaptureSession",L"IsCursorCaptureEnabled"))session.IsCursorCaptureEnabled(false);
+        if(factory<ApiInformation,IApiInformationStatics>().IsPropertyPresent(L"Windows.Graphics.Capture.GraphicsCaptureSession",L"IsCursorCaptureEnabled"))session.IsCursorCaptureEnabled(false);
         std::weak_ptr<Wake> weak=wake;
         auto arrived=pool.FrameArrived(auto_revoke,[weak](const auto&,const auto&) {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->arrived=true;state->changed.notify_one();}
@@ -196,7 +205,7 @@ struct WindowsGraphicsCapture::State {
 bool WindowsGraphicsCapture::supported() noexcept {
     try {
         Apartment apartment;
-        return GraphicsCaptureSession::IsSupported()&&bool(try_get_activation_factory<GraphicsCaptureItem,IGraphicsCaptureItemInterop>());
+        return factory<GraphicsCaptureSession,IGraphicsCaptureSessionStatics>().IsSupported()&&bool(try_get_activation_factory<GraphicsCaptureItem,IGraphicsCaptureItemInterop>());
     } catch(...) {return false;}
 }
 WindowsGraphicsCapture::WindowsGraphicsCapture(HWND window,const std::atomic<bool>& cancelled,std::function<bool()> valid)
