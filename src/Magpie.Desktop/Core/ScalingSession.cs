@@ -168,7 +168,7 @@ internal sealed partial class ScalingSession
                         var output=plan.Chain[^1];
                         string title=$"Magpie · {plan.Name} · {plan.Crop.Width}×{plan.Crop.Height} → {output.Width}×{output.Height} · Scaled {counters.ScaledFps:F1} FPS · {deviceName} · Esc to stop";
                         string details=FramePerformance.Describe(counters,plan.Detection,plan.DynamicStatistics,plan.Gpu);
-                        await Dispatcher.UIThread.InvokeAsync(()=> { if(_output is not null)_output.Title=title;if(_statistics is not null)_statistics.Text=details;UpdateGpuProfile(processor.GpuProfile); });
+                        await Dispatcher.UIThread.InvokeAsync(()=> { if(_output is not null)_output.Title=title;if(_statistics is not null)_statistics.Text=details;UpdateProfilerMetrics(counters,plan.Detection,plan.DynamicStatistics);UpdateGpuProfile(processor.GpuProfile); });
                     }
                     if(!scaled)await Task.Delay(processor.IdleDelayMilliseconds(plan.Minimum,plan.Maximum,Stopwatch.GetTimestamp()),_stop.Token);
                     else await Task.Delay(1,_stop.Token);
@@ -340,9 +340,20 @@ internal sealed partial class ScalingSession
         var output=plan[^1];
         if(!PresentCapturedFrame(processor.Pixels,output.Width,output.Height,source,sequence))return false;
         SetDisplayedStages(engine,plan);
+        if(!ReferenceEquals(_profilerInfoEngine,engine))
+        {
+            _profilerInfoEngine=engine;_profilerMetrics=null;
+            _profilerSessionInfo=ProfilerSessionInfo.Read(engine,_capture);
+            RefreshProfilerInfo();
+        }
         if(processor.Performance.TotalScaled==1&&_statistics is not null)_statistics.Text="Measuring frame rates…";
         UpdateGpuProfile(processor.GpuProfile);
         return true;
+    }
+    private void UpdateProfilerMetrics(PerformanceSnapshot metrics,DuplicateFrameMode detection,bool dynamicStatistics)
+    {
+        _profilerMetrics=metrics;_profilerDetection=detection;_profilerDynamicStatistics=dynamicStatistics;
+        RefreshProfilerInfo();PositionProfiler();
     }
     private void UpdateGpuProfile(GpuProfileSnapshot sample)
     {

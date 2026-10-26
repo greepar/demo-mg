@@ -11,7 +11,7 @@ internal sealed record GpuTimingPresentation(GpuTimingItem[] Rows,GpuTimingItem[
         var rows=new List<GpuTimingItem>();var segments=new List<GpuTimingItem>();int previousTimelineColor=-1;
         for(int stage=0;stage<sample.Stages.Length;stage++)
         {
-            var timing=sample.Stages[stage];string name=EffectStageSettings.Name(timing.Effect);
+            var timing=sample.Stages[stage];string name=EffectStageSettings.Name(timing.Effect)+(developer&&timing.UsesFP16?" (FP16)":"");
             int effectColor=stage%7;
             var effect=new GpuTimingItem(new(stage),name,timing.Milliseconds,effectColor);
             rows.Add(effect);

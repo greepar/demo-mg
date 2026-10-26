@@ -39,3 +39,12 @@ Profiler 已从自动隐藏工具栏中分离，采用输出内容区内的独�
 新增 `mp_capture_overlay_region` 作为单独 C ABI，不修改已有输入配置签名。Cocoa 在命中 profiler 时把事件交回本地 UI；拖动时临时排除整个输出内容，结束后恢复面板矩形。设置区域失败时不绑定源窗口/PID，并排除整个客户区，避免在本地交互信息不完整时继续转发。可移植区域谓词覆盖边界、空区域、非有限值与负尺寸，macOS 使用相同谓词；Linux/Windows 尚无输出输入桥，此 API 明确返回不支持。
 
 本阶段 Linux 最终 NativeAOT 核心、模型、23/23 原生 CTest 及八项中英私有 Wayland UI 通过，报告 `artifacts/desktop/profiler-floating-test-summary.json`。UI 通过实际浮层验证拖动/抓取/释放、边界、保存与取消、输出 resize 后贴边、工具栏独立显隐及关闭同步；指针/源数据为注入，位置序列化与原版迁移为模型检查。已查看宽/窄实际输出和有 ack/commit 证据的提示框。当前提交 Windows/macOS SDK 编译待 CI。区域谓词/ABI 编译检查与 Linux UI 事件模型不代表 macOS 输入事件实际送达或拖动隔离已在真实源应用验收；原版 profiler 的 GPU/捕获设备元信息、FP16 标签等仍有后续工作。
+
+
+## 会话信息与精度标识
+
+Profiler 显示创建本次输出的实际 Vulkan 设备名，捕获标签取 native 构建实际后端，只在已有捕获对象并提交画面后展示；隔离注入画面没有捕获对象，明确显示“尚无捕获会话”。不将配置偏好中的 Native/WGC/DXGI 名称作为正在运行的后端。帧率和启用时的动态预测失败/样本数及比例来自现有 FramePerformance 区间计数；未形成区间前显示等待，换引擎清除旧区间。
+
+每个有效 GPU profile stage 同时读取执行引擎的 `mp_effect_uses_fp16`。只有开发者模式且该 stage 的实际 pipeline 使用 FP16 时，效果行显示 `(FP16)`；普通模式不展示。均值快照保留该字段，并在精度改变时重置旧统计。没有按显卡名称或效果“支持 FP16”的能力标记猜测实际运行精度。
+
+本轮 Linux 最终 NativeAOT 核心、模型及八项中英隔离 Wayland UI 通过；核心覆盖自动/禁用精度的实际引擎与 profile 元数据一致，UI 使用自动精度 CuNNy→nearest 实际 Vulkan 输出，并验证设备名、无捕获对象时不虚构后端、实际区间 FPS、精度标签、浮层边界和实际 tooltip。动态统计显隐/比例与三后端标签通过纯模型验证，不等于真实系统捕获或输入验收。已查看宽/窄最终图。报告 `artifacts/desktop/profiler-info-test-summary.json`；原生源码与 C ABI 未变，不重复计作新增 CTest 证据。Windows/macOS 当前提交待 CI 和实机检查。

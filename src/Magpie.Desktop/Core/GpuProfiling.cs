@@ -14,7 +14,7 @@ internal unsafe struct NativeGpuProfile
     public fixed double StageMilliseconds[17];
     public fixed double PassMilliseconds[256];
 }
-internal sealed record GpuStageTiming(uint Effect,double Milliseconds,double[] Passes);
+internal sealed record GpuStageTiming(uint Effect,double Milliseconds,double[] Passes,bool UsesFP16=false);
 internal sealed record GpuProfileSnapshot(bool Supported,bool Enabled,uint Status,ulong Sequence,double TotalMilliseconds,GpuStageTiming[] Stages,string? Error=null)
 {
     public bool Valid=>Status==1;
@@ -38,7 +38,7 @@ internal sealed record GpuProfileSnapshot(bool Supported,bool Enabled,uint Statu
             }
             double stage=raw.StageMilliseconds[i];
             if(!double.IsFinite(stage) || stage<0 || Math.Abs(stage-passes.Sum())>1e-6)throw new InvalidDataException("Invalid GPU stage duration.");
-            stages[i]=new(raw.EffectIds[i],stage,passes);next+=count;
+            stages[i]=new(raw.EffectIds[i],stage,passes,NativeCore.EffectUsesFP16(engine,raw.EffectIds[i])!=0);next+=count;
         }
         if(next!=raw.PassCount || stages.Sum(s=>s.Milliseconds)>raw.TotalMilliseconds+1e-6)throw new InvalidDataException("Invalid GPU timing totals.");
         return new(true,true,1,raw.FrameSequence,raw.TotalMilliseconds,stages);

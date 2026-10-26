@@ -12,7 +12,7 @@ internal sealed partial class ScalingSession
     {
         if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("GPU timeline fixtures require preview mode.");
         var global=RuntimeSettings.Current;bool previousGpu=global.GpuProfilingEnabled,previousDeveloper=global.DeveloperMode;var previousPlacement=global.ProfilerPlacement;
-        using var engine=NativeCore.Create();if(engine.IsInvalid)throw NativeCore.Error();
+        using var engine=NativeCore.CreateWithPrecision("",1);if(engine.IsInvalid)throw NativeCore.Error();
         try
         {
             global.GpuProfilingEnabled=true;global.DeveloperMode=false;
@@ -23,6 +23,9 @@ internal sealed partial class ScalingSession
             NativeEffectStep[] plan=[new(){Effect=11,Width=6,Height=4},new(){Effect=0,Width=9,Height=6}];
             var processor=new ScalingFrameProcessor(0);
             if(!ReplayFrame(processor,engine,input,plan,true,0,gpu:true)||!processor.GpuProfile.Valid||!PresentProcessedFrame(processor,engine,plan,CaptureSource.Unknown,1))throw new InvalidOperationException("Timeline fixture needs an actual valid Vulkan timestamp sample.");
+            var sessionInfo=_profilerSessionInfo??throw new InvalidOperationException("Session metadata was not read from the submitted engine.");
+            if(sessionInfo.Device!=System.Runtime.InteropServices.Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))||sessionInfo.Backend is not null)throw new InvalidOperationException("Profiler metadata lost the actual engine or fabricated a capture backend for injected pixels.");
+            if(processor.Performance.TrySnapshot(System.Diagnostics.Stopwatch.Frequency,out var metrics))UpdateProfilerMetrics(metrics,DuplicateFrameMode.Always,false);
             await Task.Delay(100);
             var view=_gpuTimingView!;var toggle=_gpuSwitchView!;
             if(toggle.IsVisible||view.Presentation.ShowPasses||view.Presentation.Rows.Length!=2)throw new InvalidOperationException("Normal mode exposed developer pass rows.");
@@ -35,6 +38,9 @@ internal sealed partial class ScalingSession
             toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(100);
             if(!_gpuPassView||!view.Presentation.ShowPasses||view.Presentation.Rows.Length!=8)throw new InvalidOperationException("Pass switch did not create all original pass rows.");
             CheckWidths();
+            bool expectedFp16=NativeCore.EffectUsesFP16(engine,11)!=0;
+            if(view.Presentation.Rows.First().Name.Contains("(FP16)")!=expectedFp16||_gpuSample.Stages[0].UsesFP16!=expectedFp16)throw new InvalidOperationException("FP16 label differs from the executing engine.");
+            if(_profilerInfo is null||!_profilerInfo.Text!.Contains(sessionInfo.Device)||!_profilerInfo.Text.Contains("FPS"))throw new InvalidOperationException("Profiler session metadata or measured FPS is absent.");
             var pass=view.Presentation.Segments.First(item=>item.Key.Pass>=0);var segment=view.SegmentButton(pass.Key);
             Enter(segment);
             if(view.Highlighted!=pass.Key||view.TimingRows[pass.Key].Background is null)throw new InvalidOperationException("Timeline hover did not highlight its timing row.");
@@ -57,7 +63,7 @@ internal sealed partial class ScalingSession
             global.DeveloperMode=true;UpdateGpuProfile(processor.GpuProfile);toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));await Task.Delay(100);
             var inspect=view.Presentation.Segments.First(item=>item.Key.Pass>=0);Enter(view.TimingRows[inspect.Key]);
             view.Timeline.BringIntoView();await Task.Delay(120);CheckWidths();
-            if(!_toolbar!.IsVisible||_toolbar.Opacity!=1||view.Bounds.Width>_output.ClientSize.Width||_toolbar.Bounds.Height>_output.ClientSize.Height+1)throw new InvalidOperationException("Timing panel exceeded the output client bounds.");
+            if(!_toolbar!.IsVisible||_toolbar.Opacity!=1||view.Bounds.Width>_output.ClientSize.Width||_toolbar.Bounds.Height>_output.ClientSize.Height+1||_profilerWindow!.Bounds.Height>_profilerLayer!.Bounds.Height+1||Canvas.GetTop(_profilerWindow)+_profilerWindow.Bounds.Height>_profilerLayer.Bounds.Height+1)throw new InvalidOperationException("Timing panel exceeded the output client bounds.");
             var args=Environment.GetCommandLineArgs();int capture=Array.IndexOf(args,"--capture");
             if(capture>=0&&capture+1<args.Length)
             {
@@ -78,7 +84,7 @@ internal sealed partial class ScalingSession
             _output.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="CloseProfilerButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             if(_profilerWindow!.IsVisible)throw new InvalidOperationException("Profiler close did not hide its independent window.");
             if(view.IsVisible||_gpuPanel!.IsVisible||view.Presentation.Rows.Length!=0)throw new InvalidOperationException("Disabling profiler retained timing content.");
-            Console.WriteLine("GPU TIMELINE UI PASS: actual CuNNy/nearest Vulkan timestamps, proportional native layout, actual effect/pass switch and mode guards, original tooltip text, row/segment routed hover, keyboard selection/refresh continuity, caption exclusion, compact scrolling and disable cleanup. Source pixels and pointer events are injected; no real capture or OS input delivery.");
+            Console.WriteLine("GPU TIMELINE UI PASS: actual CuNNy/nearest Vulkan timestamps and engine FP16 labels, actual device name/no fictitious capture backend/FPS metadata, proportional native layout, actual effect/pass switch and mode guards, original tooltip text, row/segment routed hover, keyboard selection/refresh continuity, caption exclusion, compact scrolling and disable cleanup. Source pixels and pointer events are injected; no real capture or OS input delivery.");
 
             void CheckWidths()
             {

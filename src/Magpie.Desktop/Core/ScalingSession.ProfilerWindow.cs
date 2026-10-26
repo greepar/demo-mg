@@ -15,6 +15,12 @@ internal sealed partial class ScalingSession
     private Point _profilerDragOrigin;
     private IPointer? _profilerPointer;
     private bool _positioningProfiler;
+    private TextBlock? _profilerInfo;
+    private EngineHandle? _profilerInfoEngine;
+    private ProfilerSessionInfo? _profilerSessionInfo;
+    private PerformanceSnapshot? _profilerMetrics;
+    private DuplicateFrameMode _profilerDetection;
+    private bool _profilerDynamicStatistics;
 
     private Canvas CreateProfilerWindow()
     {
@@ -28,10 +34,17 @@ internal sealed partial class ScalingSession
         _profilerHeader.PointerMoved+=ProfilerMoved;
         _profilerHeader.PointerReleased+=ProfilerReleased;
         _profilerHeader.PointerCaptureLost+=(_,_)=>EndProfilerDrag(false);
-        _profilerWindow=new Border { Name="FloatingProfiler",Background=Brush.Parse("#FF202020"),BorderBrush=Brush.Parse("#FF555555"),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(6),Padding=new Thickness(10),Child=new StackPanel { Spacing=6,Children={_profilerHeader,_gpuPanel!} },IsVisible=RuntimeSettings.Current.GpuProfilingEnabled };
+        _profilerInfo=new TextBlock { Name="ProfilerSessionInfo",Foreground=Brushes.White,FontSize=12,TextWrapping=TextWrapping.Wrap };
+        _profilerWindow=new Border { Name="FloatingProfiler",Background=Brush.Parse("#FF202020"),BorderBrush=Brush.Parse("#FF555555"),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(6),Padding=new Thickness(10),Child=new StackPanel { Spacing=6,Children={_profilerHeader,_profilerInfo,_gpuPanel!} },IsVisible=RuntimeSettings.Current.GpuProfilingEnabled };
         _profilerLayer=new Canvas { ClipToBounds=true,Children={_profilerWindow} };
         _profilerLayer.LayoutUpdated+=(_,_)=>PositionProfiler();
         return _profilerLayer;
+    }
+
+    private void RefreshProfilerInfo()
+    {
+        if(_profilerInfo is not null&&_profilerSessionInfo is {} info)
+            _profilerInfo.Text=info.Describe(_profilerMetrics,_profilerDetection,_profilerDynamicStatistics);
     }
 
     private void PositionProfiler()
@@ -44,8 +57,9 @@ internal sealed partial class ScalingSession
             if(!panel.IsVisible&&_profilerDragStart is not null)EndProfilerDrag(false);
             panel.Width=Math.Min(310,Math.Max(1,layer.Bounds.Width));
             panel.MaxHeight=Math.Max(1,Math.Min(500,layer.Bounds.Height));
+            _profilerInfo?.Measure(new Size(Math.Max(1,panel.Width-22),double.PositiveInfinity));
             if(_gpuPanel?.Children.OfType<ScrollViewer>().SingleOrDefault() is {} scroll)
-                scroll.MaxHeight=Math.Max(1,panel.MaxHeight-110);
+                scroll.MaxHeight=Math.Max(1,panel.MaxHeight-116-(_profilerInfo?.DesiredSize.Height??0));
             if(_profilerDragStart is null&&panel.Bounds.Width>0&&panel.Bounds.Height>0)
             {
                 var point=RuntimeSettings.Current.ProfilerPlacement.Resolve(layer.Bounds.Size,panel.Bounds.Size);

@@ -23,7 +23,7 @@ internal sealed class GpuTimingAverages
             return _display=sample;
         }
         bool sameShape=_display.Valid&&sample.Stages.Length==_display.Stages.Length&&
-            sample.Stages.Select((s,i)=>s.Effect==_display.Stages[i].Effect&&s.Passes.Length==_display.Stages[i].Passes.Length).All(s=>s);
+            sample.Stages.Select((s,i)=>s.Effect==_display.Stages[i].Effect&&s.UsesFP16==_display.Stages[i].UsesFP16&&s.Passes.Length==_display.Stages[i].Passes.Length).All(s=>s);
         if(!sameShape||sample.Sequence<_sequence||now<_updated)
         {
             Reset();_updated=now;_sequence=sample.Sequence;
@@ -43,7 +43,7 @@ internal sealed class GpuTimingAverages
                     passes[p]=_counts[i][p]>0?_sums[i][p]/_counts[i][p]:_display.Stages[i].Passes[p];
                     _sums[i][p]=0;_counts[i][p]=0;
                 }
-                stages[i]=new(sample.Stages[i].Effect,passes.Sum(),passes);
+                stages[i]=new(sample.Stages[i].Effect,passes.Sum(),passes,sample.Stages[i].UsesFP16);
             }
             double tail=_tailCount>0?_tailSum/_tailCount:Math.Max(0,_display.TotalMilliseconds-_display.Stages.Sum(s=>s.Milliseconds));
             // These values describe preceding frames, not the triggering frame.
