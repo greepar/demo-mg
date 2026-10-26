@@ -12,12 +12,13 @@
 // Opt-in only: creates a disposable source process/window on the hosted runner.
 // Never registered with the default CTest suite or run on the user's desktop.
 namespace {
-constexpr UINT Rename=WM_APP+1;
+constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2;
 LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
     if(message==WM_PAINT) {
         PAINTSTRUCT paint{};HDC dc=BeginPaint(window,&paint);RECT rect{};GetClientRect(window,&rect);
         HBRUSH brush=CreateSolidBrush(RGB(23,67,109));FillRect(dc,&rect,brush);DeleteObject(brush);EndPaint(window,&paint);return 0;
     }
+    if(message==NotifyDestroy) { NotifyWinEvent(EVENT_OBJECT_DESTROY,window,OBJID_WINDOW,CHILDID_SELF);return 0; }
     if(message==Rename) { SetWindowTextW(window,L"Renamed Magpie fixture");return 0; }
     if(message==WM_DESTROY) { PostQuitMessage(0);return 0; }
     return DefWindowProcW(window,message,w,l);
@@ -99,11 +100,27 @@ int main(int argc,char** argv) {
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==0,"Pre-minimize frame accepted before a restored source frame");
         auto restored=frame();require(restored>resized,"Restored source did not publish a fresh frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==1,"Restored source metadata did not recover");
+        DWORD liveProcess{};DWORD liveThread=GetWindowThreadProcessId(process.window,&liveProcess);
+        require(liveThread&&liveProcess==process.info.dwProcessId,"Disposable source identity changed unexpectedly");
+        require(SendMessageTimeoutW(process.window,NotifyDestroy,0,0,SMTO_ABORTIFHUNG,2000,&result)!=0,"Cannot emit fixture lifetime event");
+        // This fixture emits a real WinEvent without destroying the live HWND,
+        // proving rejection comes from the watcher, not just IsWindow/PID tests.
+        bool rejected=false;
+        for(int i=0;i<200&&!rejected;i++) { rejected=mp_capture_frame(capture.get(),&pixels,&width,&height)==-1;if(!rejected)Sleep(10); }
+        DWORD stillProcess{};
+        require(rejected&&IsWindow(process.window)&&GetWindowThreadProcessId(process.window,&stillProcess)==liveThread&&stillProcess==liveProcess,"Source lifetime event did not invalidate an otherwise matching live tuple");
+        require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Destroyed lifetime retained title/input identity");
+        auto oldCapture=std::move(capture);
+        capture.reset(mp_capture_create());require(bool(capture),mp_last_error());SetForegroundWindow(process.window);
+        require(mp_capture_start(capture.get())==1,mp_last_error());
+        auto fresh=frame();require(fresh!=0,"Fresh capture did not recover independently of the old lifetime");
+        require(mp_capture_frame(oldCapture.get(),&pixels,&width,&height)==-1,"Old lifetime revived after another capture selected the same source tuple");
+        oldCapture.reset();
         PostMessageW(process.window,WM_CLOSE,0,0);
         require(WaitForSingleObject(process.info.hProcess,5000)==WAIT_OBJECT_0,"Source process did not close");
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Closed source was captured as a valid frame");
-        require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Closed source retained input/title identity");
+        require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,fresh,&info,sizeof(info))==0,"Closed source retained input/title identity");
         mp_capture_cancel(capture.get());
-        std::cout<<"WINDOWS GDI FIXTURE PASS: independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, minimize/restore fresh-frame guard, destruction and cleanup; no Vulkan or input injection.\n";return 0;
+        std::cout<<"WINDOWS GDI FIXTURE PASS: independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

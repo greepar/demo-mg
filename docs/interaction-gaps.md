@@ -145,6 +145,14 @@ Linux 最终 AOT 核心/模型与八项中英隔离 UI 通过；核心同时验�
 
 本机 Linux AOT 核心、23/23 CTest、最终分数倍率/source 用例及五项中英私有 Wayland UI 通过；Windows MinGW 严格语法通过，CI 包装器的非目标环境拒绝通过。报告 `artifacts/desktop/input-mapping-test-summary.json`，详见 [映射说明与待验收边界](input-mapping.md)。新 macOS/Windows SDK 与实际事件/捕获结果待相应 CI/目标机验证。Windows/Linux 输入转发、光标及整个三平台目标继续未完成。
 
+## 2026-10-26 Windows 源销毁监听阶段
+
+`1f9343d8` 的 Windows 原生 job 已通过一次性实际 GDI fixture，日志确认独立源绘制像素/尺寸、窗口/PID、标题、resize、新帧和最小化/恢复约束及关闭清理；该证据不包含鼠标/键盘输入，也不证明 Desktop 自动恢复已完成。
+
+新增按源进程/线程过滤的 out-of-context WinEvent watcher 与私有消息线程。匹配顶层/self 销毁后永久关闭该捕获寿命；相同数值身份不能复活，旧状态与新捕获隔离。停止时唤醒、在注册线程卸载、join 并释放 event，消息泵异常也拒绝源。新测试通过仍存活源主动发出销毁事件，验证真实 WinEvent 投递带来的永久拒绝及独立重捕获，包装器要求新增标记；本提交 Windows runtime 结果仍待 CI，不能沿用旧 fixture 成功。通知为异步，仍不声称覆盖事件送达前一切 HWND 重用竞态。
+
+Linux 最终 AOT 核心、23/23 CTest 和三项隔离 UI 通过；原子寿命模型和 Windows 严格语法通过。报告 `artifacts/desktop/source-lifetime-test-summary.json`，详见 [销毁监听与证据边界](input-mapping.md#销毁事件与捕获寿命)。未打开用户桌面，Windows/Linux 原生输入转发及完整三平台交互仍未完成。
+
 ## 后续建议顺序
 
 2026-10-22 后续实现记录：本轮主题与外链使用三平台共用托管代码，接入现有目标机 AOT 构建路径；本机 Linux NativeAOT 核心与七项私有 Wayland UI 场景通过。截图已查看浅色 About 和深色 Settings，新增链接拒绝提示有真实 xdg_popup 图层证据。记录为 `artifacts/desktop/interaction-settings-test-summary.json`、`artifacts/desktop/interaction-settings-review/` 和 `artifacts/desktop/interaction-settings-en/`。这不是整份清单完成记录，也不把已有 macOS 编译记录计作本轮变更的 macOS 验收。

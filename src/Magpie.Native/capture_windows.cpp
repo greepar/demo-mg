@@ -5,7 +5,7 @@
 #include "error.h"
 #include "source_info.h"
 #include "capture_epoch.h"
-#include "input_mapping.h"
+#include "windows_source_watch.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -18,6 +18,7 @@ struct Capture {
     HWND window{};
     DWORD sourceProcess{};
     magpie::WindowIdentity identity;
+    std::unique_ptr<magpie::WindowsSourceWatch> lifetimeWatch;
     HDC memory{};
     HBITMAP bitmap{};
     HGDIOBJ previous{};
@@ -28,7 +29,8 @@ struct Capture {
     magpie::CaptureEpoch epoch;
     bool sameSource() const {
         DWORD process{};DWORD thread=window?GetWindowThreadProcessId(window,&process):0;
-        return identity.matches(uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread);
+        const auto id=uint64_t(reinterpret_cast<uintptr_t>(window));
+        return !cancelled&&(lifetimeWatch?lifetimeWatch->matches(id,process,thread):identity.matches(id,process,thread));
     }
     void requireSource() {
         if(sameSource())return;
@@ -42,7 +44,7 @@ struct Capture {
         if(!epoch.accepts(epoch.sequence(),w,h)) { epoch.pause();return false; }
         return epoch.accepts(sequence,w,h)&&sameSource();
     }
-    ~Capture() { reset(); if (memory) DeleteDC(memory); }
+    ~Capture() { lifetimeWatch.reset();reset(); if (memory) DeleteDC(memory); }
     void reset() {
         if (previous) SelectObject(memory, previous);
         if (bitmap) DeleteObject(bitmap);
@@ -50,12 +52,15 @@ struct Capture {
     }
     void start() {
         if (cancelled) throw std::runtime_error("Capture was cancelled");
+        if(window||memory||lifetimeWatch)throw std::runtime_error("Capture was already started; create a fresh capture for a new source");
         window=GetForegroundWindow();
         DWORD process{};
         DWORD thread=window?GetWindowThreadProcessId(window,&process):0;
         if (!window || !thread) throw std::runtime_error("No foreground window is available");
         if (process==GetCurrentProcessId()) throw std::runtime_error("Select the source window during the start delay. Windows currently uses the GDI capture backend.");
         sourceProcess=process;identity={uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread};
+        requireSource();
+        lifetimeWatch=std::make_unique<magpie::WindowsSourceWatch>(identity,cancelled);lifetimeWatch->start();
         requireSource();
         memory=CreateCompatibleDC(nullptr);
         if (!memory) throw std::runtime_error("Cannot create a Windows capture DC");

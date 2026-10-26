@@ -24,6 +24,15 @@ int main() {
         invalid=mapping;invalid.destination.width=0;require(!invalid.map(500,250,true,mapped),"Empty displayed image accepted");
         magpie::WindowIdentity identity{42,10,11};
         require(identity.matches(42,10,11)&&!identity.matches(42,12,11)&&!identity.matches(42,10,12)&&!identity.matches(43,10,11)&&!magpie::WindowIdentity{}.matches(0,0,0),"Selected window/process/thread guard differs");
+        magpie::WindowLifetime lifetime(identity);
+        lifetime.observeDestroy(43,10,11,true,true);lifetime.observeDestroy(42,10,12,true,true);
+        lifetime.observeDestroy(42,10,11,false,true);lifetime.observeDestroy(42,10,11,true,false);
+        require(lifetime.matches(42,10,11),"Unrelated/child destruction invalidated selected top-level");
+        lifetime.observeDestroy(42,10,11,true,true);
+        require(lifetime.destroyed()&&!lifetime.matches(42,10,11),"Destroyed source regained validity when the numeric identity was reused");
+        magpie::WindowLifetime nextLifetime(identity);
+        lifetime.observeDestroy(42,10,11,true,true);
+        require(nextLifetime.matches(42,10,11),"Old lifetime callback invalidated a fresh capture");
         const magpie::LocalInputRegion overlay{10,20,310,250};
         require(overlay.contains(10,20)&&overlay.contains(319.9,269.9),"Profiler local region lost interior/near edge");
         require(!overlay.contains(320,20)&&!overlay.contains(10,270)&&!overlay.contains(9,30),"Profiler local region excluded unrelated source pixels");
@@ -35,7 +44,7 @@ int main() {
 #else
         require(mp_capture_overlay_region(nullptr,0,0,0,0)==0,"Unsupported input backend fabricated local overlay support");
 #endif
-        std::cout<<"INPUT MAPPING MODEL PASS: crop, negative source origin, far-edge drag clamp, non-drag exclusion, malformed input and window/process/thread identity.\n";
+        std::cout<<"INPUT MAPPING MODEL PASS: crop, negative source origin, far-edge drag clamp, non-drag exclusion, malformed input and window/process/thread identity with permanent per-capture lifetime tombstones.\n";
         char shortText[5];magpie::sourceText(shortText,"AB\xf0\x9f\x98\x80Z");require(std::string(shortText)=="AB","Truncation split a UTF-8 scalar");
         char exact[7];magpie::sourceText(exact,"AB\xf0\x9f\x98\x80Z");require(std::string(exact)=="AB\xf0\x9f\x98\x80","Exact scalar boundary was truncated incorrectly");
         char one[1];magpie::sourceText(one,"text");require(one[0]==0,"Single-byte field is not terminated");

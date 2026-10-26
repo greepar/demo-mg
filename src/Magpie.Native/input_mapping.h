@@ -1,6 +1,7 @@
 #pragma once
 #include "local_input_region.h"
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 
 namespace magpie {
@@ -29,6 +30,20 @@ struct WindowIdentity {
     uint32_t process{},thread{};
     bool matches(uint64_t liveWindow,uint32_t liveProcess,uint32_t liveThread) const {
         return window&&process&&thread&&window==liveWindow&&process==liveProcess&&thread==liveThread;
+    }
+};
+
+class WindowLifetime {
+    const WindowIdentity selected_;
+    std::atomic<bool> destroyed_{false};
+public:
+    explicit WindowLifetime(WindowIdentity selected):selected_(selected) {}
+    bool destroyed() const { return destroyed_.load(std::memory_order_acquire); }
+    bool matches(uint64_t window,uint32_t process,uint32_t thread) const {
+        return !destroyed()&&selected_.matches(window,process,thread);
+    }
+    void observeDestroy(uint64_t window,uint32_t process,uint32_t thread,bool topLevel,bool self) {
+        if(topLevel&&self&&selected_.matches(window,process,thread))destroyed_.store(true,std::memory_order_release);
     }
 };
 }

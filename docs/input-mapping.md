@@ -21,3 +21,18 @@ Windows GDI 在选择源时记录 HWND/PID/线程 ID；取帧前、BitBlt 后和
 ## 本机证据与边界
 
 Linux 最终 NativeAOT 核心、23/23 CTest 与新增分数倍率用例的最后 source 回归通过。五项中英隔离 Wayland UI 复验实际 Vulkan 输出、源/画面归属和 profiler；捕获像素/身份与指针是注入数据。Windows 三个源文件通过 MinGW 严格语法检查，CI 包装器在非托管 Windows 环境的拒绝路径已核对。报告 `artifacts/desktop/input-mapping-test-summary.json`。本提交 Windows/MSVC fixture 和新 macOS Objective-C++ 编译/事件送达仍需对应目标结果，不沿用上一提交的成功。
+
+
+## 销毁事件与捕获寿命
+
+新增 WindowsSourceWatch，按选定源的进程/线程订阅顶层窗口销毁事件。独立 native 线程持续处理 USER 消息，回调只更新该 capture 自己的原子状态；不使用全局共享 capture 指针，不向源进程注入 DLL，不改写源窗口属性。停止时唤醒自己的 kernel event，在线程内卸载 hook，再 join 和释放 handle；消息泵异常停止会让源验证失败。启动必须完成订阅，再复核源身份，重复 Start 要求创建新 capture。
+
+收到匹配的顶层/self 销毁事件后，该捕获寿命永久失效；以后相同的 HWND/PID/线程数值不能把它变回有效。子对象、其他窗口或其他源线程的销毁不会失效所选顶层窗口。新 capture 是独立寿命，旧回调不会清掉它。WinEvent 属于异步通知，尚不构成对事件送达前所有句柄竞态的原子保证，也未替代前台、子窗口/弹窗、幽灵窗口及原生输入路径的完整跟踪。
+
+依据：[Microsoft SetWinEventHook](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwineventhook) 对注册线程消息循环及 out-of-context 回调顺序的规定。这里使用纯 native 回调，因此没有托管 delegate 移动或附带 callback DLL 的依赖。
+
+`1f9343d8` 的 [Windows job 121588033512](https://github.com/greepar/demo-mg/actions/runs/40327539014/job/121588033512) 已实际通过原始 GDI fixture：独立源进程、绘制 RGBA、窗口/PID、标题、resize/最小化后新帧约束、源关闭与清理。这更新了上一节历史阶段的“待运行”状态，不能用来证明当前新增 watcher 已在 Windows 跑通。
+
+当前 fixture 增加由源进程主动发出的销毁 WinEvent，窗口本身仍存活且原身份元组相同；旧 capture 必须在收到事件后拒绝帧和标题，新 capture 重新选择相同源后必须正常工作。该事件是注入的生命周期测试事件，并非模拟鼠标/键盘；实际 WinEvent 注册、消息投递、永久失效及独立重捕获均需该提交目标结果。包装器检查新增覆盖标记，旧 fixture 的成功字样不能冒充本轮通过。
+
+本轮 Linux 最终 AOT 核心、23/23 CTest 和三项私有 Wayland UI 通过；纯模型验证相关/无关销毁、相同数值身份持续拒绝及新寿命独立性，Windows MinGW 严格语法通过。报告 `artifacts/desktop/source-lifetime-test-summary.json`。本次 watcher 的 MSVC/native 运行、实际关闭/recreate 的系统竞态和 Windows 鼠标/键盘转发继续待验收，完整目标未完成。

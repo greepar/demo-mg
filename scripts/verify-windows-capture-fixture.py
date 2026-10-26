@@ -15,13 +15,14 @@ if not binary.is_file():raise SystemExit('Missing native Windows capture fixture
 folder=ROOT/'artifacts/platform-build-checks/win-x64';folder.mkdir(parents=True,exist_ok=True)
 env=dict(os.environ,MAGPIE_HOSTED_WINDOWS_CAPTURE_FIXTURE='1')
 report={'passed':False,'commit':os.environ.get('GITHUB_SHA'),'run_id':os.environ.get('GITHUB_RUN_ID'),'disposable_hosted_runner':True,'capture_tested':'independent synthetic Win32 source process via actual GDI',
-        'gpu_tested':False,'input_injected':False,'real_application_compatibility_tested':False,'full_interaction_parity':False,
+        'gpu_tested':False,'input_injected':False,'lifetime_event_injected':True,'real_application_compatibility_tested':False,'full_interaction_parity':False,
         'fixture_sha256':hashlib.sha256(binary.read_bytes()).hexdigest()}
 try:
     result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
     output=result.stdout+result.stderr
     (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
-    report.update(exit_code=result.returncode,passed=result.returncode==0 and 'WINDOWS GDI FIXTURE PASS:' in result.stdout)
+    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture')
+    report.update(exit_code=result.returncode,passed=result.returncode==0 and all(marker in result.stdout for marker in required))
     print(output,flush=True)
 except subprocess.TimeoutExpired as failure:
     def decode(value):return value.decode(errors='replace') if isinstance(value,bytes) else value or ''
