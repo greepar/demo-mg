@@ -70,6 +70,7 @@
     <LinkerArg Include="d3d11.lib" />
     <LinkerArg Include="dxgi.lib" />
     <LinkerArg Include="dwmapi.lib" />
+    <LinkerArg Include="shcore.lib" />
     <LinkerArg Include="windowsapp.lib" />
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">

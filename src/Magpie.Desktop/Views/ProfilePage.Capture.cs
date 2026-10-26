@@ -26,8 +26,7 @@ public partial class ProfilePage
             var selected=Settings.CaptureBackend;
             CaptureMethod.SelectedIndex=selected==available||selected==CaptureBackend.Native?0:CaptureMethod.Items.Cast<ComboBoxItem>().ToList().FindIndex(i=>(CaptureBackend)i.Tag! ==selected);
             RefreshCaptureStatus();
-            CaptureTitleBarCard.IsEnabled=false;
-            ToolTip.SetTip(CaptureTitleBarCard,chinese?"当前实现暂不支持独立切换标题栏。GDI / Graphics Capture 仅输出客户区；Portal / ScreenCaptureKit 使用系统边界。":"This implementation cannot toggle the title bar yet. GDI / Graphics Capture output the client area; Portal / ScreenCaptureKit use system-defined bounds.");
+            CaptureTitleBarToggle.IsChecked=Settings.CaptureTitleBar;
         }
         finally { _initialized=initialized; }
     }
@@ -40,5 +39,17 @@ public partial class ProfilePage
         CaptureWarning.Title=unsupported?(chinese?"已保存的捕获方式在此版本不可用，请选择本机后端。":"The saved capture backend is unavailable in this build. Select the native backend."):
             (chinese?"当前捕获后端：":"Current capture backend: ")+CaptureBackendPolicy.Name(Settings.CaptureBackend==CaptureBackend.Native?available:Settings.CaptureBackend);
         CaptureWarning.IsOpen=true;
+        CaptureTitleBarCard.IsEnabled=CaptureBackendPolicy.CanCaptureTitleBar(Settings.CaptureBackend);
+        ToolTip.SetTip(CaptureTitleBarCard,CaptureTitleBarCard.IsEnabled?null:chinese?"此捕获后端不支持独立切换标题栏；偏好会保留，切回 Graphics Capture 后可继续使用。":"This backend cannot toggle the title bar. The preference is retained for Graphics Capture.");
+    }
+    private void CaptureTitleBar_Changed(object? sender,Avalonia.Interactivity.RoutedEventArgs args)
+    {
+        if(!_initialized||!CaptureTitleBarCard.IsEnabled)return;
+        var previous=Settings.CaptureTitleBar;
+        try {Settings.CaptureTitleBar=CaptureTitleBarToggle.IsChecked==true;RuntimeSettings.Current.Save();}
+        catch(Exception error) {
+            Settings.CaptureTitleBar=previous;_initialized=false;CaptureTitleBarToggle.IsChecked=previous;_initialized=true;
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(Localization.Get("Profile_SourceWindow_CaptureTitleBar.Header"),error.Message);
+        }
     }
 }

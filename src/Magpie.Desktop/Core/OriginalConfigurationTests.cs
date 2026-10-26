@@ -14,14 +14,14 @@ internal static class OriginalConfigurationTests
         {"name":"Deferred","effects":[{"name":"Custom\\NotInstalled","parameters":{"strength":0.7}}]}
       ],
       "profiles":[
-        {"scalingMode":1,"captureMethod":2,"initialWindowedScaleFactor":6,"customInitialWindowedScaleFactor":2.25,
+        {"scalingMode":1,"captureMethod":2,"captureTitleBar":true,"initialWindowedScaleFactor":6,"customInitialWindowedScaleFactor":2.25,
          "fullscreenInitialToolbarState":0,"windowedInitialToolbarState":1,"screenshotsDir":"C:\\Pictures\\Magpie",
          "screenshotFilenameTemplate":"%WT%_%PN%_%MS%","frameRateLimiterEnabled":true,"maxFrameRate":144,
          "croppingEnabled":true,"cropping":{"left":1.5,"top":2,"right":3,"bottom":4},"outputAlignment":8,
          "graphicsCardId":{"idx":1,"vendorId":4098,"deviceId":123},"3DGameMode":true},
         {"name":"游戏测试","packaged":false,"pathRule":"C:\\Games\\example.exe","classNameRule":"Game*",
          "launcherPath":"..\\start.lnk","launchParameters":"--name \"two words\"","scalingMode":0,"captureMethod":0,
-         "autoScale":2,"cursorScaling":7,"customCursorScaling":1.7},
+         "captureTitleBar":false,"autoScale":2,"cursorScaling":7,"customCursorScaling":1.7},
         {"name":"Packaged app","packaged":true,"pathRule":"Package!App","classNameRule":"ApplicationFrameWindow",
          "scalingMode":-1,"captureMethod":1}
       ],"overlay":{"windows":{"stats":{"hArea":1,"vArea":2,"hPos":0.3,"vPos":0.7}}}
@@ -62,6 +62,8 @@ internal static class OriginalConfigurationTests
         foreach(string field in new[]{"futureSetting","graphicsCardId","3DGameMode","autoScale","cursorScaling","overlay.windows"})
             Require(result.Warnings.Any(w=>w.Contains(field,StringComparison.Ordinal)),"Missing migration review warning: "+field);
         var cloned=root.CopyForProfile();Require(!cloned.OriginalConfiguration.HasValue,"Profile copies duplicated the complete root archive.");
+        Require(root.CaptureTitleBar&&!application.Settings.CaptureTitleBar&&cloned.CaptureTitleBar,"Original per-profile caption choices were lost or inherited from defaults.");
+        Require(OriginalConfiguration.Parse(Example.Replace("captureTitleBar","reserveTitleBar")).Settings.CaptureTitleBar,"Legacy title bar flag was not migrated.");
         Require(OriginalConfiguration.Parse("\uFEFF/*comment*/"+Example.Replace("\"version\":5,","\"version\":5,/* legacy comment */")).Settings.Profiles.Count==2,"Original BOM/comments were rejected.");
         var legacy=OriginalConfiguration.Parse(Example.Replace("\"profiles\"","\"scalingProfiles\"").Replace("\"shortcuts\"","\"hotkeys\"").Replace("\"toolbar\":3140","\"overlay\":3140").Replace("\"countdownSeconds\"","\"downCount\"").Replace("\"showNotifyIcon\"","\"showTrayIcon\"").Replace("\"overlay\":{\"windows\"","\"overlay\":{\"initialToolbarState\":1,\"screenshotsDir\":\"\",\"windows\""));
         Require(legacy.Settings.CountdownSeconds==5&&!legacy.Settings.ShowTrayIcon&&legacy.Settings.ToolbarShortcut.Key=="D"&&legacy.Settings.FullscreenInitialToolbarState==ToolbarState.AlwaysShow&&legacy.Settings.Profiles.All(p=>p.Settings.FullscreenInitialToolbarState==ToolbarState.AlwaysShow&&p.Settings.WindowedInitialToolbarState==ToolbarState.AlwaysShow&&p.Settings.ScreenshotDirectory==""),"Legacy global overlay or property aliases were not migrated.");

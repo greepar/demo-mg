@@ -15,6 +15,11 @@ internal static class CaptureBackendTests
             bool supported=CaptureBackendPolicy.Supported(requested);
             if(capture.IsInvalid==supported)throw new InvalidOperationException("Native backend selection differs from advertised capability.");
             if(supported&&NativeCore.CaptureInstanceBackend(capture)!=(uint)(requested==CaptureBackend.Native?expected:requested))throw new InvalidOperationException("Capture instance silently substituted a backend.");
+            if(supported) {
+                bool titleBar=NativeCore.CaptureInstanceBackend(capture)==(uint)CaptureBackend.GraphicsCapture;
+                if(NativeCore.CaptureSetTitleBar(capture,1)!=(titleBar?1:0)||NativeCore.CaptureSetTitleBar(capture,0)!=1||NativeCore.CaptureSetTitleBar(capture,2)!=-1)
+                    throw new InvalidOperationException("Title bar native capability or argument validation differs.");
+            }
         }
         const uint windowsMask=(1u<<(int)CaptureBackend.Gdi)|(1u<<(int)CaptureBackend.GraphicsCapture);
         foreach(var requested in Enum.GetValues<CaptureBackend>())
@@ -42,10 +47,13 @@ internal static class CaptureBackendTests
             string path=Path.Combine(directory,"settings.json");
             foreach(var backend in Enum.GetValues<CaptureBackend>())
             {
-                var settings=new RuntimeSettings { CaptureBackend=backend };
+                var settings=new RuntimeSettings { CaptureBackend=backend,CaptureTitleBar=true };
                 var profile=settings.AddProfile("Capture fixture",Path.GetFullPath(Path.Combine(directory,"source")));
                 settings.WriteFile(path);var restored=RuntimeSettings.ReadFile(path);
                 if(restored.CaptureBackend!=backend||restored.Profiles.Single().Settings.CaptureBackend!=backend)throw new InvalidOperationException("Capture selection lost during profile copy or AOT persistence.");
+                if(!restored.CaptureTitleBar||!restored.Profiles.Single().Settings.CaptureTitleBar)throw new InvalidOperationException("Title bar preference lost during persistence or profile copy.");
+                profile.Settings.CaptureTitleBar=false;
+                if(!settings.CaptureTitleBar)throw new InvalidOperationException("Application title bar preference modified defaults.");
                 profile.Settings.CaptureBackend=CaptureBackend.Native;
                 if(settings.CaptureBackend!=backend)throw new InvalidOperationException("Application capture preference modified defaults.");
                 foreach(var invalid in new[]{(CaptureBackend)(-1),(CaptureBackend)99})

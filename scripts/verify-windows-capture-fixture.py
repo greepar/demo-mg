@@ -49,3 +49,19 @@ except subprocess.TimeoutExpired as failure:
     wgc.update(status='failed',failure='timeout')
 (folder/'windows-wgc-fixture.json').write_text(json.dumps(wgc,indent=2)+'\n',encoding='utf-8')
 if wgc['status']=='failed':raise SystemExit('Available Windows Graphics Capture failed the actual source-window fixture.')
+
+caption=dict(wgc,passed=False,status='pending',title_bar_tested=False)
+try:
+    result=subprocess.run([str(binary),'--wgc-title-bar'],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=90)
+    output=result.stdout+result.stderr
+    (folder/'windows-wgc-title-bar-fixture.log').write_text(output,encoding='utf-8')
+    unavailable=result.returncode==77 and 'WINDOWS WGC UNAVAILABLE:' in result.stdout
+    passed=result.returncode==0 and all(marker in result.stdout for marker in ('WINDOWS WGC TITLE BAR PASS:','WINDOWS WGC FIXTURE PASS:',*required[1:]))
+    caption.update(exit_code=result.returncode,passed=passed,title_bar_tested=passed,status='unavailable' if unavailable else 'passed' if passed else 'failed')
+    print(output,flush=True)
+except subprocess.TimeoutExpired as failure:
+    def decode(value):return value.decode(errors='replace') if isinstance(value,bytes) else value or ''
+    (folder/'windows-wgc-title-bar-fixture.log').write_text(decode(failure.stdout)+decode(failure.stderr),encoding='utf-8')
+    caption.update(status='failed',failure='timeout')
+(folder/'windows-wgc-title-bar-fixture.json').write_text(json.dumps(caption,indent=2)+'\n',encoding='utf-8')
+if caption['status']=='failed':raise SystemExit('Available WGC failed actual title bar capture.')

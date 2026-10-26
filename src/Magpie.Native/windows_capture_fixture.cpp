@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <dwmapi.h>
 #include "magpie.h"
 #include <cstdlib>
 #include <cstring>
@@ -98,7 +99,8 @@ int main(int argc,char** argv) {
             ~Trace(){if(handle)RemoveVectoredExceptionHandler(handle);}
         } trace;
         if(argc==3&&std::string(argv[1])=="--source")return child(DWORD(std::stoul(argv[2])));
-        bool wgc=argc==2&&std::string(argv[1])=="--wgc";
+        bool titleBar=argc==2&&std::string(argv[1])=="--wgc-title-bar";
+        bool wgc=titleBar||(argc==2&&std::string(argv[1])=="--wgc");
         require(argc==1||wgc,"Unknown capture fixture arguments");
         const auto mask=mp_capture_backend_mask();
         require(mp_capture_backend()==((mask&(1u<<4))?4u:3u),"Default Windows capture backend does not prefer available WGC");
@@ -123,7 +125,9 @@ int main(int argc,char** argv) {
         std::cerr<<"CAPTURE FIXTURE: create selected backend"<<std::endl;
         std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create_backend(backend),mp_capture_destroy);
         require(mp_capture_instance_backend(capture.get())==backend,"Requested backend was silently replaced");
+        native(mp_capture_set_title_bar(capture.get(),titleBar?1:0)==1,"Configure title bar capture");
         native(bool(capture),"Create capture");native(mp_capture_start(capture.get())==1,"Start capture");
+        require(mp_capture_set_title_bar(capture.get(),titleBar?0:1)==-1,"Active capture accepted a title bar geometry change");
         std::cerr<<"CAPTURE FIXTURE: first frame"<<std::endl;
         const uint8_t* retained{};std::vector<uint8_t> retainedCopy;
         auto frame=[&](const char* phase) {
@@ -140,9 +144,26 @@ int main(int argc,char** argv) {
             if(status==0)throw std::runtime_error(std::string("Timed out waiting for ")+phase+": "+mp_last_error());
             native(status==1,phase);
             require(width>40&&height>40&&pixels,"Fixture produced no actual capture frame");
-            RECT actual{};require(GetClientRect(process.window,&actual)!=0&&width==uint32_t(actual.right-actual.left)&&height==uint32_t(actual.bottom-actual.top),"GDI dimensions do not match the live source client");
+            RECT actual{};require(GetClientRect(process.window,&actual)!=0,"Cannot query actual source client");
+            uint32_t expectedHeight=uint32_t(actual.bottom-actual.top);
+            if(titleBar) {
+                RECT bounds{};require(SUCCEEDED(DwmGetWindowAttribute(process.window,DWMWA_EXTENDED_FRAME_BOUNDS,&bounds,sizeof(bounds))),"Cannot read actual title bar frame bounds");
+                POINT origin{};require(ClientToScreen(process.window,&origin)!=0,"Cannot query actual client screen position");
+                LONG border=origin.x-bounds.left;
+                require(border>0&&origin.y>bounds.top+border,"Disposable source does not expose a native caption");
+                expectedHeight+=uint32_t(origin.y-bounds.top-border);
+            }
+            require(width==uint32_t(actual.right-actual.left)&&height==expectedHeight,"Capture dimensions do not match independently queried source/caption bounds");
             const auto* sample=pixels+(size_t(height/2)*width+width/2)*4;
             require(sample[0]==23&&sample[1]==67&&sample[2]==109&&sample[3]==255,"GDI RGBA pixels differ from independently painted source");
+            if(titleBar) {
+                bool different=false;
+                for(uint32_t y=0;y<height-uint32_t(actual.bottom-actual.top);++y) {
+                    const auto* top=pixels+(size_t(y)*width+width/2)*4;
+                    different|=top[0]!=23||top[1]!=67||top[2]!=109;
+                }
+                require(different,"Title bar capture fabricated repeated client pixels in the native caption");
+            }
             retained=pixels;retainedCopy.assign(pixels,pixels+size_t(width)*height*4);
             return mp_capture_frame_sequence(capture.get());
         };
@@ -186,6 +207,7 @@ int main(int argc,char** argv) {
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Destroyed lifetime retained title/input identity");
         auto oldCapture=std::move(capture);
         capture.reset(mp_capture_create_backend(backend));native(bool(capture),"Create fresh capture");SetForegroundWindow(process.window);
+        native(mp_capture_set_title_bar(capture.get(),titleBar?1:0)==1,"Configure fresh capture caption");
         native(mp_capture_start(capture.get())==1,"Start fresh capture");
         auto fresh=frame("independent recapture frame");require(fresh!=0,"Fresh capture did not recover independently of the old lifetime");
         require(mp_capture_frame(oldCapture.get(),&pixels,&width,&height)==-1,"Old lifetime revived after another capture selected the same source tuple");
@@ -195,6 +217,7 @@ int main(int argc,char** argv) {
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Closed source was captured as a valid frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,fresh,&info,sizeof(info))==0,"Closed source retained input/title identity");
         mp_capture_cancel(capture.get());
+        if(titleBar)std::cout<<"WINDOWS WGC TITLE BAR PASS: actual native caption pixels and client pixels, independent bounds, immutable active geometry, resize and independent recapture preserve selection.\n";
         std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, continuous grow/shrink/return, waiting-buffer preservation, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

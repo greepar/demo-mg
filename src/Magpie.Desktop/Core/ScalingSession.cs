@@ -91,6 +91,7 @@ internal sealed partial class ScalingSession
                 string deviceName=Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine)) ?? "Vulkan";
                 capture = NativeCore.CaptureCreateBackend((uint)selectedBackend);
                 if (capture.IsInvalid) throw NativeCore.Error();
+                if(NativeCore.CaptureSetTitleBar(capture,_settings.CaptureTitleBar&&selectedBackend==CaptureBackend.GraphicsCapture?1:0)!=1)throw NativeCore.Error();
                 lock (_captureLock) _capture = capture;
                 _stop.Token.ThrowIfCancellationRequested();
                 Status?.Invoke(OperatingSystem.IsWindows()

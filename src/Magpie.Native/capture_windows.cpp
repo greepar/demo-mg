@@ -16,6 +16,7 @@
 namespace {
 struct Capture {
     uint32_t backend=3;
+    bool titleBar{};
     std::atomic<bool> cancelled{false};
     HWND window{};
     DWORD sourceProcess{};
@@ -45,6 +46,10 @@ struct Capture {
         std::lock_guard lock(epochMutex);RECT rect{};
         if(graphics&&IsIconic(window))graphics->suspend();
         if(cancelled||!sameSource()||IsIconic(window)||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
+        if(graphics) {
+            if(!graphics->sizeMatches(width,height)) {epoch.pause();return false;}
+            return epoch.accepts(sequence)&&sameSource();
+        }
         const auto w=uint32_t(rect.right-rect.left),h=uint32_t(rect.bottom-rect.top);
         if(!epoch.accepts(epoch.sequence(),w,h)) { epoch.pause();return false; }
         return epoch.accepts(sequence,w,h)&&sameSource();
@@ -67,7 +72,7 @@ struct Capture {
         requireSource();
         lifetimeWatch=std::make_unique<magpie::WindowsSourceWatch>(identity,cancelled);lifetimeWatch->start();
         requireSource();
-        if(backend==4) {graphics=std::make_unique<magpie::WindowsGraphicsCapture>(window,cancelled,[this]{return sameSource();});return;}
+        if(backend==4) {graphics=std::make_unique<magpie::WindowsGraphicsCapture>(window,titleBar,cancelled,[this]{return sameSource();});return;}
         memory=CreateCompatibleDC(nullptr);
         if (!memory) throw std::runtime_error("Cannot create a Windows capture DC");
     }
@@ -82,8 +87,7 @@ struct Capture {
             if(revision!=graphics->revision()) {epoch.pause();return 0;}
             if(graphics->paused()||revision!=graphicsRevision)epoch.pause();
             if(result==1) {
-                RECT rect{};
-                if(!GetClientRect(window,&rect)||capturedWidth!=uint32_t(rect.right-rect.left)||capturedHeight!=uint32_t(rect.bottom-rect.top)) {epoch.pause();return 0;}
+                if(!graphics->sizeMatches(capturedWidth,capturedHeight)) {epoch.pause();return 0;}
                 // A rejected mailbox delivery must not recycle the buffer still
                 // held by the UI after we return Waiting. Own the outer C ABI
                 // buffer separately and replace it only for accepted frames.
@@ -173,6 +177,15 @@ extern "C" void mp_capture_destroy(void* c){delete static_cast<Capture*>(c);}
 extern "C" uint32_t mp_capture_backend(void){return magpie::WindowsGraphicsCapture::supported()?4u:3u;}
 extern "C" uint32_t mp_capture_backend_mask(void){return (1u<<3)|(magpie::WindowsGraphicsCapture::supported()?(1u<<4):0u);}
 extern "C" uint32_t mp_capture_instance_backend(void* capture){return capture?static_cast<Capture*>(capture)->backend:0;}
+extern "C" int mp_capture_set_title_bar(void* capture,int enabled) {
+    try {
+        if(!capture||(enabled!=0&&enabled!=1))throw std::runtime_error("Invalid title bar capture arguments");
+        auto& c=*static_cast<Capture*>(capture);
+        if(c.window)throw std::runtime_error("Title bar capture must be configured before starting a fresh session");
+        if(enabled&&c.backend!=4) {magpie::error="This backend cannot toggle title bar capture";return 0;}
+        c.titleBar=enabled!=0;return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
 extern "C" void* mp_capture_create_backend(uint32_t backend) {
     try {
         const auto mask=mp_capture_backend_mask();

@@ -104,6 +104,8 @@ uint32_t mp_capture_backend_mask(void);
 // 0 requests the default. Unavailable explicit choices fail without fallback.
 void* mp_capture_create_backend(uint32_t backend);
 uint32_t mp_capture_instance_backend(void* capture);
+// Before Start only. 1=accepted, 0=unsupported enable, -1=invalid arguments/state.
+int mp_capture_set_title_bar(void* capture,int enabled);
 // Delivered-frame sequence on Cocoa/GDI; 0 before delivery or on other backends.
 uint64_t mp_capture_frame_sequence(void* capture);
 // Version 1, caller-owned UTF-8 snapshot. Empty/unflagged fields are unknown;

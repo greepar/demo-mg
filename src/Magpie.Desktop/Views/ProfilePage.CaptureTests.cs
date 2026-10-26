@@ -8,8 +8,11 @@ public partial class ProfilePage
     {
         if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Capture fixtures require isolated preview mode.");
         var previous=Settings.CaptureBackend;
+        bool previousTitle=Settings.CaptureTitleBar;
         try
         {
+            Settings.CaptureTitleBar=true;RefreshCaptureMethod();
+            if(CaptureTitleBarToggle.IsChecked!=true||CaptureTitleBarCard.IsEnabled!=CaptureBackendPolicy.CanCaptureTitleBar(Settings.CaptureBackend))throw new InvalidOperationException("Saved title bar preference or native capability was not reflected.");
             var available=CaptureBackendPolicy.Available;
             // Saved preferences from a different platform remain intact until
             // the user explicitly chooses an available backend.
@@ -30,5 +33,6 @@ public partial class ProfilePage
             Console.WriteLine("CAPTURE BACKEND UI PASS: actual profile selection handlers, unavailable foreign preferences preserved, truthful capabilities, explicit recovery and session rejection before capture/engine/picker.");
         }
         catch { Settings.CaptureBackend=previous;RefreshCaptureMethod();throw; }
+        finally {Settings.CaptureTitleBar=previousTitle;CaptureTitleBarToggle.IsChecked=previousTitle;}
     }
 }

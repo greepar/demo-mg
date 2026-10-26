@@ -1,5 +1,6 @@
 #include "capture_geometry.h"
 #include "capture_mailbox.h"
+#include "windows_capture_region.h"
 #include <array>
 #include <iostream>
 #include <memory>
@@ -10,6 +11,31 @@ int main(int argc,char** argv) {
     (void)argc;(void)argv;
     try {
         using namespace magpie;
+        WindowRegionGeometry framed;
+        framed.window={100,100,400,340};framed.frame={107,100,393,333};framed.client={108,132,392,332};
+        framed.nativeFrame=true;framed.caption=true;framed.thickFrame=true;framed.monitor={0,0,1920,1080};
+        require(windowFrameKind(framed)==WindowFrameKind::Native,"Native window classification differs from original");
+        require(windowCaptureRegion(framed,false)==WindowRect{108,132,392,332},"Default native client/caption crop differs");
+        require(windowCaptureRegion(framed,true)==WindowRect{108,101,392,332},"Native title bar was removed or border retained");
+        auto scrolling=framed;scrolling.client.right-=17;scrolling.client.bottom-=17;
+        require(windowCaptureRegion(scrolling,false)==WindowRect{108,132,392,332},"Native scrollbar pixels were cropped as client margins");
+        auto thick=framed;thick.caption=false;
+        require(windowFrameKind(thick)==WindowFrameKind::OnlyThickFrame&&windowCaptureRegion(thick,true)==windowCaptureRegion(thick,false),"Thick top frame mistaken for a caption");
+        auto custom=framed;custom.nativeFrame=false;
+        require(windowCaptureRegion(custom,true)==custom.window&&windowCaptureRegion(custom,false)==custom.client,"Custom nonclient title bar rules differ");
+        custom.verticalScroll=true;custom.horizontalScroll=true;custom.client.right-=17;custom.client.bottom-=17;
+        require(windowCaptureRegion(custom,false)==WindowRect{108,132,392,332},"Custom scrollbar border inference differs");
+        custom.caption=custom.thickFrame=false;
+        require(windowCaptureRegion(custom,false)==custom.window,"Frameless content was reduced to a synthetic client area");
+        auto uwp=framed;uwp.client.top=uwp.window.top;uwp.hasUwpClient=true;uwp.uwpClient={108,140,392,332};
+        require(windowFrameKind(uwp)==WindowFrameKind::NoTitleBar&&windowCaptureRegion(uwp,false)==uwp.uwpClient,"UWP input-sink client not used");
+        auto borderless=uwp;borderless.client.left=borderless.window.left;borderless.hasUwpClient=false;
+        require(windowFrameKind(borderless)==WindowFrameKind::NoBorder&&windowCaptureRegion(borderless,true)==borderless.frame,"Windows 10 borderless crop differs");
+        borderless.win11=true;borderless.monitorDpi=144;
+        require(windowCaptureRegion(borderless,true)==WindowRect{109,102,391,331},"Windows 11 fractional monitor DPI border rounding differs");
+        auto maximized=framed;maximized.maximized=true;maximized.frame={-8,-8,1928,1088};maximized.client={0,23,1920,1080};
+        require(windowCaptureRegion(maximized,true)==WindowRect{0,0,1920,1080}&&windowCaptureRegion(maximized,false)==WindowRect{0,23,1920,1080},"Maximized source escaped physical monitor bounds");
+        std::cout<<"WINDOW CAPTURE REGION PASS: original caption/native/custom/thick/borderless/UWP/scrollbar/maximized and fractional monitor border rules.\n";
         auto initial=captureGeometry({200,120},CaptureContent{0,0,100,60,2,1});
         require(initial.complete && initial.crop==CaptureSize{200,120} && initial.natural==CaptureSize{200,120},"Retina content size was not converted to pixels");
         auto grow=captureGeometry({200,120},CaptureContent{0,0,100,50,2,.5});

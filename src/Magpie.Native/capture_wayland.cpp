@@ -235,6 +235,10 @@ extern "C" void mp_capture_destroy(void* capture) { delete static_cast<Capture*>
 extern "C" uint32_t mp_capture_backend(void) { return 1; }
 extern "C" uint32_t mp_capture_backend_mask(void) { return 1u<<1; }
 extern "C" uint32_t mp_capture_instance_backend(void* capture) { return capture?1:0; }
+extern "C" int mp_capture_set_title_bar(void* capture,int enabled) {
+    if(!capture||(enabled!=0&&enabled!=1)){magpie::error="Invalid title bar capture arguments";return -1;}
+    if(enabled){magpie::error="Portal defines the captured window bounds";return 0;}return 1;
+}
 extern "C" void* mp_capture_create_backend(uint32_t backend) {
     if(backend!=0&&backend!=1) {magpie::error="The requested capture backend is not available on Wayland";return nullptr;}
     return mp_capture_create();

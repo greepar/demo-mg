@@ -20,6 +20,7 @@ internal static class CaptureBackendPolicy
     }
     internal static bool Supported(CaptureBackend requested,CaptureBackend available)=>requested==CaptureBackend.Native||requested==available;
     internal static uint AvailableMask=>NativeCore.CaptureBackendMask();
+    internal static bool CanCaptureTitleBar(CaptureBackend selected)=>Supported(selected)&&Resolve(selected)==CaptureBackend.GraphicsCapture;
     internal static bool Supported(CaptureBackend requested)=>Supported(requested,Available,AvailableMask);
     internal static bool Supported(CaptureBackend requested,CaptureBackend available,uint mask)
         =>Enum.IsDefined(requested)&&(requested==CaptureBackend.Native?((mask&(1u<<(int)available))!=0):((mask&(1u<<(int)requested))!=0));

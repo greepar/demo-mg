@@ -113,7 +113,7 @@
 <!-- Profile_SourceWindow_CaptureTitleBar -->
 <c:SettingsCard Name="CaptureTitleBarCard" Header="{c:Loc Profile_SourceWindow_CaptureTitleBar.Header}" Description="{c:Loc Profile_SourceWindow_CaptureTitleBar.Description}" Icon="Window">
 
-<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+<ToggleSwitch Name="CaptureTitleBarToggle" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" IsCheckedChanged="CaptureTitleBar_Changed" />
 </c:SettingsCard>
 
 <!-- Profile_SourceWindow_CustomCropping -->

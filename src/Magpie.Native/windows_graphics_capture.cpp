@@ -2,11 +2,13 @@
 #define NOMINMAX
 #include "windows_graphics_capture.h"
 #include "capture_mailbox.h"
+#include "windows_capture_region.h"
 #include "error.h"
 #include <d3d11.h>
 #include <dxgi.h>
 #include <dwmapi.h>
 #include <roapi.h>
+#include <shellscalingapi.h>
 #include <windows.graphics.capture.interop.h>
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <winrt/Windows.Foundation.h>
@@ -40,30 +42,62 @@ struct Apartment {
     ~Apartment() {if(SUCCEEDED(result))RoUninitialize();}
 };
 struct Geometry {
-    RECT frame{},client{};
-    bool operator==(const Geometry& other) const {return EqualRect(&frame,&other.frame)&&EqualRect(&client,&other.client);}
+    RECT frame{},client{},region{};
+    bool operator==(const Geometry& other) const {return EqualRect(&frame,&other.frame)&&EqualRect(&client,&other.client)&&EqualRect(&region,&other.region);}
 };
-Geometry geometry(HWND window) {
+DWORD windowsBuild() {
+    using VersionFunction=LONG(WINAPI*)(OSVERSIONINFOW*);
+    auto address=GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"RtlGetVersion");VersionFunction version{};
+    static_assert(sizeof(version)==sizeof(address));memcpy(&version,&address,sizeof(version));
+    OSVERSIONINFOW os{};os.dwOSVersionInfoSize=sizeof(os);
+    if(!version||version(&os)!=0)throw std::runtime_error("Cannot determine Windows capture frame rules");
+    return os.dwBuildNumber;
+}
+bool clientScreenRect(HWND window,RECT& rect) {
+    if(!GetClientRect(window,&rect))return false;POINT origin{};
+    if(!ClientToScreen(window,&origin))return false;OffsetRect(&rect,origin.x,origin.y);return true;
+}
+bool uwpClient(HWND window,RECT& rect) {
+    wchar_t name[256]{};GetClassNameW(window,name,int(std::size(name)));
+    if(wcscmp(name,L"ApplicationFrameWindow")&&wcscmp(name,L"Windows.UI.Core.CoreWindow"))return false;
+    struct Search {HWND selected{};int64_t size{};} search{window,0};
+    EnumChildWindows(window,[](HWND child,LPARAM parameter)->BOOL {
+        wchar_t childName[256]{};GetClassNameW(child,childName,int(std::size(childName)));
+        if(wcscmp(childName,L"ApplicationFrameInputSinkWindow"))return TRUE;
+        RECT bounds{};if(!GetClientRect(child,&bounds))return TRUE;
+        auto& data=*reinterpret_cast<Search*>(parameter);int64_t size=int64_t(bounds.right)-bounds.left+bounds.bottom-bounds.top;
+        if(size>data.size) {data.selected=child;data.size=size;}return TRUE;
+    },reinterpret_cast<LPARAM>(&search));
+    return clientScreenRect(search.selected,rect);
+}
+Geometry geometry(HWND window,bool titleBar) {
     Geometry result;
     check_hresult(DwmGetWindowAttribute(window,DWMWA_EXTENDED_FRAME_BOUNDS,&result.frame,sizeof(result.frame)));
-    if(!GetClientRect(window,&result.client))throw std::runtime_error("Cannot read source client bounds");
-    POINT origin{result.client.left,result.client.top};
-    if(!ClientToScreen(window,&origin))throw std::runtime_error("Cannot map source client bounds");
-    OffsetRect(&result.client,origin.x,origin.y);
+    if(!clientScreenRect(window,result.client))throw std::runtime_error("Cannot read source client bounds");
+    RECT outer{};if(!GetWindowRect(window,&outer))throw std::runtime_error("Cannot read source window bounds");
+    MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);auto handle=MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST);
+    if(!GetMonitorInfoW(handle,&monitor))throw std::runtime_error("Cannot read source monitor bounds");
+    auto convert=[](RECT r){return WindowRect{r.left,r.top,r.right,r.bottom};};
+    DWORD style=DWORD(GetWindowLongPtrW(window,GWL_STYLE));BOOL native{};
+    HRESULT nc=DwmGetWindowAttribute(window,DWMWA_NCRENDERING_ENABLED,&native,sizeof(native));
+    const DWORD build=windowsBuild();UINT dpi=96,unused=96;GetDpiForMonitor(handle,MDT_EFFECTIVE_DPI,&dpi,&unused);
+    WindowRegionGeometry g;g.window=convert(outer);g.frame=convert(result.frame);g.client=convert(result.client);g.monitor=convert(monitor.rcMonitor);
+    g.nativeFrame=SUCCEEDED(nc)&&native;g.caption=(style&WS_CAPTION)!=0;g.thickFrame=(style&WS_THICKFRAME)!=0;
+    g.verticalScroll=(style&WS_VSCROLL)!=0;g.horizontalScroll=(style&WS_HSCROLL)!=0;g.maximized=IsZoomed(window)!=FALSE;
+    g.win11=build>=22000;g.monitorDpi=dpi;
+    RECT uwp{};g.hasUwpClient=uwpClient(window,uwp);g.uwpClient=convert(uwp);
+    auto region=windowCaptureRegion(g,titleBar);
+    for(auto edge:{region.left,region.top,region.right,region.bottom})
+        if(edge<std::numeric_limits<LONG>::min()||edge>std::numeric_limits<LONG>::max())throw std::runtime_error("Source capture bounds overflow");
+    if(region.width()<64||region.height()<64)throw std::runtime_error("The source capture area must be at least 64 by 64 pixels");
+    result.region={LONG(region.left),LONG(region.top),LONG(region.right),LONG(region.bottom)};
     // Match original CalcWindowCapturedFrameBounds: maximized Windows 11 before
     // 24H2 has a different capture origin. RtlGetVersion avoids manifest-based
     // version virtualization. No window styles or source ownership are changed.
     if(IsZoomed(window)) {
-        using VersionFunction=LONG(WINAPI*)(OSVERSIONINFOW*);
-        auto address=GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"RtlGetVersion");
-        VersionFunction version{};static_assert(sizeof(version)==sizeof(address));memcpy(&version,&address,sizeof(version));
-        OSVERSIONINFOW os{};os.dwOSVersionInfoSize=sizeof(os);
-        if(!version||version(&os)!=0)throw std::runtime_error("Cannot determine Graphics Capture frame bounds on this Windows version");
-        if(os.dwBuildNumber>=22000&&os.dwBuildNumber<26100) {
+        if(build>=22000&&build<26100) {
             BOOL border{};check_hresult(DwmGetWindowAttribute(window,DWMWA_NCRENDERING_ENABLED,&border,sizeof(border)));
             if(border) {
-                MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
-                if(!GetMonitorInfoW(MonitorFromWindow(window,MONITOR_DEFAULTTONEAREST),&monitor))throw std::runtime_error("Cannot read source monitor bounds");
                 if(result.client.top<monitor.rcWork.top)result.frame=result.client;
                 else if(!IntersectRect(&result.frame,&result.frame,&monitor.rcWork))throw std::runtime_error("Source frame is outside the monitor");
             }
@@ -74,8 +108,8 @@ Geometry geometry(HWND window) {
 bool fits(const Geometry& g,int32_t width,int32_t height) {
     return width>0&&height>0&&uint64_t(width)*uint32_t(height)<=16777216&&
         g.frame.right-g.frame.left==width&&g.frame.bottom-g.frame.top==height&&
-        g.client.left>=g.frame.left&&g.client.top>=g.frame.top&&g.client.right<=g.frame.right&&g.client.bottom<=g.frame.bottom&&
-        g.client.right>g.client.left&&g.client.bottom>g.client.top;
+        g.region.left>=g.frame.left&&g.region.top>=g.frame.top&&g.region.right<=g.frame.right&&g.region.bottom<=g.frame.bottom&&
+        g.region.right-g.region.left>=64&&g.region.bottom-g.region.top>=64;
 }
 struct Wake {
     std::mutex mutex;
@@ -86,6 +120,7 @@ struct Wake {
 
 struct WindowsGraphicsCapture::State {
     HWND window;
+    bool titleBar;
     const std::atomic<bool>& cancelled;
     std::function<bool()> valid;
     std::atomic<bool> stop{false};
@@ -100,7 +135,7 @@ struct WindowsGraphicsCapture::State {
     bool ready{};
     uint64_t revision{};
     std::thread worker;
-    State(HWND target,const std::atomic<bool>& cancellation,std::function<bool()> validator):window(target),cancelled(cancellation),valid(std::move(validator)) {
+    State(HWND target,bool title,const std::atomic<bool>& cancellation,std::function<bool()> validator):window(target),titleBar(title),cancelled(cancellation),valid(std::move(validator)) {
         auto source=emptySource();source.kind=1;source.window_id=uint64_t(reinterpret_cast<uintptr_t>(window));
         DWORD process{};GetWindowThreadProcessId(window,&process);source.process_id=process;
         source.flags=MP_SOURCE_WINDOW|MP_SOURCE_PID;mailbox.begin(source);
@@ -201,7 +236,7 @@ struct WindowsGraphicsCapture::State {
                 {std::lock_guard lock(mutex);waiting="Waiting for a fresh frame from the restarted restored-source session";}
                 inactive=false;continue;
             }
-            operation="query source geometry";auto before=geometry(window);
+            operation="query source geometry";auto before=geometry(window,titleBar);
             if(!haveGeometry||!(before==previous)) {
                 std::lock_guard lock(mutex);pause();previous=before;haveGeometry=true;
             }
@@ -242,19 +277,19 @@ struct WindowsGraphicsCapture::State {
                     " content="+std::to_string(content.Width)+"x"+std::to_string(content.Height);}
                 texture=nullptr;access=nullptr;frame.Close();frame=nullptr;restart(content);continue;
             }
-            uint32_t width=uint32_t(before.client.right-before.client.left),height=uint32_t(before.client.bottom-before.client.top);
+            uint32_t width=uint32_t(before.region.right-before.region.left),height=uint32_t(before.region.bottom-before.region.top);
             if(!staging||width!=stagingWidth||height!=stagingHeight) {
                 staging=nullptr;D3D11_TEXTURE2D_DESC desc{};desc.Width=width;desc.Height=height;desc.MipLevels=desc.ArraySize=1;
                 desc.Format=DXGI_FORMAT_B8G8R8A8_UNORM;desc.SampleDesc.Count=1;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;
                 operation="allocate staging texture";
                 check_hresult(device->CreateTexture2D(&desc,nullptr,staging.put()));stagingWidth=width;stagingHeight=height;
             }
-            auto x=UINT(before.client.left-before.frame.left),y=UINT(before.client.top-before.frame.top);
+            auto x=UINT(before.region.left-before.frame.left),y=UINT(before.region.top-before.frame.top);
             D3D11_BOX crop{x,y,0,x+width,y+height,1};context->CopySubresourceRegion(staging.get(),0,0,0,0,texture.get(),0,&crop);
             operation="map captured staging pixels";
             D3D11_MAPPED_SUBRESOURCE mapped{};check_hresult(context->Map(staging.get(),0,D3D11_MAP_READ,0,&mapped));
             struct Unmap {ID3D11DeviceContext* context;ID3D11Texture2D* texture;~Unmap(){context->Unmap(texture,0);}} unmap{context.get(),staging.get()};
-            checkSource();operation="recheck source geometry";auto after=geometry(window);
+            checkSource();operation="recheck source geometry";auto after=geometry(window,titleBar);
             std::lock_guard lock(mutex);
             if(suspension||IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
@@ -270,8 +305,8 @@ bool WindowsGraphicsCapture::supported() noexcept {
         return factory<GraphicsCaptureSession,IGraphicsCaptureSessionStatics>().IsSupported()&&bool(try_get_activation_factory<GraphicsCaptureItem,IGraphicsCaptureItemInterop>());
     } catch(...) {return false;}
 }
-WindowsGraphicsCapture::WindowsGraphicsCapture(HWND window,const std::atomic<bool>& cancelled,std::function<bool()> valid)
-    :state_(std::make_unique<State>(window,cancelled,std::move(valid))) {
+WindowsGraphicsCapture::WindowsGraphicsCapture(HWND window,bool titleBar,const std::atomic<bool>& cancelled,std::function<bool()> valid)
+    :state_(std::make_unique<State>(window,titleBar,cancelled,std::move(valid))) {
     state_->worker=std::thread([state=state_.get()]{state->run();});
     std::unique_lock lock(state_->mutex);
     if(!state_->started.wait_for(lock,std::chrono::seconds(10),[&]{return state_->ready;}))throw std::runtime_error("Windows Graphics Capture initialization timed out");
@@ -288,6 +323,10 @@ int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t*
 }
 bool WindowsGraphicsCapture::paused() const {std::lock_guard lock(state_->mutex);return state_->mailbox.inputPaused()||!state_->failure.empty();}
 uint64_t WindowsGraphicsCapture::revision() const {std::lock_guard lock(state_->mutex);return state_->revision;}
+bool WindowsGraphicsCapture::sizeMatches(uint32_t width,uint32_t height) const {
+    try {auto current=geometry(state_->window,state_->titleBar);return current.region.right-current.region.left==int64_t(width)&&current.region.bottom-current.region.top==int64_t(height);}
+    catch(...) {return false;}
+}
 void WindowsGraphicsCapture::suspend() {
     std::lock_guard lock(state_->mutex);state_->suspension=true;state_->pause();state_->wake->changed.notify_one();
 }

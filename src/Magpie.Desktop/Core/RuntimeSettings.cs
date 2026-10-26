@@ -20,6 +20,7 @@ internal sealed class RuntimeSettings
     public float CustomInitialWindowedScaleFactor { get; set; }=1.25f;
     public int OutputAlignment { get; set; }=4;
     public CaptureBackend CaptureBackend { get; set; }
+    public bool CaptureTitleBar { get; set; }
     public ToolbarState FullscreenInitialToolbarState { get; set; }=ToolbarState.AutoHide;
     public ToolbarState WindowedInitialToolbarState { get; set; }=ToolbarState.AutoHide;
     public bool DeveloperMode { get; set; }
