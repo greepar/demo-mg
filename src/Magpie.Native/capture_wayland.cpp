@@ -199,9 +199,11 @@ struct Capture {
         }();
         pw_stream_add_listener(stream, &listener, &events, this);
         uint8_t storage[1024]; spa_pod_builder b = SPA_POD_BUILDER_INIT(storage, sizeof(storage));
+        // SPA Enum stores the default first, followed by every allowed value.
+        // Repeat BGRA so a BGRA-only source can intersect the allowed set.
         const spa_pod* parameters = static_cast<const spa_pod*>(spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
             SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-            SPA_FORMAT_VIDEO_format, SPA_POD_CHOICE_ENUM_Id(4, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_RGBA, SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx)));
+            SPA_FORMAT_VIDEO_format, SPA_POD_CHOICE_ENUM_Id(5, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_RGBA, SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx)));
         const auto flags = static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS);
         if (pw_stream_connect(stream, PW_DIRECTION_INPUT, target.node, flags, &parameters, 1) < 0) throw std::runtime_error("Cannot connect selected PipeWire stream");
         if (pw_thread_loop_start(loop) < 0) throw std::runtime_error("Cannot start PipeWire capture loop");

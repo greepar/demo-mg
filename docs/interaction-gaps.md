@@ -36,6 +36,12 @@ NNEDI3 后续调查见 [专项诊断](nnedi3-investigation.md)：已确认 28 �
 
 Linux 移除恒为零的帧序号替身，接入交付序号/暂停与恢复状态，优先按 Portal 的 PipeWire object.serial 连接流，保留缺少 serial 的旧 Portal 路径，并拒绝损坏/空帧与失效的待交付像素。实现和验证边界见 [Linux 帧归属](input-mapping.md#linux-pipewire-帧归属与流目标)。这些是输入映射的必要基础，Linux/Windows 鼠标键盘、焦点、光标和游戏模式仍然缺失，macOS 实际事件送达仍待验收。NNEDI3 偶发全零像素仍未解决，完整三平台对齐目标继续未完成。
 
+### Linux 格式协商与真实传输补充
+
+隔离的实际 PipeWire/FD 传输测试发现 BGRA 默认值没有包含在 SPA Enum 允许集合，已修复，旧实现可在同一夹具稳定复现 `no more input formats`。新增六场景实际传输回归覆盖四种协商格式、连续 resize、保留 ABI 缓冲、损坏/暂停恢复、serial 与旧节点路径、会话关闭/取消及错误 serial 拒绝；Linux CI 要求实际执行，详见 [传输证据范围](input-mapping.md#linux-实际-pipewire-传输回归)。合成 Portal、自己的端口连接器和像素源不证明真实桌面授权、WirePlumber 策略或任何输入送达；完整三平台目标继续未完成。
+
+`59d5e2f3` 的 Windows 和 macOS 两种架构 CI 已通过；Windows 日志明确包含实际 WGC、WGC TITLE BAR 和连续 resize/恢复/重捕获 PASS。Linux 已过 SDK/AOT/非 GPU 门，软件 Vulkan 回归仍在执行，不能先记作整次 CI 通过。新格式修复提交需要自己的目标结果。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

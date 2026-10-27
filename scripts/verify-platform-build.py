@@ -25,7 +25,7 @@ build=ROOT/'artifacts/native'/args.rid/'Release'
 report_dir=ROOT/'artifacts/platform-build-checks'/args.rid;report_dir.mkdir(parents=True,exist_ok=True)
 name='Magpie.Desktop.exe' if host=='win' else 'Magpie.Desktop'
 native_tests={'capture_resize_geometry','capture_frame_mailbox','capture_source_metadata'}
-if host=='linux':native_tests.add('capture_wayland_frames')
+if host=='linux':native_tests.update({'capture_wayland_frames','capture_portal_pipewire'})
 native_test_pattern='^('+'|'.join(sorted(native_tests))+')$'
 commands=[
     [sys.executable,'scripts/verify-original-mode-fixture.py'],
@@ -36,7 +36,7 @@ commands=[
     [sys.executable,'scripts/verify-dds-export.py','--app',str(output/name),'--output',str(report_dir/'dds-export.json')],
     [sys.executable,'scripts/verify-power-abi.py','--output',str(report_dir/'power-abi.json')],
 ]
-report={'rid':args.rid,'passed':False,'state':'running','checks':[],'gpu_tested':False,'ui_tested':False,'capture_tested':False,'native_input_delivery_tested':False,'full_interaction_parity':False}
+report={'rid':args.rid,'passed':False,'state':'running','checks':[],'gpu_tested':False,'ui_tested':False,'capture_tested':False,'synthetic_pipewire_transport_tested':False,'native_input_delivery_tested':False,'full_interaction_parity':False}
 def save():
     (report_dir/'results.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 save();env=dict(os.environ,PYTHONUTF8='1',DOTNET_CLI_UI_LANGUAGE='en-US')
@@ -53,6 +53,7 @@ for index,command in enumerate(commands):
             if len(cases)!=len(native_tests) or {case.get('name') for case in cases}!=native_tests or any(
                 case.get('status')=='notrun' or any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases):
                 raise ValueError('Expected every applicable native model test to execute and pass: '+str(sorted(native_tests)))
+            if host=='linux':report['synthetic_pipewire_transport_tested']=True
         except (ET.ParseError,OSError,ValueError) as failure:
             result.returncode=1;result.stderr+='\nNative test evidence failed: '+str(failure)+'\n'
     if not result.returncode and index==4 and 'INTERACTION MODEL PASS:' not in result.stdout:

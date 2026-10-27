@@ -45,7 +45,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld ninja-build cmake pkg-config libvulkan-dev mesa-vulkan-drivers libpipewire-0.3-dev libglib2.0-dev libfontconfig1-dev libglm-dev
+          sudo apt-get install -y clang lld ninja-build cmake pkg-config libvulkan-dev mesa-vulkan-drivers libpipewire-0.3-dev pipewire python3-gi dbus-daemon libglib2.0-dev libfontconfig1-dev libglm-dev
           echo "VK_DRIVER_FILES=$(find /usr/share/vulkan/icd.d -name '*lvp*' -print -quit)" >> "$GITHUB_ENV"
       - name: Prepare pinned Windows/macOS native dependencies
         if: runner.os != 'Linux'
@@ -71,4 +71,5 @@ jobs:
             artifacts/native/${{ matrix.rid }}/Release/*.json
             artifacts/native/${{ matrix.rid }}/Release/*.log
             artifacts/native/${{ matrix.rid }}/Release/Testing/Temporary/LastTest.log
+            artifacts/native/${{ matrix.rid }}/Release/pipewire-capture
             artifacts/desktop/${{ matrix.rid }}/Magpie.Desktop*

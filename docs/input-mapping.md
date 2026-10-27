@@ -51,3 +51,16 @@ ScreenCast 返回 `pipewire-serial` 时，严格按 uint64 解析，通过 `PW_K
 协议依据：[ScreenCast v6 流目标](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html)、[PipeWire stream target](https://docs.pipewire.org/page_streams.html)、[session manager 属性](https://docs.pipewire.org/page_man_pipewire-props_7.html)。Linux 输入桥仍未完成；通用 RemoteDesktop/EIS 授权并不自动解决源窗口焦点、输出遮挡、注入回到自身、源逻辑坐标和 PipeWire 像素尺寸差异。
 
 本轮本机 Linux NativeAOT 核心、全部 24/24 CTest、托管交互模型及 SDK/AOT/单可执行文件依赖门通过。报告 `artifacts/desktop/wayland-frames-test-summary.json` 与对应 evidence 目录；没有重新验证真实捕获或输入，没有新增 UI 验收声明。NNEDI3 本轮核心通过仍不表示已解决已知偶发异常。
+
+
+## Linux 实际 PipeWire 传输回归
+
+增加 `wayland_capture_fixture` 与 `verify-capture-pipewire-isolated.py`，通过私有且不启用服务激活的 D-Bus、合成 ScreenCast 服务、真实 PipeWire daemon 和自己生成的像素流调用生产 `mp_capture_start/frame/source/frame_sequence/cancel`。OpenPipeWireRemote 真实传递 Unix FD；捕获端仍执行生产的请求订阅、连接、格式协商、内存映射和缓冲转换。没有连接用户的 PipeWire、显示服务器或真实桌面 Portal，不请求系统权限、不产生窗口或注入输入。
+
+测试发现并修复了生产格式列表中的遗漏：SPA Enum 的第一项只是默认值，其后的值才是允许集合。原来的 `BGRA, RGBA, BGRx, RGBx` 没有把 BGRA 纳入允许集合，固定 BGRA 源报 `no more input formats`。现在默认值之后列出四种格式，BGRA 作为默认和允许值各出现一次。使用同一个当前夹具链接 `59d5e2f3` 的捕获实现可稳定复现失败；修复实现实际通过四种固定格式，日志逐项验证协商格式，不能用场景名称替代格式证据。
+
+六个场景包括 serial 的 BGRA/RGBA/BGRx/RGBx、无 serial 的旧节点 ID 路径、错误 serial 类型拒绝。serial 场景故意返回不可用的旧节点 ID，实际节点 object.serial 保持正确；从 PipeWire node info 检查目标 serial 与禁止回退/重连/移动属性后，夹具自己建立准确的端口链接。多个场景中实际 node ID 与 object.serial 不同。这个连接器不是 WirePlumber，不等于真实 session manager 的自动连接、销毁重连或默认目标策略已验收。
+
+每种成功格式都验证带行填充的完整 RGBA 像素、连续颜色变化、37×23→81×47→13×9→37×23 尺寸变动、生产期间/等待期间已交付 ABI 缓冲不被修改、源停止驱动后等待与恢复新帧、corrupted Header 停止交付与新帧恢复、递增交付序号、Portal 未提供的窗口/PID 保持未知。serial 场景关闭 Portal 会话后必须拒绝画面；旧版路径测试 native cancel 后拒绝画面。错误 serial 在打开远端 FD 前拒绝，所有会话 Close 与子进程退出均检查。
+
+该测试加入 Linux `capture_portal_pipewire` CTest 和非 GPU CI 门；Linux runner 安装 PipeWire daemon、系统 PyGObject 和 dbus-daemon，输出独立 JSON/日志，Windows/macOS 仍只执行各自适用的测试。最终本机全部 25 项原生测试通过；后续夹具边界/暂停检查的单项回归也通过，NativeAOT 核心、交互模型、单可执行文件与静态自有核心依赖检查通过。证据汇总为 `artifacts/desktop/pipewire-capture-test-summary.json`；修复前失败现场在 `artifacts/desktop/pipewire-capture-before-fix`。以上只补齐合成源的真实传输证据，真实应用捕获、权限、输入送达、焦点、光标与游戏模式没有因此通过。NNEDI3 偶发异常仍未解决。
