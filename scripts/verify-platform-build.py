@@ -24,11 +24,14 @@ output=args.output.resolve() if args.output else ROOT/'artifacts/desktop'/args.r
 build=ROOT/'artifacts/native'/args.rid/'Release'
 report_dir=ROOT/'artifacts/platform-build-checks'/args.rid;report_dir.mkdir(parents=True,exist_ok=True)
 name='Magpie.Desktop.exe' if host=='win' else 'Magpie.Desktop'
+native_tests={'capture_resize_geometry','capture_frame_mailbox','capture_source_metadata'}
+if host=='linux':native_tests.add('capture_wayland_frames')
+native_test_pattern='^('+'|'.join(sorted(native_tests))+')$'
 commands=[
     [sys.executable,'scripts/verify-original-mode-fixture.py'],
     [sys.executable,'scripts/verify-precompiled-shaders.py'],
     ['dotnet','publish','src/Magpie.Desktop','-c','Release','-r',args.rid,'-o',str(output)],
-    ['ctest','--test-dir',str(build),'-C','Release','--output-on-failure','--no-tests=error','--output-junit',str(report_dir/'native-model-tests.xml'),'-R','^(capture_resize_geometry|capture_frame_mailbox|capture_source_metadata)$'],
+    ['ctest','--test-dir',str(build),'-C','Release','--output-on-failure','--no-tests=error','--output-junit',str(report_dir/'native-model-tests.xml'),'-R',native_test_pattern],
     [str(output/name),'--interaction-model-test'],
     [sys.executable,'scripts/verify-dds-export.py','--app',str(output/name),'--output',str(report_dir/'dds-export.json')],
     [sys.executable,'scripts/verify-power-abi.py','--output',str(report_dir/'power-abi.json')],
@@ -47,10 +50,9 @@ for index,command in enumerate(commands):
     if not result.returncode and index==3:
         try:
             cases=list(ET.parse(report_dir/'native-model-tests.xml').getroot().iter('testcase'))
-            expected={'capture_resize_geometry','capture_frame_mailbox','capture_source_metadata'}
-            if len(cases)!=3 or {case.get('name') for case in cases}!=expected or any(
+            if len(cases)!=len(native_tests) or {case.get('name') for case in cases}!=native_tests or any(
                 case.get('status')=='notrun' or any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases):
-                raise ValueError('Expected all three native model tests to execute and pass.')
+                raise ValueError('Expected every applicable native model test to execute and pass: '+str(sorted(native_tests)))
         except (ET.ParseError,OSError,ValueError) as failure:
             result.returncode=1;result.stderr+='\nNative test evidence failed: '+str(failure)+'\n'
     if not result.returncode and index==4 and 'INTERACTION MODEL PASS:' not in result.stdout:

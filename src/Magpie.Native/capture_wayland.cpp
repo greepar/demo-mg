@@ -1,6 +1,8 @@
 #include "magpie.h"
 #include "error.h"
 #include "source_info.h"
+#include "wayland_frames.h"
+#include "wayland_stream_target.h"
 #include <gio/gio.h>
 #include <gio/gunixfdlist.h>
 #include <pipewire/pipewire.h>
@@ -47,9 +49,7 @@ struct Capture {
     spa_hook listener{};
     spa_video_info_raw format{};
     std::mutex pixelsMutex;
-    std::vector<uint8_t> pixels, delivered;
-    uint32_t width{}, height{}, deliveredWidth{}, deliveredHeight{};
-    bool fresh{};
+    magpie::WaylandFrames frames;
     uint32_t sourceKind{};
     std::string streamError;
     static inline std::once_flag pipewireInit;
@@ -118,7 +118,7 @@ struct Capture {
         if (!g_variant_lookup(created.get(), "session_handle", "&s", &handle)) throw std::runtime_error("Portal returned no session handle");
         session = handle;
         closedSubscription = g_dbus_connection_signal_subscribe(bus.get(), service, "org.freedesktop.portal.Session", "Closed", session.c_str(), nullptr, G_DBUS_SIGNAL_FLAGS_NONE,
-            [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar*, GVariant*, gpointer data) { static_cast<Capture*>(data)->closed = true; }, this, nullptr);
+            [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar*, GVariant*, gpointer data) { auto& c=*static_cast<Capture*>(data); std::lock_guard lock(c.pixelsMutex); c.closed=true; c.frames.pause(); }, this, nullptr);
         options(builder, (token + "sources").c_str());
         g_variant_builder_add(&builder, "{sv}", "types", g_variant_new_uint32(3)); // monitor or window
         g_variant_builder_add(&builder, "{sv}", "multiple", g_variant_new_boolean(false));
@@ -136,6 +136,7 @@ struct Capture {
             std::lock_guard lock(pixelsMutex);
             sourceKind=sourceType==2?1:sourceType==1?2:sourceType==4?3:0;
         }
+        const auto target=magpie::WaylandStreamTarget::parse(node,properties.get());
         g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
         GError* error{}; GUnixFDList* descriptors{};
         auto remote = variant(g_dbus_connection_call_with_unix_fd_list_sync(bus.get(), service, desktop, screenCast, "OpenPipeWireRemote",
@@ -145,9 +146,9 @@ struct Capture {
         gint index; g_variant_get(remote.get(), "(h)", &index);
         int fd = g_unix_fd_list_get(fdList.get(), index, &error);
         if (fd < 0) throw diagnostic("Read PipeWire descriptor", error);
-        connectPipewire(fd, node);
+        connectPipewire(fd, target);
     }
-    void connectPipewire(int fd, uint32_t node) {
+    void connectPipewire(int fd, const magpie::WaylandStreamTarget& target) {
         // pw_context_connect_fd consumes the descriptor, even on failure.
         std::call_once(pipewireInit, [] { pw_init(nullptr, nullptr); });
         loop = pw_thread_loop_new("magpie-capture", nullptr);
@@ -156,24 +157,42 @@ struct Capture {
         if (!pwContext) { close(fd); throw std::runtime_error("Cannot create PipeWire context"); }
         core = pw_context_connect_fd(pwContext, fd, nullptr, 0);
         if (!core) throw std::runtime_error("Cannot connect to authorized PipeWire remote");
-        stream = pw_stream_new(core, "Magpie window capture", pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Screen", nullptr));
+        stream = pw_stream_new(core, "Magpie window capture", pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Screen",
+            PW_KEY_NODE_DONT_RECONNECT,"true","node.dont-fallback","true","node.dont-move","true",nullptr));
         if (!stream) throw std::runtime_error("Cannot create PipeWire capture stream");
+        if (!target.serial.empty()) {
+            const spa_dict_item item{PW_KEY_TARGET_OBJECT,target.serial.c_str()};
+            const spa_dict properties{0,1,&item};
+            if (pw_stream_update_properties(stream,&properties)<0) throw std::runtime_error("Cannot set selected PipeWire stream serial");
+        }
         static const pw_stream_events events = [] {
             pw_stream_events e{}; e.version = PW_VERSION_STREAM_EVENTS;
             e.state_changed = [](void* data, pw_stream_state, pw_stream_state state, const char* message) {
+                auto& c = *static_cast<Capture*>(data); std::lock_guard lock(c.pixelsMutex);
+                if (state!=PW_STREAM_STATE_STREAMING) c.frames.pause();
                 if (state == PW_STREAM_STATE_ERROR || state == PW_STREAM_STATE_UNCONNECTED) {
-                    auto& c = *static_cast<Capture*>(data); std::lock_guard lock(c.pixelsMutex);
                     c.streamError = message ? message : "PipeWire capture stream disconnected";
                 }
             };
             e.param_changed = [](void* data, uint32_t id, const spa_pod* param) {
-                if (id != SPA_PARAM_Format || !param) return;
+                if (id != SPA_PARAM_Format) return;
                 auto& c = *static_cast<Capture*>(data);
-                if (spa_format_video_raw_parse(param, &c.format) < 0) return;
+                {
+                    std::lock_guard lock(c.pixelsMutex);
+                    c.format={};c.frames.configure(c.format);
+                    if (!param) return;
+                    if (spa_format_video_raw_parse(param,&c.format)<0) {c.streamError="Invalid PipeWire video format";return;}
+                    c.frames.configure(c.format);
+                }
                 uint8_t storage[512]; spa_pod_builder b = SPA_POD_BUILDER_INIT(storage, sizeof(storage));
                 const spa_pod* buffers = static_cast<const spa_pod*>(spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
                     SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1 << SPA_DATA_MemPtr) | (1 << SPA_DATA_MemFd))));
-                pw_stream_update_params(c.stream, &buffers, 1);
+                const spa_pod* header=static_cast<const spa_pod*>(spa_pod_builder_add_object(&b,SPA_TYPE_OBJECT_ParamMeta,SPA_PARAM_Meta,
+                    SPA_PARAM_META_type,SPA_POD_Id(SPA_META_Header),SPA_PARAM_META_size,SPA_POD_Int(sizeof(spa_meta_header))));
+                const spa_pod* params[]={buffers,header};
+                if (pw_stream_update_params(c.stream,params,2)<0) {
+                    std::lock_guard lock(c.pixelsMutex);c.frames.pause();c.streamError="Cannot negotiate PipeWire buffers";
+                }
             };
             e.process = [](void* data) { static_cast<Capture*>(data)->process(); };
             return e;
@@ -184,46 +203,25 @@ struct Capture {
             SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
             SPA_FORMAT_VIDEO_format, SPA_POD_CHOICE_ENUM_Id(4, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_RGBA, SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx)));
         const auto flags = static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS);
-        if (pw_stream_connect(stream, PW_DIRECTION_INPUT, node, flags, &parameters, 1) < 0) throw std::runtime_error("Cannot connect selected PipeWire stream");
+        if (pw_stream_connect(stream, PW_DIRECTION_INPUT, target.node, flags, &parameters, 1) < 0) throw std::runtime_error("Cannot connect selected PipeWire stream");
         if (pw_thread_loop_start(loop) < 0) throw std::runtime_error("Cannot start PipeWire capture loop");
     }
     void process() noexcept {
         pw_buffer* buffer = pw_stream_dequeue_buffer(stream);
         if (!buffer) return;
         try {
-            if (!buffer->buffer || !buffer->buffer->n_datas) throw std::runtime_error("PipeWire returned no pixel plane");
-            const auto& plane = buffer->buffer->datas[0];
-            const uint32_t w = format.size.width, h = format.size.height;
-            if (!plane.chunk || !plane.data || !plane.chunk->size) { pw_stream_queue_buffer(stream, buffer); return; }
-            if (!w || !h || uint64_t(w) * h > 16777216) throw std::runtime_error("Unsupported captured frame dimensions");
-            const int64_t stride = plane.chunk->stride;
-            const uint64_t rowBytes = uint64_t(w) * 4;
-            if (stride < int64_t(rowBytes) || uint64_t(plane.chunk->offset) + (h - 1) * stride + rowBytes > plane.maxsize ||
-                uint64_t(plane.chunk->size) < (h - 1) * stride + rowBytes) throw std::runtime_error("Invalid PipeWire pixel buffer stride or length");
-            bool bgr = format.format == SPA_VIDEO_FORMAT_BGRA || format.format == SPA_VIDEO_FORMAT_BGRx;
-            if (!bgr && format.format != SPA_VIDEO_FORMAT_RGBA && format.format != SPA_VIDEO_FORMAT_RGBx) throw std::runtime_error("Unsupported PipeWire pixel format");
             std::lock_guard lock(pixelsMutex);
-            pixels.resize(size_t(w) * h * 4);
-            auto* base = static_cast<const uint8_t*>(plane.data) + plane.chunk->offset;
-            for (uint32_t y = 0; y < h; ++y) for (uint32_t x = 0; x < w; ++x) {
-                const auto* src = base + y * stride + x * 4;
-                auto* dst = pixels.data() + (size_t(y) * w + x) * 4;
-                dst[0] = src[bgr ? 2 : 0]; dst[1] = src[1]; dst[2] = src[bgr ? 0 : 2]; dst[3] = 255;
-            }
-            width = w; height = h; fresh = true;
-        } catch (const std::exception& ex) { std::lock_guard lock(pixelsMutex); streamError = ex.what(); }
+            if (!cancelled && !closed && streamError.empty()) frames.publish(buffer->buffer);
+        } catch (const std::exception& ex) { std::lock_guard lock(pixelsMutex); frames.pause();streamError = ex.what(); }
         pw_stream_queue_buffer(stream, buffer);
     }
     int frame(const uint8_t** rgba, uint32_t* w, uint32_t* h) {
         while (g_main_context_iteration(context, false)) {}
+        std::lock_guard lock(pixelsMutex);
         if (closed) throw std::runtime_error("Screen sharing was stopped by the desktop");
         if (cancelled) throw std::runtime_error("Capture was stopped");
-        std::lock_guard lock(pixelsMutex);
         if (!streamError.empty()) throw std::runtime_error(streamError);
-        if (!fresh) return 0;
-        delivered = pixels; deliveredWidth = width; deliveredHeight = height; fresh = false;
-        *rgba = delivered.data(); *w = deliveredWidth; *h = deliveredHeight;
-        return 1;
+        return frames.deliver(rgba,w,h)?1:0;
     }
 };
 }
@@ -252,7 +250,10 @@ extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint
     return 1;
 }
 extern "C" void mp_capture_cancel(void* capture) {
-    if (auto* c = static_cast<Capture*>(capture)) { c->cancelled = true; g_cancellable_cancel(c->cancellable.get()); }
+    if (auto* c = static_cast<Capture*>(capture)) {
+        { std::lock_guard lock(c->pixelsMutex); c->cancelled=true; c->frames.pause(); }
+        g_cancellable_cancel(c->cancellable.get());
+    }
 }
 extern "C" int mp_capture_start(void* capture) {
     try { if (!capture) throw std::runtime_error("Capture is not initialized"); static_cast<Capture*>(capture)->start(); return 1; }
@@ -263,4 +264,10 @@ extern "C" int mp_capture_frame(void* capture, const uint8_t** rgba, uint32_t* w
         if (!capture || !rgba || !width || !height) throw std::runtime_error("Invalid capture arguments");
         return static_cast<Capture*>(capture)->frame(rgba, width, height);
     } catch (const std::exception& ex) { magpie::error = ex.what(); return -1; }
+}
+
+extern "C" uint64_t mp_capture_frame_sequence(void* capture) {
+    if (!capture) return 0;
+    auto& c=*static_cast<Capture*>(capture);std::lock_guard lock(c.pixelsMutex);
+    return c.frames.sequence();
 }

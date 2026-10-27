@@ -30,6 +30,12 @@
 
 NNEDI3 后续调查见 [专项诊断](nnedi3-investigation.md)：已确认 28 个像素连同 alpha 全零；新增失败时的重渲染前 CPU / 独立 GPU 复制现场保存、opaque alpha 断言和无界面压力入口。1,000 次基线完整核心进程及 10,000 次专项切换通过，未重新触发，不能据此宣布修复。没有改变 shader/精度或增加运行时重试掩盖问题；完整交互与全显卡数值一致仍未达到。
 
+## 2026-10-28 捕获基础与剩余输入工作
+
+`f9d04831` 的 [四平台 CI](https://github.com/greepar/demo-mg/actions/runs/40389821425) 已通过，Windows 日志明确包含 WGC、WGC TITLE BAR 与连续 resize/恢复/独立重捕获的实际通过标记。新增 MTA 使用计数将 COM 资源寿命覆盖短期探测与独立捕获线程之间的间隙，更新之前偶发 native AV 的验证状态；一次目标运行通过不构成所有生命周期竞态已排除的证明。
+
+Linux 移除恒为零的帧序号替身，接入交付序号/暂停与恢复状态，优先按 Portal 的 PipeWire object.serial 连接流，保留缺少 serial 的旧 Portal 路径，并拒绝损坏/空帧与失效的待交付像素。实现和验证边界见 [Linux 帧归属](input-mapping.md#linux-pipewire-帧归属与流目标)。这些是输入映射的必要基础，Linux/Windows 鼠标键盘、焦点、光标和游戏模式仍然缺失，macOS 实际事件送达仍待验收。NNEDI3 偶发全零像素仍未解决，完整三平台对齐目标继续未完成。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

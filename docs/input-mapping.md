@@ -36,3 +36,18 @@ Linux 最终 NativeAOT 核心、23/23 CTest 与新增分数倍率用例的最后
 当前 fixture 增加由源进程主动发出的销毁 WinEvent，窗口本身仍存活且原身份元组相同；旧 capture 必须在收到事件后拒绝帧和标题，新 capture 重新选择相同源后必须正常工作。该事件是注入的生命周期测试事件，并非模拟鼠标/键盘；实际 WinEvent 注册、消息投递、永久失效及独立重捕获均需该提交目标结果。包装器检查新增覆盖标记，旧 fixture 的成功字样不能冒充本轮通过。
 
 本轮 Linux 最终 AOT 核心、23/23 CTest 和三项私有 Wayland UI 通过；纯模型验证相关/无关销毁、相同数值身份持续拒绝及新寿命独立性，Windows MinGW 严格语法通过。报告 `artifacts/desktop/source-lifetime-test-summary.json`。本次 watcher 的 MSVC/native 运行、实际关闭/recreate 的系统竞态和 Windows 鼠标/键盘转发继续待验收，完整目标未完成。
+
+
+## Linux PipeWire 帧归属与流目标
+
+Linux 捕获现在在向 C ABI 交付新像素时递增帧序号；生产者收到帧、覆盖未交付帧和等待不会提前递增。使用共用 CaptureEpoch：格式重协商、流暂停/断开、Portal Closed、取消、空/损坏帧先丢弃待交付画面并暂停旧状态；恢复需要新交付帧。普通同尺寸帧延迟仍允许同一状态内的已提交序号。ABI 返回的最近一次像素缓冲在等待、生产者更新或暂停时保持有效。
+
+ScreenCast 返回 `pipewire-serial` 时，严格按 uint64 解析，通过 `PW_KEY_TARGET_OBJECT` 连接该 object.serial，连接节点参数使用 PW_ID_ANY，避免用可复用节点 ID 作为长期身份。明确存在但类型错误或为零的 serial 报错，不悄悄退回节点 ID。旧版 Portal 没有该属性时保留原始节点 ID 兼容路径；这一路径不能宣称具有 serial 的身份保证。流设置禁止默认目标回退、移动和目标销毁后重连；运行中错误会锁存到该 capture，会话关闭后不再发布画面。这些属性依赖 PipeWire/session manager 的实施，不能仅凭配置就视为真实复用竞态已验收。Portal 没有给出的 PID、窗口句柄和标题仍保持未知。
+
+生产缓冲路径请求可选 SPA Header，检查 Header 的 corruption/gap/codec-header/delta-unit 和 Chunk 的 corrupt/empty；不把这些数据当作可交互画面。discontinuity 开始新状态，允许其自身的完整原始像素作为恢复帧。没有 Header 的旧生产者仍可发布已校验的原始像素。格式清除后不能沿用之前的尺寸解释后续缓冲。
+
+`capture_wayland_frames` 直接调用生产路径使用的缓冲实现，构造真实 SPA/GVariant 数据结构，覆盖带偏移/行填充 BGRA、RGBA、生产者和 ABI 缓冲分离、帧序号、损坏/空数据、discontinuity、格式变化、暂停/恢复及无选源 native ABI 的取消。它没有启动 Portal、PipeWire 服务或输入注入，不能算系统捕获/输入验收。Linux CI 的非 GPU 门要求新增用例实际执行且未跳过；Windows/macOS 的适用用例数保持不变。
+
+协议依据：[ScreenCast v6 流目标](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html)、[PipeWire stream target](https://docs.pipewire.org/page_streams.html)、[session manager 属性](https://docs.pipewire.org/page_man_pipewire-props_7.html)。Linux 输入桥仍未完成；通用 RemoteDesktop/EIS 授权并不自动解决源窗口焦点、输出遮挡、注入回到自身、源逻辑坐标和 PipeWire 像素尺寸差异。
+
+本轮本机 Linux NativeAOT 核心、全部 24/24 CTest、托管交互模型及 SDK/AOT/单可执行文件依赖门通过。报告 `artifacts/desktop/wayland-frames-test-summary.json` 与对应 evidence 目录；没有重新验证真实捕获或输入，没有新增 UI 验收声明。NNEDI3 本轮核心通过仍不表示已解决已知偶发异常。
