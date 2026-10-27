@@ -8,6 +8,7 @@ import subprocess
 import struct
 import sys
 import tempfile
+from contextlib import contextmanager
 
 ROOT=Path(__file__).resolve().parents[1]
 if sys.platform!='win32' or os.environ.get('GITHUB_ACTIONS')!='true' or os.environ.get('RUNNER_ENVIRONMENT')!='github-hosted':
@@ -20,6 +21,47 @@ report={'passed':False,'commit':os.environ.get('GITHUB_SHA'),'disposable_hosted_
         'native_input_delivery_tested':False,'full_interaction_parity':False}
 def save(): (folder/'results.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
 save()
+
+@contextmanager
+def driver_registration(manifest):
+    # Elevated Vulkan loaders ignore driver override environment variables.
+    # This standard registry registration exists only in this disposable VM,
+    # and restores the exact previous value without touching other drivers.
+    import ctypes
+    from ctypes import wintypes
+    import winreg
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True);security=ctypes.WinDLL('advapi32',use_last_error=True)
+    kernel.GetCurrentProcess.restype=wintypes.HANDLE
+    kernel.CloseHandle.argtypes=[wintypes.HANDLE];kernel.CloseHandle.restype=wintypes.BOOL
+    security.OpenProcessToken.argtypes=[wintypes.HANDLE,wintypes.DWORD,ctypes.POINTER(wintypes.HANDLE)];security.OpenProcessToken.restype=wintypes.BOOL
+    security.GetTokenInformation.argtypes=[wintypes.HANDLE,ctypes.c_uint,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(wintypes.DWORD)];security.GetTokenInformation.restype=wintypes.BOOL
+    token=wintypes.HANDLE();elevated=wintypes.DWORD();returned=wintypes.DWORD()
+    if not security.OpenProcessToken(kernel.GetCurrentProcess(),8,ctypes.byref(token)):raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if not security.GetTokenInformation(token,20,ctypes.byref(elevated),ctypes.sizeof(elevated),ctypes.byref(returned)):raise ctypes.WinError(ctypes.get_last_error())
+    finally:kernel.CloseHandle(token)
+    report['elevated_token']=bool(elevated.value)
+    if not elevated.value:
+        report['driver_registration']='process environment';save();yield;return
+    path=r'SOFTWARE\Khronos\Vulkan\Drivers';access=winreg.KEY_QUERY_VALUE|winreg.KEY_SET_VALUE|winreg.KEY_WOW64_64KEY
+    created=False
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,path,0,winreg.KEY_QUERY_VALUE|winreg.KEY_WOW64_64KEY):pass
+    except FileNotFoundError:created=True
+    with winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE,path,0,access) as key:
+        try:previous=winreg.QueryValueEx(key,str(manifest))
+        except FileNotFoundError:previous=None
+        winreg.SetValueEx(key,str(manifest),0,winreg.REG_DWORD,0)
+        report.update(driver_registration='temporary HKLM x64 ICD',registry_value_restored=False);save()
+        try:yield
+        finally:
+            if previous is None:winreg.DeleteValue(key,str(manifest))
+            else:winreg.SetValueEx(key,str(manifest),0,previous[1],previous[0])
+            report['registry_value_restored']=True;save()
+    if created:
+        try:winreg.DeleteKeyEx(winreg.HKEY_LOCAL_MACHINE,path,access=winreg.KEY_WOW64_64KEY)
+        except OSError:pass # preserve a key if another legitimate value appeared
+
 try:
     if not app.is_file() or not fixture.is_file():raise RuntimeError('Missing built AOT app or source fixture.')
     # Read the runner image's installed Chromium driver; never launch a browser,
@@ -41,13 +83,13 @@ try:
                         found.append((manifest.resolve(),library))
     if not found:raise RuntimeError('Hosted runner has no installed SwiftShader Vulkan ICD in Chrome/Edge; required test cannot run.')
     manifest,library=sorted(found,key=lambda item:str(item[0]))[-1]
-    report['icd']={'manifest':str(manifest),'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+    report['icd']={'manifest_document':json.loads(manifest.read_text(encoding='utf-8')),'manifest':str(manifest),'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
                    'library':str(library),'library_sha256':hashlib.sha256(library.read_bytes()).hexdigest()}
     report['app_sha256']=hashlib.sha256(app.read_bytes()).hexdigest();report['fixture_sha256']=hashlib.sha256(fixture.read_bytes()).hexdigest();save()
-    with tempfile.TemporaryDirectory(prefix='magpie-windows-production-') as temporary:
+    with driver_registration(manifest),tempfile.TemporaryDirectory(prefix='magpie-windows-production-') as temporary:
         private=Path(temporary);(private/'local').mkdir();(private/'roaming').mkdir();(private/'cache').mkdir()
         env=dict(os.environ,MAGPIE_HOSTED_WINDOWS_LIFECYCLE='1',MAGPIE_HOSTED_WINDOWS_CAPTURE_FIXTURE='1',
-                 VK_DRIVER_FILES=str(manifest),VK_ICD_FILENAMES=str(manifest),
+                 VK_DRIVER_FILES=str(manifest),VK_ICD_FILENAMES=str(manifest),VK_LOADER_DEBUG='all',
                  LOCALAPPDATA=str(private/'local'),APPDATA=str(private/'roaming'),XDG_CONFIG_HOME=str(private/'config'),
                  XDG_CACHE_HOME=str(private/'cache'),XDG_DATA_HOME=str(private/'data'))
         for name in ('DISPLAY','WAYLAND_DISPLAY','WAYLAND_SOCKET','DBUS_SESSION_BUS_ADDRESS'):env.pop(name,None)

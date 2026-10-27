@@ -27,8 +27,11 @@ Windows 的一次性托管 fixture 已增加 GDI、WGC 和 WGC 标题栏三条�
 
 新增 `--windows-source-lifecycle-test <source-fixture> <output-directory>` 专用入口。入口要求真实 Windows、GitHub Actions/github-hosted、显式 opt-in 和仓库固定位置的已构建源 fixture，在加载设置或初始化 Avalonia 前检查；直接使用预览场景名不能绕过。预览模式关闭配置持久化，测试不在用户桌面运行。源窗口属于测试新建的独立进程，所有控制前复核 HWND/PID；父应用退出时 native 等待注册会让源进程自行退出，正常退出另检查 exit code。
 
-CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查 PE 架构并记录 JSON/DLL SHA256，只选择测试子进程的 Vulkan 驱动；不启动浏览器、不改系统驱动、不把 SwiftShader 打包进应用。SwiftShader 的 CPU Vulkan 用途依据 [Chromium 官方说明](https://chromium.googlesource.com/chromium/src/+/main/docs/gpu/swiftshader.md)，运行器预装软件见 [官方 Windows 2022 镜像清单](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)。缺少驱动、初始化失败或设备名不符直接失败，不把环境缺失记成产品测试通过。
+CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查 PE 架构并记录 JSON/DLL SHA256，非提权进程通过环境选择该驱动；提权进程在一次性 VM 内按标准 HKLM x64 ICD 注册方式临时登记，finally 恢复精确原值，不改其他驱动。不会在用户机器执行该步骤，不启动浏览器，也不把 SwiftShader 打包进应用。SwiftShader 的 CPU Vulkan 用途依据 [Chromium 官方说明](https://chromium.googlesource.com/chromium/src/+/main/docs/gpu/swiftshader.md)，运行器预装软件见 [官方 Windows 2022 镜像清单](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)。缺少驱动、初始化失败或设备名不符直接失败，不把环境缺失记成产品测试通过。
 
 联合场景调用原样 `ScalingSession.RunAsync`，没有使用 `_previewLoop` 或注入帧/可见性。GDI/WGC 各运行普通窗口与全屏：实际读取自有 Win32 画面，经软件 Vulkan 和 Avalonia 位图显示，独立核对源窗口/PID、后端及 RGB；实际最小化/隐藏、native 输出不可见、新交付序号/画面恢复、前台源焦点与输出模式/尺寸/位置、截图、隐藏中停止或关闭源、进程清理。强制最低 30 FPS，使暂停期间 GPU 序号不变不能仅靠静态重复帧检测碰巧通过。能力探测不支持 WGC 时明确记录 unavailable/未测试，其他失败不能回退 GDI。
 
 这一新增 Windows GUI/软件 Vulkan 联合门仍需本提交目标 CI 的实际结果，不能用本机 Linux 保护入口、AOT、模型或私有 Wayland UI 的成功代替。记录包含明确的 no input delivery / no hardware Vulkan / no full parity 标记；合成源不代表真实应用、游戏、HDR/DPI 或完整焦点矩阵通过。Windows 生产测试产物在 `artifacts/platform-build-checks/win-x64/production-lifecycle`。
+
+
+`e19d36c8` 的首次联合验证已实际执行并失败在 vkCreateInstance（VK_ERROR_INCOMPATIBLE_DRIVER），还没有任何生产画面证据；源进程已正常清理。不能将该失败算作图形/焦点通过。根据 [Khronos 驱动发现文档](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderDriverInterface.md#exception-for-elevated-privileges)，补充 token elevation、ICD manifest 与完整 loader 日志，并为提权 runner 临时登记标准 ICD 注册值、最后恢复；不改生产引擎版本或把失败降成跳过。后续目标结果仍待验证。
