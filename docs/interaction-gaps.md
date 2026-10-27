@@ -48,6 +48,10 @@ Linux 移除恒为零的帧序号替身，接入交付序号/暂停与恢复状�
 
 `59d5e2f3` 的四平台 CI 已全部成功，更新前文 Linux 软件 Vulkan 当时仍在运行的状态。`6ddcbc2b` 的 Windows/macOS 两种架构与 Linux SDK/AOT/合成 PipeWire 传输门已过，Linux 软件 Vulkan 仍在执行。新生命周期代码不能沿用前一提交的成功。Windows/Linux 输入、macOS 真实输入送达、光标/游戏模式、完整三平台交互与 NNEDI3 偶发问题仍未完成。
 
+### Windows 生产循环联合验证接入
+
+`bc2eb569` 的 Windows 原生最小化/隐藏、新帧恢复、状态 ABI、GDI/WGC/标题栏实际 fixture 以及 SDK/AOT/单文件已通过，两种 macOS 架构也成功；Linux 软件 GPU 当时仍在执行。新增一次性 hosted Windows 专用生产循环测试，将自有 Win32 源、实际捕获、SwiftShader Vulkan、Avalonia 输出与恢复焦点串在一起，并将源正常关闭改为无错误结束。入口在 GUI 初始化前受平台/runner/opt-in 检查，父进程退出会清理合成源；没有本机桌面回退。实现与待 CI 的范围见 [联合验证](source-lifecycle.md#一次性-windows-生产链路联合测试)。该新门未运行前不算 Windows 端到端已通过，鼠标/键盘输入、光标、游戏模式与其他三平台缺口继续保留。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

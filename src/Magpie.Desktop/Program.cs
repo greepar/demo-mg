@@ -7,6 +7,11 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if(args.Contains("--windows-source-lifecycle-test")||args.Contains("HostedWindowsSourceLifecycleOutput"))
+        {
+            try {args=Core.HostedWindowsLifecycle.Bootstrap(args);}
+            catch(Exception error){Console.Error.WriteLine(error.Message);return 1;}
+        }
         if(args.Length>0&&args[0]=="--nnedi3-stress")
         {
             if(args.Length!=3){Console.Error.WriteLine("Usage: --nnedi3-stress <iterations:1..10000> <output-directory>");return 1;}

@@ -111,9 +111,13 @@ internal sealed partial class ScalingSession
                 {
                     await pacer.WaitAsync(_settings.EffectiveMaximumFrameRate,_stop.Token);
                     int result=NativeCore.CaptureFrame(capture,out var source,out var width,out var height);
-                    if(result<0)throw NativeCore.Error();
+                    if(result<0)
+                    {
+                        if(OperatingSystem.IsWindows()&&NativeCore.CaptureSourceState(capture)==3)break;
+                        throw NativeCore.Error();
+                    }
                     uint sourceState=OperatingSystem.IsWindows()?NativeCore.CaptureSourceState(capture):0;
-                    if(sourceState==3)throw new InvalidOperationException("The selected source window was closed or capture was stopped.");
+                    if(sourceState==3)break;
                     if(sourceState==2)
                     {
                         waitingForSourceResume=true;sourceResumeStart=start=Stopwatch.GetTimestamp();

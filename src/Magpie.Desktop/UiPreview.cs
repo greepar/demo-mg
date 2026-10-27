@@ -53,6 +53,7 @@ internal static class UiPreview
             case "StageExportOutput":case "PassExportOutput":popups.AddRange(await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyStageExportAsync(window,scenario=="PassExportOutput"));break;
             case "ScreenshotShortcutEdit":await window.VerifyScreenshotShortcutEditingAsync();break;
             case "ScreenshotShortcutOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyScreenshotShortcutAsync(window);break;
+            case "HostedWindowsSourceLifecycleOutput":await Core.ScalingSession.VerifyHostedWindowsLifecycleAsync(window);break;
             case "SourceLifecycleOutput":case "FullscreenSourceLifecycleOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceLifecycleAsync(window,scenario=="FullscreenSourceLifecycleOutput");break;
             case "SourceTitleOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceTitleAsync(window);break;
             case "SourceFrameIdentityOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceFrameIdentityAsync(window);break;

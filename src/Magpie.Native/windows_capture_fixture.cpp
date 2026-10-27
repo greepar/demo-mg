@@ -66,13 +66,21 @@ LONG WINAPI firstAccessViolation(EXCEPTION_POINTERS* exception) {
 }
 std::wstring title(DWORD parent) { return L"Magpie disposable GDI fixture "+std::to_wstring(parent); }
 int child(DWORD parent) {
+    std::unique_ptr<void,decltype(&CloseHandle)> owner(OpenProcess(SYNCHRONIZE,FALSE,parent),CloseHandle);
+    require(bool(owner),"Fixture parent is not alive");
     HINSTANCE instance=GetModuleHandleW(nullptr);
     WNDCLASSW cls{};cls.lpfnWndProc=sourceProc;cls.hInstance=instance;cls.lpszClassName=L"MagpieGdiDisposableSource";
     require(RegisterClassW(&cls)!=0,"Cannot register source fixture class");
     HWND window=CreateWindowW(cls.lpszClassName,title(parent).c_str(),WS_OVERLAPPEDWINDOW,100,100,300,240,nullptr,nullptr,instance,nullptr);
     require(window!=nullptr,"Cannot create source fixture window");
     ShowWindow(window,SW_SHOW);UpdateWindow(window);AllowSetForegroundWindow(parent);SetForegroundWindow(window);
+    HANDLE parentWait{};
+    require(RegisterWaitForSingleObject(&parentWait,owner.get(),[](void* context,BOOLEAN) {
+        PostThreadMessageW(DWORD(reinterpret_cast<uintptr_t>(context)),WM_QUIT,0,0);
+    },reinterpret_cast<void*>(uintptr_t(GetCurrentThreadId())),INFINITE,WT_EXECUTEONLYONCE)!=0,"Cannot monitor fixture parent lifetime");
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0) { TranslateMessage(&message);DispatchMessageW(&message); }
+    UnregisterWaitEx(parentWait,INVALID_HANDLE_VALUE);
+    if(IsWindow(window))DestroyWindow(window);
     return 0;
 }
 struct Process {
