@@ -52,6 +52,10 @@ Linux 移除恒为零的帧序号替身，接入交付序号/暂停与恢复状�
 
 `bc2eb569` 的 Windows 原生最小化/隐藏、新帧恢复、状态 ABI、GDI/WGC/标题栏实际 fixture 以及 SDK/AOT/单文件已通过，两种 macOS 架构也成功；Linux 软件 GPU 当时仍在执行。新增一次性 hosted Windows 专用生产循环测试，将自有 Win32 源、实际捕获、SwiftShader Vulkan、Avalonia 输出与恢复焦点串在一起，并将源正常关闭改为无错误结束。入口在 GUI 初始化前受平台/runner/opt-in 检查，父进程退出会清理合成源；没有本机桌面回退。实现与待 CI 的范围见 [联合验证](source-lifecycle.md#一次性-windows-生产链路联合测试)。该新门未运行前不算 Windows 端到端已通过，鼠标/键盘输入、光标、游戏模式与其他三平台缺口继续保留。
 
+### Windows 联合链路实际通过
+
+`351eff44` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40563711659/job/122399243582) 已实际通过 GDI/WGC × 窗口/全屏四场景生产捕获→SwiftShader Vulkan→Avalonia 输出矩阵，WGC 未跳过。包括真实源最小化/隐藏、新帧恢复、native HWND 显示、恢复后的源前台保留、暂停 GPU、截图、源隐藏时关闭/Stop 和清理；原生 fixture、SDK/AOT/单文件也通过。提权 runner 临时 ICD 登记后工作并恢复原值，未放宽算法/图像断言。[该次四平台 CI](https://github.com/greepar/demo-mg/actions/runs/40563711659) 已全部成功，包括 Linux 软件 GPU 与两个 macOS 架构。见 [目标证据](source-lifecycle.md#351eff44-实际目标结果)。这更新了上段新联合门待运行状态；初始焦点、工具栏/子窗口、输入、光标、游戏模式、硬件 Vulkan 和整份目标仍未完成。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

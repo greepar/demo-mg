@@ -8,7 +8,7 @@ GDI 分开保存 DIB 的尺寸、待转换像素和 ABI 已交付像素；尺寸
 
 Desktop 等待期间收回输出、关闭参数/导出菜单与下拉，取消 profiler 拖动、清除待截图和阶段导出状态，暂停 GPU 处理并释放常亮申请。会话、选定源和 Vulkan 引擎保留；持续不可见不会触发首次等帧的 30 秒超时。源重新可见后等待新帧，恢复后的等帧仍有 30 秒超时；成功时重置处理器和显示计划。只有比暂停前更新且身份一致的提交才能重新显示输出，重复像素的身份提交也能恢复。停止期间的迟到提交不重新显示窗口。等待时关闭源仍终止会话，源窗口正常关闭现在按丢失状态正常结束，不再作为启动错误提示；挂起窗口、源移动/最大化、多显示器/DPI 与其余完整状态矩阵继续待验收。
 
-Hide 后创建的新原生窗口需要显式恢复模式：保存全屏/普通窗口状态及客户区尺寸，恢复时重新应用。Windows 普通窗口还恢复位置；Wayland 不尝试设置绝对位置。首帧前就暂停、尚无输出窗口时，不用空的旧状态覆盖初始全屏请求。恢复请求使用 ShowActivated=false，并还原原来的偏好；Windows 真实前台焦点与源应用共存尚未验收。实际鼠标键盘/光标路径仍未实现，不把此次等待行为算作输入已完成。
+Hide 后创建的新原生窗口需要显式恢复模式：保存全屏/普通窗口状态及客户区尺寸，恢复时重新应用。Windows 普通窗口还恢复位置；Wayland 不尝试设置绝对位置。首帧前就暂停、尚无输出窗口时，不用空的旧状态覆盖初始全屏请求。恢复请求使用 ShowActivated=false，并还原原来的偏好；源恢复后的前台保留已由后述四场景核对，初始缩放、工具栏点击、应用切换和子窗口的完整焦点路径仍未对齐。实际鼠标键盘/光标路径仍未实现，不把此次等待行为算作输入已完成。
 
 ## 验证范围
 
@@ -35,3 +35,10 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 
 `e19d36c8` 的首次联合验证已实际执行并失败在 vkCreateInstance（VK_ERROR_INCOMPATIBLE_DRIVER），还没有任何生产画面证据；源进程已正常清理。不能将该失败算作图形/焦点通过。根据 [Khronos 驱动发现文档](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderDriverInterface.md#exception-for-elevated-privileges)，补充 token elevation、ICD manifest 与完整 loader 日志，并为提权 runner 临时登记标准 ICD 注册值、最后恢复；不改生产引擎版本或把失败降成跳过。后续目标结果仍待验证。
+
+
+## 351eff44 实际目标结果
+
+[Windows job 122399243582](https://github.com/greepar/demo-mg/actions/runs/40563711659/job/122399243582) 已实际通过生产联合门。产物明确记录 GDI/WGC × 普通窗口/全屏四个 passed，WGC 没有跳过；设备为 SwiftShader Device (Subzero)。新帧序号分别为 2→17→24、2→9→17、1→14→20、1→8→14，均覆盖原生最小化/恢复和隐藏/显示。四条路径的 native HWND 隐藏、恢复后源前台保留、暂停 GPU 序号、截图、正常源退出和清理通过；普通窗口还验证了源隐藏时关闭不报错，全屏验证隐藏时 Stop。此结果补上该限定生产循环矩阵的实际证据，不扩大为任意应用、输入、DPI 或初始焦点已对齐。
+
+该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。
