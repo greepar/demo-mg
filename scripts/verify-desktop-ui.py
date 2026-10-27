@@ -9,6 +9,7 @@ import struct
 import subprocess
 import os
 from wayland_popup_capture import compose
+from source_lifecycle_capture import verify_source_lifecycle
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
@@ -16,6 +17,7 @@ CASES = [
     "GpuTimelineOutput", "NarrowGpuTimelineOutput",
     "StageExportOutput", "NarrowStageExportOutput", "PassExportOutput", "NarrowPassExportOutput",
     "ScreenshotShortcutEdit", "NarrowScreenshotShortcutEdit", "ScreenshotShortcutOutput",
+    "SourceLifecycleOutput", "FullscreenSourceLifecycleOutput",
     "SourceTitleOutput",
     "SourceFrameIdentityOutput",
     "ToolbarMoveOutput",
@@ -86,13 +88,21 @@ def main():
         (output/f'{case}.stderr.log').write_text(result.stderr,encoding='utf-8')
         if result.returncode or 'SMOKE PASS:' not in result.stdout:
             raise SystemExit(f'{case} failed ({result.returncode}):\n{result.stdout}\n{result.stderr}')
+        if case in ('SourceLifecycleOutput','FullscreenSourceLifecycleOutput'):
+            if 'SOURCE LIFECYCLE UI PASS:' not in result.stdout or not target.with_suffix('.output.png').is_file():
+                raise SystemExit(f'{case}: source lifecycle handler/output evidence is missing.')
         if case in POPUPS and 'POPUP:' not in result.stdout:
             raise SystemExit(f'{case}: no visible native popup was captured.')
         if case == 'ModeTypes' and result.stdout.count('POPUP:') != 2:
             raise SystemExit('ModeTypes: nested dropdown did not render both popup layers.')
         proof=None
         output_proof=None
+        source_lifecycle_proof=None
         if env.get('WAYLAND_DISPLAY'):
+            if case in ('SourceLifecycleOutput','FullscreenSourceLifecycleOutput'):
+                try:source_lifecycle_proof=verify_source_lifecycle(result.stderr)
+                except ValueError as failure:raise SystemExit(f'{case}: source lifecycle protocol proof failed: {failure}')
+                (output/(case+'.lifecycle.json')).write_text(json.dumps(source_lifecycle_proof,indent=2)+'\n')
             try:proof=compose(target,result.stderr)
             except (ValueError,KeyError,FileNotFoundError) as failure:raise SystemExit(f'{case}: native popup proof failed: {failure}')
             if case.endswith('GpuTimelineOutput'):
@@ -104,7 +114,7 @@ def main():
             header = image.read(24)
         if header[:8] != b'\x89PNG\r\n\x1a\n' or struct.unpack('>II', header[16:24]) != ((750, 750) if case.startswith('Narrow') else (1418, 1050)):
             raise SystemExit(f'{case}: unexpected capture dimensions.')
-        results.append({'case': case, 'image': target.name, 'app_sha256': hashlib.sha256(app.read_bytes()).hexdigest(), 'log': result.stdout.strip(),'output_native_popup_proof':None if output_proof is None else {'passed':output_proof['passed'],'popups':len(output_proof['popups']),'report':target.with_suffix('.output.png').name+'.wayland.json'},'native_popup_proof':None if proof is None else {'passed':proof['passed'],'popups':len(proof['popups']),'report':target.name+'.wayland.json'}})
+        results.append({'case': case, 'image': target.name, 'app_sha256': hashlib.sha256(app.read_bytes()).hexdigest(), 'log': result.stdout.strip(),'source_lifecycle_proof':source_lifecycle_proof,'output_native_popup_proof':None if output_proof is None else {'passed':output_proof['passed'],'popups':len(output_proof['popups']),'report':target.with_suffix('.output.png').name+'.wayland.json'},'native_popup_proof':None if proof is None else {'passed':proof['passed'],'popups':len(proof['popups']),'report':target.name+'.wayland.json'}})
         (output / 'results.json').write_text(json.dumps(results, indent=2), encoding='utf-8')
         print(f'PASS {case}', flush=True)
     (output / 'results.json').write_text(json.dumps(results, indent=2), encoding='utf-8')

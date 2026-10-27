@@ -52,7 +52,7 @@ internal sealed partial class ScalingSession
     private Image? _image;
     private TextBlock? _message;
     private int _screenshotPending;
-    internal void RequestScreenshot() { if(!_stop.IsCancellationRequested)Interlocked.Exchange(ref _screenshotPending,1); }
+    internal void RequestScreenshot() { if(!_stop.IsCancellationRequested&&!_sourceSuspended) {Interlocked.Exchange(ref _screenshotPending,1);if(_sourceSuspended)Interlocked.Exchange(ref _screenshotPending,0);} }
     public event Action<string?>? Finished;
     public event Action<string>? Status;
 
@@ -103,7 +103,7 @@ internal sealed partial class ScalingSession
                 var processor=new ScalingFrameProcessor(start);
                 nint lastSource=0;uint sourceWidth=0,sourceHeight=0;
                 CaptureSource frameSource=CaptureSource.Unknown;ulong frameSequence=0;
-                bool receivedFrame=false,havePlan=false;
+                bool receivedFrame=false,havePlan=false,waitingForSourceResume=false;long sourceResumeStart=start;
                 long previousRevision=-1,previousTarget=-1;int previousWindowed=-1;
                 (NativeEffectStep[] Chain,string Name,DuplicateFrameMode Detection,bool DynamicStatistics,double Minimum,double Maximum,bool Gpu,SourceRegion Crop) plan=([],"",DuplicateFrameMode.Dynamic,false,0,0,false,default);
                 var pacer=new FramePacer();
@@ -112,6 +112,24 @@ internal sealed partial class ScalingSession
                     await pacer.WaitAsync(_settings.EffectiveMaximumFrameRate,_stop.Token);
                     int result=NativeCore.CaptureFrame(capture,out var source,out var width,out var height);
                     if(result<0)throw NativeCore.Error();
+                    uint sourceState=OperatingSystem.IsWindows()?NativeCore.CaptureSourceState(capture):0;
+                    if(sourceState==3)throw new InvalidOperationException("The selected source window was closed or capture was stopped.");
+                    if(sourceState==2)
+                    {
+                        waitingForSourceResume=true;sourceResumeStart=start=Stopwatch.GetTimestamp();
+                        UpdateKeepAwake(false);
+                        await Dispatcher.UIThread.InvokeAsync(SuspendSourceOutput);
+                        await Task.Delay(10,_stop.Token);continue;
+                    }
+                    if(waitingForSourceResume)
+                    {
+                        if(result!=1)
+                        {
+                            if(Stopwatch.GetElapsedTime(sourceResumeStart)>TimeSpan.FromSeconds(30))throw new InvalidOperationException("The restored source did not provide a new capture frame within 30 seconds.");
+                            await Task.Delay(10,_stop.Token);continue;
+                        }
+                        waitingForSourceResume=false;processor=new ScalingFrameProcessor(Stopwatch.GetTimestamp());havePlan=false;
+                    }
                     if(result==1)
                     {
                         frameSource=ReadCapturedSource(capture);frameSequence=NativeCore.CaptureFrameSequence(capture);
@@ -496,7 +514,7 @@ internal sealed partial class ScalingSession
     private static string EffectName(uint effect) => EffectStageSettings.Name(effect);
     private string? SaveScreenshot()
     {
-        if (_bitmap is null) return null;
+        if (_bitmap is null || _sourceSuspended || _stop.IsCancellationRequested) return null;
         return SaveScreenshotBitmap(_bitmap,ReadScreenshotSource());
     }
     private string? SaveScreenshotBitmap(Bitmap bitmap,CaptureSource source,string? suffix=null)

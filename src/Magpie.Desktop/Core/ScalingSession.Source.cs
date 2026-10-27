@@ -48,17 +48,17 @@ internal sealed partial class ScalingSession
     // source snapshot still describes the bitmap that has just been replaced.
     private bool PresentCapturedFrame(byte[] pixels,uint width,uint height,CaptureSource source,ulong sequence)
     {
-        if(!Present(pixels,width,height))return false;
+        if(!CanResumeSource(source,sequence)||!Present(pixels,width,height))return false;
         CommitPresentedSource(source,sequence);
         DrainScreenshot();return true;
     }
     private bool CommitUnchangedFrameSource(CaptureSource source,ulong sequence)
     {
-        if(_bitmap is null||_stop.IsCancellationRequested)return false;
+        if(_bitmap is null||_stop.IsCancellationRequested||!CanResumeSource(source,sequence))return false;
         CommitPresentedSource(source,sequence);DrainScreenshot();return true;
     }
     private void CommitPresentedSource(CaptureSource source,ulong sequence=0)
     {
-        _lastSourceInfo=source;_lastSourceSequence=sequence;ConfigureMacInput();
+        _lastSourceInfo=source;_lastSourceSequence=sequence;ResumeSourceOutput();ConfigureMacInput();
     }
 }

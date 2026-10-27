@@ -63,12 +63,13 @@ internal sealed partial class ScalingSession
     { _stageEngine=engine;_displayedStages=(NativeEffectStep[])stages.Clone(); }
     private async Task<string?> ExportStageAsync(int index,uint effect,int? pass=null,uint output=0)
     {
-        if(_stageExportBusy||_stop.IsCancellationRequested)return null;
+        if(_stageExportBusy||_stop.IsCancellationRequested||_sourceSuspended)return null;
         _stageExportBusy=true;bool entered=false;
         try
         {
             await _stageGate.WaitAsync(_stop.Token);entered=true;
             _stop.Token.ThrowIfCancellationRequested();
+            if(_sourceSuspended)return null;
             if(_stageEngine is not { IsClosed:false,IsInvalid:false } engine||index<0||index>=_displayedStages.Length||_displayedStages[index].Effect!=effect)
                 throw new InvalidOperationException(Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)?"效果链已改变，请重新选择要导出的结果。":"The effect chain changed. Select the result again.");
             if(pass.HasValue&&!RuntimeSettings.Current.DeveloperMode)throw new InvalidOperationException("Developer mode is disabled. Reopen the screenshot menu.");

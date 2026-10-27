@@ -68,6 +68,7 @@ int main() {
         char title[1024];magpie::sourceText(title,std::string(1022,'a')+"\xf0\x9f\x98\x80");require(std::strlen(title)==1022,"Long metadata split a UTF-8 scalar");
         std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create(),mp_capture_destroy);require(bool(capture),mp_last_error());
         require(mp_capture_frame_sequence(capture.get())==0,"Unselected capture fabricated a delivered-frame sequence");
+        require(mp_capture_source_state(capture.get())==0,"Unselected capture fabricated live window availability");
         mp_capture_source_info titleSnapshot=magpie::emptySource();
         require(mp_capture_snapshot_title(capture.get(),1,2,3,&titleSnapshot,sizeof(titleSnapshot))==0,"Unselected capture returned a foreign live title");
         require(mp_capture_snapshot_title(capture.get(),1,2,3,&titleSnapshot,sizeof(titleSnapshot)-1)==0,"Live title accepted an invalid ABI size");

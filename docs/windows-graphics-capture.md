@@ -33,3 +33,8 @@ WGC 的 WinRT apartment、frame pool 和 D3D11 immediate context 全部由一条
 一次性 Windows CI 执行独立源进程 fixture，验证实际颜色/尺寸、标题、resize、最小化恢复、销毁通知、重新捕获和源退出。WGC 能力不可用则单独输出 `windows-wgc-fixture.json` 的 `status=unavailable, passed=false`，不冒充成功。能力已可用时，设备创建/启动、像素或生命周期错误都会失败；不允许用 GDI 替代。fixture 不是 Vulkan 渲染、源应用输入、真实游戏、HDR 或多屏 DPI 验收。
 
 API 依据：[Microsoft HWND capture interop](https://learn.microsoft.com/en-us/windows/win32/api/windows.graphics.capture.interop/nf-windows-graphics-capture-interop-igraphicscaptureiteminterop-createforwindow)、[free-threaded frame pool](https://learn.microsoft.com/en-us/uwp/api/windows.graphics.capture.direct3d11captureframepool.createfreethreaded)、[SDK 中的 C++/WinRT](https://learn.microsoft.com/en-us/windows/apps/develop/cpp-winrt/intro-to-using-cpp-with-winrt)。
+
+
+## 最小化与隐藏的产品会话路径
+
+捕获 C ABI 不再将 Windows 源最小化/隐藏作为 -1 会话错误，而是暂停旧帧状态并返回 Waiting。新增 source_state 区分可用、暂不可见与丢失；Desktop 收回输出和导出入口，等待匹配的新交付帧再恢复全屏或原窗口尺寸。GDI 的待转换像素与 ABI 已交付缓冲也已分离。完整实现、原版对应及新 fixture 的目标验证状态见 [源窗口生命周期](source-lifecycle.md)。旧 WGC fixture 的恢复成功不能当作新增 Desktop 路径已在 Windows 实测。

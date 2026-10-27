@@ -28,8 +28,8 @@ struct Capture {
     HBITMAP bitmap{};
     HGDIOBJ previous{};
     void* bits{};
-    uint32_t width{}, height{};
-    std::vector<uint8_t> pixels;
+    uint32_t width{}, height{},bitmapWidth{},bitmapHeight{};
+    std::vector<uint8_t> pixels,pending;
     std::mutex epochMutex;
     magpie::CaptureEpoch epoch;
     bool sameSource() const {
@@ -42,10 +42,22 @@ struct Capture {
         { std::lock_guard lock(epochMutex);epoch.pause(); }
         throw std::runtime_error("The selected source window was closed or its process/thread identity changed");
     }
+    bool suspended() const { return window && (IsIconic(window)||!IsWindowVisible(window)); }
+    void pause() {
+        if(graphics)graphics->suspend();
+        std::lock_guard lock(epochMutex);epoch.pause();
+    }
+    uint32_t sourceState() {
+        if(cancelled) {pause();return 3;}
+        if(!window)return 0;
+        if(!sameSource()) {pause();return 3;}
+        if(suspended()) {pause();return 2;}
+        return 1;
+    }
     bool snapshotMatches(uint64_t sequence) {
         std::lock_guard lock(epochMutex);RECT rect{};
-        if(graphics&&IsIconic(window))graphics->suspend();
-        if(cancelled||!sameSource()||IsIconic(window)||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
+        if(graphics&&suspended())graphics->suspend();
+        if(cancelled||!sameSource()||suspended()||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
         if(graphics) {
             if(!graphics->sizeMatches(width,height)) {epoch.pause();return false;}
             return epoch.accepts(sequence)&&sameSource();
@@ -58,7 +70,7 @@ struct Capture {
     void reset() {
         if (previous) SelectObject(memory, previous);
         if (bitmap) DeleteObject(bitmap);
-        previous=nullptr; bitmap=nullptr; bits=nullptr; width=height=0;
+        previous=nullptr; bitmap=nullptr; bits=nullptr; bitmapWidth=bitmapHeight=0;
     }
     void start() {
         if (cancelled) throw std::runtime_error("Capture was cancelled");
@@ -79,10 +91,11 @@ struct Capture {
     int frame(const uint8_t** rgba,uint32_t* w,uint32_t* h) {
         if (cancelled) throw std::runtime_error("Capture was stopped");
         requireSource();
-        if (IsIconic(window)) {if(graphics)graphics->suspend();std::lock_guard lock(epochMutex);epoch.pause();throw std::runtime_error("The source window is minimized"); }
+        if(suspended()) {pause();return 0;}
         if(graphics) {
             const uint8_t* captured{};uint32_t capturedWidth{},capturedHeight{};
             uint64_t revision{};int result=graphics->frame(&captured,&capturedWidth,&capturedHeight,&revision);requireSource();
+            if(suspended()) {pause();return 0;}
             std::lock_guard lock(epochMutex);
             if(revision!=graphics->revision()) {epoch.pause();return 0;}
             if(graphics->paused()||revision!=graphicsRevision)epoch.pause();
@@ -100,11 +113,13 @@ struct Capture {
         RECT rect{};
         if (!GetClientRect(window,&rect)) throw std::runtime_error("Cannot read source window dimensions");
         const auto nw=uint32_t(rect.right-rect.left), nh=uint32_t(rect.bottom-rect.top);
-        if (!nw || !nh || uint64_t(nw)*nh>16777216) throw std::runtime_error("Unsupported source window dimensions");
+        if(!nw||!nh) {pause();return 0;}
+        if(uint64_t(nw)*nh>16777216)throw std::runtime_error("Unsupported source window dimensions");
         HDC source=GetDC(window);
-        if (!source) throw std::runtime_error("Cannot access source window pixels");
+        if(!source) {requireSource();if(suspended()) {pause();return 0;}throw std::runtime_error("Cannot access source window pixels");}
         struct Release { HWND window; HDC dc; ~Release(){ReleaseDC(window,dc);} } release{window,source};
-        if (width!=nw || height!=nh) {
+        if (bitmapWidth!=nw || bitmapHeight!=nh) {
+            {std::lock_guard lock(epochMutex);epoch.pause();}
             reset();
             BITMAPINFO info{};info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
             info.bmiHeader.biWidth=LONG(nw);info.bmiHeader.biHeight=-LONG(nh);
@@ -113,14 +128,17 @@ struct Capture {
             if (!bitmap) throw std::runtime_error("Cannot allocate source pixel buffer");
             previous=SelectObject(memory,bitmap);
             if (!previous || previous==HGDI_ERROR) { previous=nullptr; throw std::runtime_error("Cannot bind source pixel buffer"); }
-            width=nw;height=nh;pixels.resize(size_t(width)*height*4);
+            bitmapWidth=nw;bitmapHeight=nh;
         }
-        if (!BitBlt(memory,0,0,int(width),int(height),source,0,0,SRCCOPY|CAPTUREBLT)) throw std::runtime_error("GDI could not capture this window; GPU/protected content may require Graphics Capture");
+        if(!BitBlt(memory,0,0,int(nw),int(nh),source,0,0,SRCCOPY|CAPTUREBLT)) {requireSource();if(suspended()) {pause();return 0;}throw std::runtime_error("GDI could not capture this window; GPU/protected content may require Graphics Capture");}
         GdiFlush();requireSource();
+        pending.resize(size_t(nw)*nh*4);
         const auto* bgra=static_cast<const uint8_t*>(bits);
-        for (size_t i=0;i<pixels.size();i+=4) { pixels[i]=bgra[i+2];pixels[i+1]=bgra[i+1];pixels[i+2]=bgra[i];pixels[i+3]=255; }
+        for(size_t i=0;i<pending.size();i+=4) {pending[i]=bgra[i+2];pending[i+1]=bgra[i+1];pending[i+2]=bgra[i];pending[i+3]=255;}
         requireSource();
-        {std::lock_guard lock(epochMutex);epoch.deliver(width,height);}
+        RECT current{};
+        if(suspended()||!GetClientRect(window,&current)||current.right-current.left!=LONG(nw)||current.bottom-current.top!=LONG(nh)) {pause();return 0;}
+        {std::lock_guard lock(epochMutex);epoch.deliver(nw,nh);pixels.swap(pending);width=nw;height=nh;}
         *rgba=pixels.data();*w=width;*h=height;
         return 1;
     }
@@ -194,6 +212,7 @@ extern "C" void* mp_capture_create_backend(uint32_t backend) {
         auto capture=std::make_unique<Capture>();capture->backend=backend;return capture.release();
     }catch(const std::exception& ex){magpie::error=ex.what();return nullptr;}
 }
+extern "C" uint32_t mp_capture_source_state(void* capture) {return capture?static_cast<Capture*>(capture)->sourceState():0;}
 extern "C" uint64_t mp_capture_frame_sequence(void* capture) {
     if(!capture)return 0;
     auto& c=*static_cast<Capture*>(capture);std::lock_guard lock(c.epochMutex);return c.epoch.sequence();

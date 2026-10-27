@@ -21,6 +21,7 @@ internal static class CaptureSourceTests
         native.Version=1;native.Flags=1;new Span<byte>(native.Title,1024).Fill(65);
         try { CaptureSource.Decode(native);throw new Exception("Unterminated metadata accepted."); }catch(InvalidDataException) { }
         using var capture=NativeCore.CaptureCreate();if(capture.IsInvalid)throw NativeCore.Error();
+        if(NativeCore.CaptureSourceState(capture)!=0)throw new InvalidOperationException("Unselected native source availability ABI differs.");
         if(NativeCore.CaptureSourceInfo(capture,out native,5400)==0)throw NativeCore.Error();
         source=CaptureSource.Decode(native);
         if(source!=CaptureSource.Unknown)throw new InvalidOperationException("An unselected capture fabricated source identity.");

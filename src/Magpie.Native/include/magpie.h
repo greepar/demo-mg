@@ -106,8 +106,13 @@ void* mp_capture_create_backend(uint32_t backend);
 uint32_t mp_capture_instance_backend(void* capture);
 // Before Start only. 1=accepted, 0=unsupported enable, -1=invalid arguments/state.
 int mp_capture_set_title_bar(void* capture,int enabled);
-// Delivered-frame sequence on Cocoa/GDI; 0 before delivery or on other backends.
+// Delivered-frame sequence on all capture backends; 0 before delivery.
 uint64_t mp_capture_frame_sequence(void* capture);
+// Live window availability, not permission or input capability. Currently
+// reported by Windows GDI/WGC only; other backends/null/unselected return 0.
+// 1=available, 2=hidden/minimized (wait for a fresh frame), 3=stopped/lost.
+// A suspended/lost source invalidates its old delivered-frame epoch.
+uint32_t mp_capture_source_state(void* capture);
 // Version 1, caller-owned UTF-8 snapshot. Empty/unflagged fields are unknown;
 // never inferred from the capturing application's own process or stream name.
 // kind: 0=unknown, 1=window, 2=display, 3=virtual display.

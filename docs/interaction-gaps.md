@@ -42,6 +42,12 @@ Linux 移除恒为零的帧序号替身，接入交付序号/暂停与恢复状�
 
 `59d5e2f3` 的 Windows 和 macOS 两种架构 CI 已通过；Windows 日志明确包含实际 WGC、WGC TITLE BAR 和连续 resize/恢复/重捕获 PASS。Linux 已过 SDK/AOT/非 GPU 门，软件 Vulkan 回归仍在执行，不能先记作整次 CI 通过。新格式修复提交需要自己的目标结果。
 
+### 源窗口最小化/隐藏的等待与恢复
+
+对照原版 ScalingRuntime / ScalingWindow 接入 Windows 源可见性状态：最小化/隐藏暂停交付与旧帧序号，Desktop 隐藏输出、关闭弹层、阻止旧截图/导出并暂停渲染/常亮申请；新匹配画面恢复全屏或窗口尺寸，停止后的迟到帧不能重新显示。另修复 Hide/Show 后全屏模式丢失及首帧前等待错误覆盖初始模式，见 [生命周期说明](source-lifecycle.md)。Linux 25 项原生测试、五项中文及两项英文私有 Wayland UI 与真实原生 surface/popup 销毁和恢复提交检查通过；可见性和身份是注入值，不是 Windows 桌面交互验收。新增 Windows GDI/WGC 隐藏/恢复 fixture、SDK/AOT 和 macOS 新 ABI 的本提交目标验证仍待 CI。
+
+`59d5e2f3` 的四平台 CI 已全部成功，更新前文 Linux 软件 Vulkan 当时仍在运行的状态。`6ddcbc2b` 的 Windows/macOS 两种架构与 Linux SDK/AOT/合成 PipeWire 传输门已过，Linux 软件 Vulkan 仍在执行。新生命周期代码不能沿用前一提交的成功。Windows/Linux 输入、macOS 真实输入送达、光标/游戏模式、完整三平台交互与 NNEDI3 偶发问题仍未完成。
+
 ## 本次 macOS 阶段提交的边界
 
 - Apple M4 本机 SDK 编译、CTest 19/19、FP32/FP16 GPU 回归、AOT 核心/ABI、单可执行文件和 app 本机签名验证通过。

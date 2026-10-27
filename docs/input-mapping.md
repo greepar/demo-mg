@@ -16,7 +16,7 @@ Windows GDI 在选择源时记录 HWND/PID/线程 ID；取帧前、BitBlt 后和
 
 测试启动独立源进程绘制固定 RGB，通过实际前台选择和 GDI API 检查 RGBA/尺寸、窗口/PID、动态标题、resize 与旧序号拒绝、最小化后必须新帧才能恢复、源进程退出和清理。job 对象把源进程寿命绑定到测试，超时杀掉父进程也会清理子进程。这里只在一次性 runner 出现测试窗口；本机 Linux 不启动测试窗口或系统选择器。产物是 `windows-capture-fixture.log/json`，显式记录没有测试 Vulkan、输入注入或真实应用兼容性。
 
-原生 fixture 可以在最小化失败后手动恢复并继续调用 capture API；当前 Desktop 会话仍会将该错误作为停止缩放处理，自动恢复的产品行为仍是缺口。模型/语法检查也不能证明 fixture 已在 Windows 跑通。
+本节最初阶段的原生 fixture 在最小化报错后手动恢复，Desktop 当时会结束缩放。后续已接入暂不可见的等待状态和 UI 收回/恢复路径，当前实现与各平台验证边界见 [源窗口等待与恢复](source-lifecycle.md)。历史 fixture 的成功不替代新增路径的目标机验证。
 
 ## 本机证据与边界
 

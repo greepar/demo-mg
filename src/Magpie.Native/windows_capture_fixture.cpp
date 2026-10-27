@@ -188,13 +188,26 @@ int main(int argc,char** argv) {
             require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,beforeResize,&info,sizeof(info))==0,"Old sequence revived during return to an earlier source size");
             require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==1,"Fresh continuous-resize geometry was rejected");
         }
+        require(mp_capture_source_state(capture.get())==1,"Live source availability not reported");
         ShowWindow(process.window,SW_MINIMIZE);Sleep(100);
         const uint8_t* pixels=nullptr;uint32_t width=0,height=0;
-        require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Minimized source was captured as a valid frame");
+        require(mp_capture_source_state(capture.get())==2,"Minimized source was not suspended");
+        require(mp_capture_frame(capture.get(),&pixels,&width,&height)==0,"Minimized source must wait without ending the session");
+        require(mp_capture_frame_sequence(capture.get())==resized&&memcmp(retained,retainedCopy.data(),retainedCopy.size())==0,"Minimize changed delivered frame/sequence");
         ShowWindow(process.window,SW_RESTORE);UpdateWindow(process.window);Sleep(100);
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,resized,&info,sizeof(info))==0,"Pre-minimize frame accepted before a restored source frame");
+        require(mp_capture_source_state(capture.get())==1,"Restored source remained unavailable");
         auto restored=frame("restored frame");require(restored>resized,"Restored source did not publish a fresh frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==1,"Restored source metadata did not recover");
+        ShowWindow(process.window,SW_HIDE);Sleep(100);
+        require(mp_capture_source_state(capture.get())==2,"Hidden source was not suspended");
+        require(mp_capture_frame(capture.get(),&pixels,&width,&height)==0,"Hidden source must wait without publishing");
+        require(mp_capture_frame_sequence(capture.get())==restored&&memcmp(retained,retainedCopy.data(),retainedCopy.size())==0,"Hide changed delivered frame/sequence");
+        ShowWindow(process.window,SW_SHOWNOACTIVATE);UpdateWindow(process.window);Sleep(100);
+        require(mp_capture_source_state(capture.get())==1,"Shown source remained unavailable");
+        require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Pre-hide frame became valid before a fresh shown frame");
+        const auto hiddenSequence=restored;restored=frame("shown after hidden frame");
+        require(restored>hiddenSequence&&mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,hiddenSequence,&info,sizeof(info))==0,"Show did not require a fresh source epoch");
         DWORD liveProcess{};DWORD liveThread=GetWindowThreadProcessId(process.window,&liveProcess);
         require(liveThread&&liveProcess==process.info.dwProcessId,"Disposable source identity changed unexpectedly");
         require(SendMessageTimeoutW(process.window,NotifyDestroy,0,0,SMTO_ABORTIFHUNG,2000,&result)!=0,"Cannot emit fixture lifetime event");
@@ -205,6 +218,7 @@ int main(int argc,char** argv) {
         DWORD stillProcess{};
         require(rejected&&IsWindow(process.window)&&GetWindowThreadProcessId(process.window,&stillProcess)==liveThread&&stillProcess==liveProcess,"Source lifetime event did not invalidate an otherwise matching live tuple");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Destroyed lifetime retained title/input identity");
+        require(mp_capture_source_state(capture.get())==3,"Destroyed source lifetime still reported available");
         auto oldCapture=std::move(capture);
         capture.reset(mp_capture_create_backend(backend));native(bool(capture),"Create fresh capture");SetForegroundWindow(process.window);
         native(mp_capture_set_title_bar(capture.get(),titleBar?1:0)==1,"Configure fresh capture caption");
@@ -216,8 +230,9 @@ int main(int argc,char** argv) {
         require(WaitForSingleObject(process.info.hProcess,5000)==WAIT_OBJECT_0,"Source process did not close");
         require(mp_capture_frame(capture.get(),&pixels,&width,&height)==-1,"Closed source was captured as a valid frame");
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,fresh,&info,sizeof(info))==0,"Closed source retained input/title identity");
+        require(mp_capture_source_state(capture.get())==3,"Closed source state not reported");
         mp_capture_cancel(capture.get());
         if(titleBar)std::cout<<"WINDOWS WGC TITLE BAR PASS: actual native caption pixels and client pixels, independent bounds, immutable active geometry, resize and independent recapture preserve selection.\n";
-        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, continuous grow/shrink/return, waiting-buffer preservation, minimize/restore fresh-frame guard, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
+        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, continuous grow/shrink/return, waiting-buffer preservation, minimize/restore fresh-frame guard, hide/show suspension without session failure, live source-state ABI, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }
