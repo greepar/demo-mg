@@ -51,6 +51,7 @@ internal sealed partial class ScalingSession
             _output.Show();
             if(_suspendedHadOutput)_output.WindowState=_suspendedWindowState;
             if(_suspendedHadOutput&&OperatingSystem.IsWindows()&&_suspendedWindowState==WindowState.Normal)_output.Position=_suspendedPosition;
+            if(OperatingSystem.IsWindows())_windowsOutputNeedsLayerRestore=true;
         }
         finally { _output.ShowActivated=activated; }
         UpdateSize();

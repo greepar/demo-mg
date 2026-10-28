@@ -43,7 +43,7 @@ internal sealed partial class ScalingSession
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
         nint foreground=FixtureForeground(),hit=FixtureAtPoint(point),root=FixtureRoot(hit,2);short button=FixtureKeyState(1);
         if(IntPtr.Size!=8||foreground!=sourceWindow||root!=output||(button&0x8000)!=0)
-            throw new InvalidOperationException($"Hosted click requires its owned visible output: point={point.X},{point.Y}; source={sourceWindow}; foreground={foreground}; output={output}; hit={hit}; root={root}; leftState={button}.");
+            throw new InvalidOperationException($"Hosted click requires its owned visible output: point={point.X},{point.Y}; source={sourceWindow}; foreground={foreground}; output={output}; outputExStyle={OutputWindowStyle(output,-20):x}; hit={hit}; root={root}; hitExStyle={OutputWindowStyle(root,-20):x}; leftState={button}.");
         FixtureKeyboardInput* inputs=stackalloc FixtureKeyboardInput[2];
         inputs[0]=new(){MouseFlags=2};inputs[1]=new(){MouseFlags=4};
         uint inserted=FixtureSendInput(2,inputs,sizeof(FixtureKeyboardInput));

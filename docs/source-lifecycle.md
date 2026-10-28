@@ -65,4 +65,6 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 `568c0760` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40632450922/job/122631737883) 已实际通过初始点击、禁用自动置顶及源置顶继承，但独立前台应用客户区被输出遮挡，整次门失败。随后移植原版批量 demotion 顺序到静态 C++ 核心：读取前台/自身 token 的完整性级别，常规分支批量撤销置顶并靠近源，再仅为仍然相同的前台 HWND/PID/线程恢复顶部；较高/未知完整性级别分支等待 DWM 合成、使用 NOOWNERZORDER 调整源和输出，不尝试移动该前台窗口。C ABI 只接受本进程顶层、owner 为当前 capture 存活源的输出；源身份不匹配或已丢失返回 unavailable，错误输出拒绝，其他平台返回不支持。增加 Advapi32 系统库链接，不增加自有动态库。严格独立应用可见性/键盘断言保持，目标 CI 仍待本提交。DWM 等待当前在 UI 策略调用内执行，尚未做到原版异步后台调度，较高权限及其他真实应用矩阵仍未验收。
 
+`54e59c6c` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40633735965/job/122635812917) 已实际通过 GDI 普通窗口全部门，以及全屏初始点击、置顶偏好、源置顶继承和独立前台应用可见性/键盘；全屏最小化恢复后底部命中仍失败，WGC 尚未执行到，不能算完整通过。后续恢复路径不再只看 Avalonia 保存的 Topmost 值：比较原生 WS_EX_TOPMOST，并在重显、owner 重建和模式变化时重新施加一次当前有效的原生层级。当前源前台时显式 NOACTIVATE 恢复上层；其他应用前台时仍走撤销/批量顺序，未改为永久置顶。原生命中点与输入断言保持，失败诊断补充命中/输出 exStyle。本次修复仍待对应目标运行证明。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

@@ -27,6 +27,7 @@ internal sealed partial class ScalingSession
     private static extern nint RemoveOutputShellProperty(nint window,string property);
     private bool _correctingWindowsFocus;
     private IDisposable? _windowsFocusPoll;
+    private bool _windowsOutputNeedsLayerRestore=true;
 
     private void StartWindowsOutputPolling()
     {
@@ -53,7 +54,8 @@ internal sealed partial class ScalingSession
         bool hasPopup=popup!=0&&popup!=owner&&popup!=output;
         bool wanted=(OutputWindowStyle(owner,-20)&8)!=0||(!RuntimeSettings.Current.DisableTopmost&&
             OutputForeground()==owner&&OutputSourceEnabled(owner)&&!hasPopup);
-        if(wanted==_output.Topmost)return;
+        bool nativeTopmost=output!=0&&(OutputWindowStyle(output,-20)&8)!=0;
+        if(wanted==_output.Topmost&&wanted==nativeTopmost&&!_windowsOutputNeedsLayerRestore)return;
         if(wanted)
         {
             lock(_captureLock)
@@ -61,14 +63,25 @@ internal sealed partial class ScalingSession
                     NativeCore.CaptureSnapshotTitle(capture,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId,_lastSourceSequence,out _,5400)!=1)return;
         }
         _output.Topmost=wanted;
+        if(wanted)
+        {
+            // Hide/Show and fullscreen restoration can change native style or
+            // ordering while Avalonia's Topmost property remains true.
+            if(!PositionOwnedOutput(output,-1,0,0,0,0,0x0213))
+                throw new InvalidOperationException("Cannot restore the native foreground output layer.");
+            _windowsOutputNeedsLayerRestore=false;
+        }
         // Demotion must preserve the owner's place instead of leaving the
         // presentation above an unrelated newly foreground application.
         if(!wanted&&_output.TryGetPlatformHandle() is {HandleDescriptor:"HWND"} handle)
         {
             lock(_captureLock)
-                if(_capture is {IsClosed:false,IsInvalid:false} capture&&
-                    NativeCore.CaptureRestoreOutputLayer(capture,handle.Handle,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId)<0)
-                    throw NativeCore.Error();
+                if(_capture is {IsClosed:false,IsInvalid:false} capture)
+                {
+                    int result=NativeCore.CaptureRestoreOutputLayer(capture,handle.Handle,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId);
+                    if(result<0)throw NativeCore.Error();
+                    _windowsOutputNeedsLayerRestore=result==0;
+                }
         }
     }
 
@@ -117,6 +130,7 @@ internal sealed partial class ScalingSession
             if(SetOutputWindowStyle(handle.Handle,-8,owner)==0&&Marshal.GetLastPInvokeError()!=0)
                 throw new InvalidOperationException("Cannot establish output/source window ownership.");
         }
+        _windowsOutputNeedsLayerRestore=true;
         // Avalonia Show resets the native owner; restore the original owned
         // window relation after first presentation and every hide/show. Raise
         // only for the actual foreground source, without activating either.
@@ -129,6 +143,7 @@ internal sealed partial class ScalingSession
     private void ConfigureWindowsOutputFocus(Window output)
     {
         if(!OperatingSystem.IsWindows())return;
+        _windowsOutputNeedsLayerRestore=true;
         // Match original ScalingWindow: source keyboard focus survives both
         // initial showing and clicks on the presentation/overlay controls.
         Win32Properties.AddWindowStylesCallback(output,static(style,extended)=>(style,extended|0x08000000)); // WS_EX_NOACTIVATE

@@ -338,6 +338,7 @@ internal sealed partial class ScalingSession
         _output.PropertyChanged+=(_,args)=>
         {
             if(args.Property!=Window.WindowStateProperty)return;
+            if(OperatingSystem.IsWindows())_windowsOutputNeedsLayerRestore=true;
             UpdateSize();
             if(_output?.WindowState==WindowState.Normal && !_initialSizingApplied && _sourceWidth>0)
                 Dispatcher.UIThread.Post(()=>
