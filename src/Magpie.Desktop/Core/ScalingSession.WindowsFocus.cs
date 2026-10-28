@@ -204,7 +204,7 @@ internal sealed partial class ScalingSession
         // Match original ScalingWindow: source keyboard focus survives both
         // initial showing and clicks on the presentation/overlay controls.
         Win32Properties.AddWindowStylesCallback(output,(style,extended)=>(style,
-            (extended&~0x20u)|0x08000000u|(_windowsPointerLayered?0x80000u:0u)|(_windowsPointerCaptured?0x20u:0u))); // WS_EX_NOACTIVATE
+            (extended&~0x20u)|0x08000000u|(_windowsPointerLayered?0x80000u:0u)|(_windowsPointerPassthrough?0x20u:0u))); // WS_EX_NOACTIVATE
         Win32Properties.AddWndProcHookCallback(output,KeepWindowsSourceActive);
         var handle=output.TryGetPlatformHandle();
         if(handle is not {HandleDescriptor:"HWND",Handle:not 0})throw new InvalidOperationException("Windows output has no HWND for its activation policy.");

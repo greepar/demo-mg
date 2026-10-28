@@ -65,7 +65,7 @@ internal sealed partial class ScalingSession
             _windowsPointerSuppressed=true;EndWindowsPointer();
             FixtureMoveCursor(original.X,original.Y);
         }
-        if(_windowsPointerCaptured||_windowsSystemCursorHidden||_windowsCursorOverlay is {IsVisible:true}||
+        if(_windowsPointerCaptured||_windowsPointerPassthrough||_windowsSystemCursorHidden||_windowsCursorOverlay is {IsVisible:true}||
             _windowsAppliedClip is not null||(OutputWindowStyle(HostedOutputHandle(),-20)&0x20)!=0)
             throw new InvalidOperationException("Stopping virtual pointer left system cursor, clip, overlay or passthrough state behind.");
         await VerifyHostedOutputClick(source,sourceWindow,run,failure);

@@ -29,7 +29,7 @@ internal sealed partial class ScalingSession
     [DllImport("user32",EntryPoint="MonitorFromPoint")]private static extern nint WindowsPointerMonitor(PixelPoint point,uint flags);
     [DllImport("user32",EntryPoint="SendMessageTimeoutW")]private static extern nint WindowsPointerHit(nint window,uint message,nint w,nint l,uint flags,uint timeout,out nint result);
     [DllImport("user32",EntryPoint="SetLayeredWindowAttributes",SetLastError=true)]private static extern bool SetWindowsPointerAlpha(nint window,uint color,byte alpha,uint flags);
-    private bool _windowsPointerSuppressed,_windowsPointerCaptured,_windowsSystemCursorHidden,_windowsPointerLayered;
+    private bool _windowsPointerSuppressed,_windowsPointerCaptured,_windowsSystemCursorHidden,_windowsPointerLayered,_windowsPointerPassthrough;
     private WindowsPointerMapping _windowsPointerMapping;
     private Image? _windowsCursorOverlay;
     private WriteableBitmap? _windowsCursorBitmap;
@@ -52,6 +52,7 @@ internal sealed partial class ScalingSession
     private void SetWindowsPassthrough(bool enabled)
     {
         if(_output?.TryGetPlatformHandle() is not {HandleDescriptor:"HWND",Handle:not 0} handle)return;
+        _windowsPointerPassthrough=enabled;
         nint style=OutputWindowStyle(handle.Handle,-20),wanted=(style&~(nint)0x20)|(enabled?0x80020:0);
         Marshal.SetLastPInvokeError(0);
         if(style!=wanted&&SetOutputWindowStyle(handle.Handle,-20,wanted)==0&&Marshal.GetLastPInvokeError()!=0)
@@ -92,11 +93,12 @@ internal sealed partial class ScalingSession
     {
         if(!OperatingSystem.IsWindows())return;
         bool captured=_windowsPointerCaptured;_windowsPointerCaptured=false;
+        bool ownsState=captured||_windowsSystemCursorHidden||_windowsPointerPassthrough||_windowsAppliedClip is not null||_windowsCursorOverlay is {IsVisible:true};
         ++_windowsHitGeneration;_windowsHitPoint=null;_windowsHitArea=0;
         ClipWindowsSource(false);
         try
         {
-            SetWindowsPassthrough(false);
+            if(ownsState)SetWindowsPassthrough(false);
             if(mapBack&&captured&&ReadWindowsPointer(out var point))
             {
                 var mapped=_windowsPointerMapping.ToOutput(point.X,point.Y,OutputForeground()==unchecked((nint)_lastSourceInfo.WindowId));

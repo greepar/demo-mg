@@ -36,8 +36,9 @@ internal sealed partial class ScalingSession
     private static unsafe void SendHostedSourceMouse(Process source,nint window,FixturePoint point,uint flags,int data=0)
     {
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,window);
-        if(IntPtr.Size!=8||FixtureForeground()!=window||FixtureRoot(FixtureAtPoint(point),2)!=window)
-            throw new InvalidOperationException("Layered presentation did not pass the physical pointer to its exact owned source.");
+        nint foreground=FixtureForeground(),root=FixtureRoot(FixtureAtPoint(point),2);
+        if(IntPtr.Size!=8||foreground!=window||root!=window)
+            throw new InvalidOperationException($"Layered presentation did not pass the physical pointer to its exact owned source: point={point.X},{point.Y}; expected={window}; foreground={foreground}; hit={DescribeFixtureWindow(root)}.");
         FixtureKeyboardInput input=new(){MouseFlags=flags,MouseData=data};
         if(FixtureSendInput(1,&input,sizeof(FixtureKeyboardInput))!=1)
             throw new InvalidOperationException("Native source mouse SendInput failed: "+Marshal.GetLastWin32Error());

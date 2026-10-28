@@ -216,7 +216,9 @@ struct WindowsGraphicsCapture::State {
         auto closed=item.Closed(auto_revoke,[weak](const auto&,const auto&) {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->closed=true;state->changed.notify_one();}
         });
-        setOperation("start capture session");session.StartCapture();
+        setOperation("start capture session");
+        auto startBefore=WindowsCaptureDiagnostics::compositorClock();session.StartCapture();
+        auto startAfter=WindowsCaptureDiagnostics::compositorClock();
         auto restart=[&](winrt::Windows::Graphics::SizeInt32 replacement) {
             arrived.revoke();
             setOperation("close capture session for resize/resume");
@@ -230,7 +232,9 @@ struct WindowsGraphicsCapture::State {
                 wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,replacement);
             arrived=pool.FrameArrived(auto_revoke,onArrival);
             setOperation("restart capture session for resize/resume");
-            session=pool.CreateCaptureSession(item);configure(session);session.StartCapture();size=replacement;
+            session=pool.CreateCaptureSession(item);configure(session);
+            startBefore=WindowsCaptureDiagnostics::compositorClock();session.StartCapture();
+            startAfter=WindowsCaptureDiagnostics::compositorClock();size=replacement;
         };
         {std::lock_guard lock(mutex);ready=true;started.notify_all();}
         com_ptr<ID3D11Texture2D> staging;uint32_t stagingWidth{},stagingHeight{};
@@ -322,7 +326,7 @@ struct WindowsGraphicsCapture::State {
             checkSource();setOperation("recheck source geometry");auto after=geometry(window,titleBar);
             std::lock_guard lock(mutex);
             if(suspension||IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
-            diagnostics.pixels(static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch,revision,frame.SystemRelativeTime().count(),titleBar);
+            diagnostics.pixels(static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch,revision,frame.SystemRelativeTime().count(),titleBar,startBefore,startAfter);
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
             pendingGeometry=after;
             waiting="Waiting for the next Graphics Capture frame";

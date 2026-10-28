@@ -62,15 +62,21 @@ public:
         });
     }
     void producer(const char* step) {producerThread_=GetCurrentThreadId();producerStep_=step;}
-    void pixels(const uint8_t* bgra,uint32_t width,uint32_t height,size_t stride,uint64_t revision,int64_t timestamp,bool titleBar) {
+    static int64_t compositorClock() {
+        LARGE_INTEGER ticks{},frequency{};
+        if(!QueryPerformanceCounter(&ticks)||!QueryPerformanceFrequency(&frequency)||frequency.QuadPart<=0)return 0;
+        return int64_t(static_cast<long double>(ticks.QuadPart)*10000000.L/frequency.QuadPart);
+    }
+    void pixels(const uint8_t* bgra,uint32_t width,uint32_t height,size_t stride,uint64_t revision,int64_t timestamp,bool titleBar,int64_t startBefore,int64_t startAfter) {
         if(!enabled_)return;
         const uint8_t* center=bgra+size_t(height/2)*stride+size_t(width/2)*4;
         uint32_t packed{};std::memcpy(&packed,center,4);
         if(sampleRevision_!=revision) {sampleRevision_=revision;samples_=0;}
         if(samples_++<2||packed!=lastCenter_) {
-            std::fprintf(stderr,"WGC RAW PIXELS: pid=%lu revision=%llu timestamp=%lld title=%d size=%ux%u stride=%llu centerBGRA=%u,%u,%u,%u\n",
+            std::fprintf(stderr,"WGC RAW PIXELS: pid=%lu revision=%llu timestamp=%lld title=%d size=%ux%u stride=%llu centerBGRA=%u,%u,%u,%u sessionStart=%lld..%lld\n",
                 GetCurrentProcessId(),static_cast<unsigned long long>(revision),static_cast<long long>(timestamp),int(titleBar),width,height,
-                static_cast<unsigned long long>(stride),unsigned(center[0]),unsigned(center[1]),unsigned(center[2]),unsigned(center[3]));
+                static_cast<unsigned long long>(stride),unsigned(center[0]),unsigned(center[1]),unsigned(center[2]),unsigned(center[3]),
+                static_cast<long long>(startBefore),static_cast<long long>(startAfter));
             std::fflush(stderr);
         }
         lastCenter_=packed;
