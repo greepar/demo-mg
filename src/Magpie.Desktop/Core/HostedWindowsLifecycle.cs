@@ -48,6 +48,7 @@ internal sealed class HostedLifecycleCase
     public bool TopmostPreferenceHonored {get;set;}
     public bool SourceTopmostInherited {get;set;}
     public bool OtherForegroundPreserved {get;set;}
+    public int ResumeHeldHiddenChecks {get;set;}
     public bool IdleGpuPreserved {get;set;}
     public bool SourceClosedWithoutError {get;set;}
     public bool SourceExitedCleanly {get;set;}

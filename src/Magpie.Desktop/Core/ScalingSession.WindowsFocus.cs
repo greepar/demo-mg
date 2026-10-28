@@ -25,9 +25,48 @@ internal sealed partial class ScalingSession
     private static extern bool SetOutputShellProperty(nint window,string property,nint value);
     [DllImport("user32",EntryPoint="RemovePropW",CharSet=CharSet.Unicode)]
     private static extern nint RemoveOutputShellProperty(nint window,string property);
+    [DllImport("kernel32",EntryPoint="GetCurrentThreadId")]
+    private static extern uint OutputCurrentThread();
+    [DllImport("user32",EntryPoint="AttachThreadInput")]
+    private static extern bool OutputAttachInput(uint thread,uint other,bool attach);
     private bool _correctingWindowsFocus;
     private IDisposable? _windowsFocusPoll;
     private bool _windowsOutputNeedsLayerRestore=true;
+    private int _windowsShellMarkResult;
+    private void AssignWindowsOwnerBeforeShow(nint window)
+    {
+        if(_sourceSuspended||_stop.IsCancellationRequested)return;
+        lock(_captureLock)
+        {
+            if(_capture is not {IsClosed:false,IsInvalid:false} capture)return;
+            // Ownership is selected-source state, not presented-frame metadata.
+            // The first accepted capture exists before the output's first Show.
+            var source=ReadCapturedSource(capture);ulong sequence=NativeCore.CaptureFrameSequence(capture);
+            if(source is not {Kind:1,WindowId:>0,ProcessId:>0}||sequence==0||
+                NativeCore.CaptureSnapshotTitle(capture,source.WindowId,source.ProcessId,sequence,out _,5400)!=1)return;
+            nint owner=unchecked((nint)source.WindowId);
+            uint thread=OutputWindowProcess(owner,out uint process);
+            if(thread==0||process!=source.ProcessId)return;
+            bool changed=OutputWindowStyle(window,-8)!=owner;
+            Marshal.SetLastPInvokeError(0);
+            if(SetOutputWindowStyle(window,-8,owner)==0&&Marshal.GetLastPInvokeError()!=0)
+                throw new InvalidOperationException("Cannot establish source ownership before showing output.");
+            // Original WM_CREATE detaches the implicit input-queue attachment
+            // of cross-thread owned windows; native source input stays native.
+            if(changed)OutputAttachInput(OutputCurrentThread(),thread,false);
+            _windowsOutputNeedsLayerRestore=true;
+        }
+    }
+    private void DetachSuspendedWindowsOwner()
+    {
+        if(!OperatingSystem.IsWindows()||_output?.TryGetPlatformHandle() is not {HandleDescriptor:"HWND",Handle:not 0} handle)return;
+        // Do not let restoring an owner automatically show a still-stale owned
+        // window. The fresh-frame Show hook reattaches the selected source.
+        Marshal.SetLastPInvokeError(0);
+        if(SetOutputWindowStyle(handle.Handle,-8,0)==0&&Marshal.GetLastPInvokeError()!=0)
+            throw new InvalidOperationException("Cannot detach the hidden source presentation.");
+        _windowsOutputNeedsLayerRestore=true;
+    }
 
     private void StartWindowsOutputPolling()
     {
@@ -87,6 +126,15 @@ internal sealed partial class ScalingSession
                     _windowsOutputNeedsLayerRestore=result==0;
                 }
         }
+        // Avalonia marks fullscreen when the state changes. Re-notify after
+        // Show/owner reconstruction too, once the correct native owner exists.
+        lock(_captureLock)
+            if(output!=0&&_capture is {IsClosed:false,IsInvalid:false} current)
+            {
+                _windowsShellMarkResult=NativeCore.CaptureMarkOutputFullscreen(current,output,_lastSourceInfo.WindowId,
+                    _lastSourceInfo.ProcessId,_output.WindowState==WindowState.FullScreen?1:0);
+                if(_windowsShellMarkResult<0)throw NativeCore.Error();
+            }
     }
 
     private bool RestoreWindowsSourceFocus(nint window)
@@ -129,10 +177,12 @@ internal sealed partial class ScalingSession
         {
             if(_capture is not {IsClosed:false,IsInvalid:false} capture||
                 NativeCore.CaptureSnapshotTitle(capture,source.WindowId,source.ProcessId,_lastSourceSequence,out _,5400)!=1)return;
-            if(OutputWindowProcess(owner,out uint process)==0||process!=source.ProcessId)return;
+            uint thread=OutputWindowProcess(owner,out uint process);
+            if(thread==0||process!=source.ProcessId)return;
             Marshal.SetLastPInvokeError(0);
             if(SetOutputWindowStyle(handle.Handle,-8,owner)==0&&Marshal.GetLastPInvokeError()!=0)
                 throw new InvalidOperationException("Cannot establish output/source window ownership.");
+            OutputAttachInput(OutputCurrentThread(),thread,false);
         }
         _windowsOutputNeedsLayerRestore=true;
         // Avalonia Show resets the native owner; restore the original owned
@@ -170,6 +220,11 @@ internal sealed partial class ScalingSession
     private nint KeepWindowsSourceActive(nint window,uint message,nint w,nint l,ref bool handled)
     {
         if(message==0x0082)RemoveOutputShellProperty(window,"TreatAsDesktopFullscreen"); // WM_NCDESTROY
+        if(message==0x0018&&w!=0) // WM_SHOWWINDOW, before native visibility
+        {
+            try {AssignWindowsOwnerBeforeShow(window);}
+            catch(Exception error) {Console.Error.WriteLine("Output source owner: "+error.Message);}
+        }
         if(message==0x0021) // WM_MOUSEACTIVATE
         {
             handled=true;

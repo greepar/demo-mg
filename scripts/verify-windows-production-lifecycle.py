@@ -104,7 +104,7 @@ try:
             raise RuntimeError('Incomplete production lifecycle evidence.')
         for case in cases:
             if case['State']=='unavailable' and case['Backend']=='GraphicsCapture':continue
-            if case['State']!='passed' or not all(case[key] for key in ('NativeOutputHidden','ForegroundPreserved','InitialForegroundPreserved','IdleGpuPreserved','SourceExitedCleanly','TopmostPreferenceHonored','SourceTopmostInherited','OtherForegroundPreserved')) or case['NativeKeyboardChecks']!=3 or case['NativeOutputClickChecks']!=3:
+            if case['State']!='passed' or not all(case[key] for key in ('NativeOutputHidden','ForegroundPreserved','InitialForegroundPreserved','IdleGpuPreserved','SourceExitedCleanly','TopmostPreferenceHonored','SourceTopmostInherited','OtherForegroundPreserved')) or case['NativeKeyboardChecks']!=3 or case['NativeOutputClickChecks']!=3 or case['ResumeHeldHiddenChecks']!=2:
                 raise RuntimeError('Missing source/native-output/focus/idle checks: '+str(case))
             if not (case['FirstSequence']<case['RestoredSequence']<case['ShownSequence']):raise RuntimeError('Restoration did not advance real capture sequences.')
             if not case['SourcePid'] or not case['SourceWindow'] or 'swiftshader' not in case['Device'].lower():raise RuntimeError('Missing actual source/software Vulkan identity.')

@@ -73,6 +73,8 @@ int main() {
             "Null capture attempted output layer operations");
         require(mp_capture_restore_output_layer(capture.get(),reinterpret_cast<void*>(uintptr_t(1)),1,2)==0,
             "Unselected/unsupported capture attempted output layer operations");
+        require(mp_capture_mark_output_fullscreen(capture.get(),reinterpret_cast<void*>(uintptr_t(1)),1,2,1)==0,
+            "Unselected/unsupported capture attempted fullscreen shell operations");
         mp_capture_source_info titleSnapshot=magpie::emptySource();
         require(mp_capture_snapshot_title(capture.get(),1,2,3,&titleSnapshot,sizeof(titleSnapshot))==0,"Unselected capture returned a foreign live title");
         require(mp_capture_snapshot_title(capture.get(),1,2,3,&titleSnapshot,sizeof(titleSnapshot)-1)==0,"Live title accepted an invalid ABI size");

@@ -203,6 +203,22 @@ extern "C" int mp_capture_restore_output_layer(void* capture,void* output,uint64
         return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
 }
+extern "C" int mp_capture_mark_output_fullscreen(void* capture,void* output,uint64_t expectedWindow,uint32_t expectedProcess,int fullscreen) {
+    try {
+        if(!capture||!output||!expectedWindow||!expectedProcess)return 0;
+        auto& c=*static_cast<Capture*>(capture);HWND window=static_cast<HWND>(output);DWORD process{};
+        if(c.cancelled||uint64_t(reinterpret_cast<uintptr_t>(c.window))!=expectedWindow||c.sourceProcess!=expectedProcess||!c.sameSource())return 0;
+        if((fullscreen!=0&&fullscreen!=1)||window==c.window||!GetWindowThreadProcessId(window,&process)||process!=GetCurrentProcessId()||
+            GetAncestor(window,GA_ROOT)!=window||GetWindow(window,GW_OWNER)!=c.window)
+            throw std::runtime_error("Fullscreen shell update requires this process's top-level output owned by the selected live source");
+        if(c.suspended())return 0;
+        return magpie::markOutputFullscreen(window,fullscreen!=0,[&] {
+            DWORD current{};
+            return !c.cancelled&&c.sameSource()&&!c.suspended()&&GetWindowThreadProcessId(window,&current)&&
+                current==GetCurrentProcessId()&&GetAncestor(window,GA_ROOT)==window&&GetWindow(window,GW_OWNER)==c.window;
+        });
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
 extern "C" void* mp_capture_create() {
     return mp_capture_create_backend(0);
 }

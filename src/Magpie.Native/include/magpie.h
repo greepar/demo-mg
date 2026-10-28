@@ -117,6 +117,9 @@ uint32_t mp_capture_source_state(void* capture);
 // owned by this capture's live source. 1=restored, 0=unavailable/source waiting,
 // -1=invalid output or native error. Does not change activation or geometry.
 int mp_capture_restore_output_layer(void* capture,void* output,uint64_t source_window,uint32_t source_process);
+// Windows Shell notification for our owned output only. 1=updated,
+// 0=unavailable/waiting/no Shell, -1=invalid target. Does not hide the taskbar.
+int mp_capture_mark_output_fullscreen(void* capture,void* output,uint64_t source_window,uint32_t source_process,int fullscreen);
 // Version 1, caller-owned UTF-8 snapshot. Empty/unflagged fields are unknown;
 // never inferred from the capturing application's own process or stream name.
 // kind: 0=unknown, 1=window, 2=display, 3=virtual display.

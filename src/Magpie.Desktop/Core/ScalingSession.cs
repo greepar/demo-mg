@@ -324,6 +324,9 @@ internal sealed partial class ScalingSession
             // Original Windows scaling windows keep keyboard/IME focus in the
             // source. Showing the presentation must not activate it instead.
             ShowActivated = !OperatingSystem.IsWindows(),
+            ShowInTaskbar = !OperatingSystem.IsWindows(),
+            CanMinimize = !OperatingSystem.IsWindows(),
+            CanMaximize = !OperatingSystem.IsWindows(),
             WindowState=fullscreen?WindowState.FullScreen:WindowState.Normal,
             Title = $"Magpie · {_settings.SelectedModeName}" + (OperatingSystem.IsWindows()?"":" · Esc to stop"), Width = initial is {} size ? size.Width/initialScale : 1280, Height = initial is {} initialSize ? initialSize.Height/initialScale : 720,
             MinWidth = initial is {} minimum ? minimum.MinimumWidth/initialScale : 320, MinHeight = initial is {} minimumSize ? minimumSize.MinimumHeight/initialScale : 200, Background = Brushes.Black,
@@ -359,7 +362,7 @@ internal sealed partial class ScalingSession
         if(fullscreen)_output.WindowState=WindowState.FullScreen;
         else if(sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner);
         // The output must survive the main window being hidden to the tray.
-        _output.Show();
+        if(!_sourceSuspended)_output.Show();
         StartWindowsOutputPolling();
         StartMacInputPolling();
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner,true);

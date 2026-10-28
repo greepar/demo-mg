@@ -73,4 +73,10 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 原生 GDI/WGC/标题栏 fixture 另增加四轮实际 hide/show，独立检查保留缓冲、暂停前旧序号不能恢复、每轮新交付帧和像素/标题栏尺寸；wrapper 要求新的 repeated hide/show 标记，不能沿用旧可执行文件的成功。这些是对新超时的针对性覆盖，重复通过也不单独构成间歇问题已定位/修复的证明。
 
+`950eff2d` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40637449293/job/122647575209) 已实际通过新增四轮 GDI/WGC/标题栏原生回归；GDI 普通窗口全部联合门仍通过。全屏恢复后的底部命中失败继续存在：输出原生 exStyle=0x08240008，命中窗口 exStyle=0x88，说明输出仍在 topmost band，不能再将原因简单归为 Topmost 位丢失。间歇原生超时在本次未触发，尚未定位/排除。
+
+对照原版 CreateWindowEx 的 owned-window 规则，移植输出不再另带 WS_EX_APPWINDOW / 任务栏条目；主页窗口保持原样。WM_SHOWWINDOW 中在原生可见之前建立当前有效捕获源 owner，并按原版 WM_CREATE 解除跨线程拥有关系的隐式输入队列附加。首次赋 owner 使用实际捕获身份/代次，不提前修改 UI 已呈现帧/截图快照。隐藏时解除 owner，防止源恢复自动显示旧输出；仅新帧提交后的 Show 才重新建立关系。联合门增加原生 APPWINDOW 位/owner 校验，并在实际 stage semaphore 阻塞 200ms 时恢复真实源，要求输出仍为 native hidden，随后放行新画面并保持原来的底部点击/键盘检查。失败会记录窗口 class、rect、exStyle，不以换点击位置或隐藏系统任务栏规避。此追加实现需对应 Windows 结果，完整目标未完成。
+
+Avalonia 12.1.1 的 SetFullScreen 在模式改变时调用 Shell MarkFullscreen，但 Hide/Show 不一定再次改变模式。移植在正确 owner 的重显/模式恢复后，通过 [ITaskbarList2::MarkFullscreenWindow](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itaskbarlist2-markfullscreenwindow) 重新通知本进程的输出；不标记源应用或直接操作任务栏窗口，Shell 不可用返回 unsupported。接口复核 capture 寿命、进程、顶层和 owner，COM 激活后再次校验，COM 对象释放先于平衡 apartment 初始化。原生未选源/其他平台不调用 Shell；hosted 测试要求该通知实际成功，同时仍要求真实底部命中和原生输入送达。另按原版输出窗口样式取消独立最小化/最大化按钮，不新增替源窗口最小化的行为；源窗口的最小化/隐藏流程继续实测。NativeAOT 静态链接边界不变，新增行为仍需对应 Windows 联合结果。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

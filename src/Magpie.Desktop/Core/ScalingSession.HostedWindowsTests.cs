@@ -25,8 +25,17 @@ internal sealed partial class ScalingSession
     [DllImport("user32",EntryPoint="GetClientRect")]private static extern bool FixtureClient(nint window,out FixtureRect rect);
     [DllImport("user32",EntryPoint="WindowFromPoint")]private static extern nint FixtureAtPoint(FixturePoint point);
     [DllImport("user32",EntryPoint="GetAncestor")]private static extern nint FixtureRoot(nint window,uint flag);
+    [DllImport("user32",EntryPoint="GetWindowRect")]private static extern bool FixtureWindowRect(nint window,out FixtureRect rect);
+    [DllImport("user32",EntryPoint="GetClassNameW",CharSet=CharSet.Unicode)]private static extern unsafe int FixtureClassName(nint window,char* name,int count);
     [StructLayout(LayoutKind.Sequential)]private struct FixturePoint {public int X,Y;}
     [StructLayout(LayoutKind.Sequential)]private struct FixtureRect {public int Left,Top,Right,Bottom;}
+    private static unsafe string DescribeFixtureWindow(nint window)
+    {
+        char* name=stackalloc char[256];int count=FixtureClassName(window,name,256);
+        string type=count>0?new string(name,0,count):"unknown";
+        bool bounds=FixtureWindowRect(window,out var rect);
+        return $"{window} class={type} exStyle={OutputWindowStyle(window,-20):x} bounds={(bounds?$"{rect.Left},{rect.Top},{rect.Right},{rect.Bottom}":"unknown")}";
+    }
     // This hosted fixture targets win-x64 only. INPUT includes the larger mouse
     // union; KEYBDINPUT starts at offset 8, not immediately after its DWORD tag.
     [StructLayout(LayoutKind.Explicit,Size=40)]
@@ -43,7 +52,7 @@ internal sealed partial class ScalingSession
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
         nint foreground=FixtureForeground(),hit=FixtureAtPoint(point),root=FixtureRoot(hit,2);short button=FixtureKeyState(1);
         if(IntPtr.Size!=8||foreground!=sourceWindow||root!=output||(button&0x8000)!=0)
-            throw new InvalidOperationException($"Hosted click requires its owned visible output: point={point.X},{point.Y}; source={sourceWindow}; foreground={foreground}; output={output}; outputExStyle={OutputWindowStyle(output,-20):x}; hit={hit}; root={root}; hitExStyle={OutputWindowStyle(root,-20):x}; leftState={button}.");
+            throw new InvalidOperationException($"Hosted click requires its owned visible output: point={point.X},{point.Y}; source={sourceWindow}; foreground={foreground}; output={DescribeFixtureWindow(output)}; hit={hit}; root={DescribeFixtureWindow(root)}; leftState={button}.");
         FixtureKeyboardInput* inputs=stackalloc FixtureKeyboardInput[2];
         inputs[0]=new(){MouseFlags=2};inputs[1]=new(){MouseFlags=4};
         uint inserted=FixtureSendInput(2,inputs,sizeof(FixtureKeyboardInput));
@@ -59,6 +68,11 @@ internal sealed partial class ScalingSession
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
         nint window=HostedOutputHandle();
         if(OutputWindowStyle(window,-8)!=sourceWindow)throw new InvalidOperationException("Output lost its native source owner.");
+        if(_output!.ShowInTaskbar||(OutputWindowStyle(window,-20)&0x40000)!=0)
+            throw new InvalidOperationException("Owned output gained a separate taskbar/app-window identity unlike the original.");
+        if(_output.CanMinimize||_output.CanMaximize||(OutputWindowStyle(window,-16)&0x30000)!=0)
+            throw new InvalidOperationException("Owned output gained independent minimize/maximize buttons unlike the original scaling window.");
+        if(_windowsShellMarkResult!=1)throw new InvalidOperationException("Hosted Shell notification was not applied to the owned output: "+_windowsShellMarkResult);
         if(FixtureProperty(window,"TreatAsDesktopFullscreen")!=1)throw new InvalidOperationException("Output lost the original fullscreen shell hint.");
         if(!FixtureClient(window,out var rect)||rect.Right<20||rect.Bottom<20||!FixtureCursor(out var original))
             throw new InvalidOperationException("Cannot locate owned output for native click test.");
@@ -144,7 +158,8 @@ internal sealed partial class ScalingSession
             lock(_captureLock)
             {
                 if(_capture is not {} capture||NativeCore.CaptureRestoreOutputLayer(capture,sourceWindow,(ulong)sourceWindow,(uint)source.Id)!=-1||
-                    NativeCore.CaptureRestoreOutputLayer(capture,HostedOutputHandle(),(ulong)sourceWindow+1,(uint)source.Id)!=0)
+                    NativeCore.CaptureRestoreOutputLayer(capture,HostedOutputHandle(),(ulong)sourceWindow+1,(uint)source.Id)!=0||
+                    NativeCore.CaptureMarkOutputFullscreen(capture,sourceWindow,(ulong)sourceWindow,(uint)source.Id,1)!=-1)
                     throw new InvalidOperationException("Native layer guard accepted a foreign output or mismatched source identity.");
             }
             if(FixtureForeground()!=sourceWindow)throw new InvalidOperationException("Rejected native layer request changed foreground.");
@@ -282,7 +297,8 @@ internal sealed partial class ScalingSession
                     foreach(bool minimize in new[]{true,false})
                     {
                         Phase(minimize?"minimize source":"hide source");
-                        nint output=session.HostedOutputHandle();RequireOwnedSource(source,window);FixtureShow(window,minimize?6:0);
+                        nint output=session.HostedOutputHandle();RequireOwnedSource(source,window);
+                        FixtureShow(window,minimize?6:0);
                         await WaitHosted(()=>session._sourceSuspended&&!session._output!.IsVisible&&!FixtureVisible(output),run,()=>failure,"native output hidden");
                         evidence.NativeOutputHidden=true;ulong paused=session._lastSourceSequence;
                         ulong gpu=await session.HostedGpuSerial(engine);await Task.Delay(200);
@@ -290,7 +306,19 @@ internal sealed partial class ScalingSession
                         evidence.IdleGpuPreserved=true;session.RequestScreenshot();
                         if(session.SaveScreenshot() is not null||Volatile.Read(ref session._screenshotPending)!=0)throw new InvalidOperationException("Hidden production source exported stale pixels.");
                         Phase(minimize?"restore source":"show source");
-                        RequireOwnedSource(source,window);FixtureShow(window,minimize?9:8);FixtureActivate(window);
+                        await session._stageGate.WaitAsync();
+                        try
+                        {
+                            RequireOwnedSource(source,window);FixtureShow(window,minimize?9:8);FixtureActivate(window);
+                            // Exercise a busy real presentation stage: native
+                            // source restoration must not reveal cached output
+                            // before its new bitmap/identity can be submitted.
+                            await Task.Delay(200);
+                            if(!session._sourceSuspended||session._output!.IsVisible||FixtureVisible(session.HostedOutputHandle()))
+                                throw new InvalidOperationException("Source restoration showed stale native output while fresh presentation was held.");
+                            evidence.ResumeHeldHiddenChecks++;
+                        }
+                        finally {session._stageGate.Release();}
                         await WaitHosted(()=>!session._sourceSuspended&&session._output!.IsVisible&&session._lastSourceSequence>paused&&
                             session._output.WindowState==(fullscreen?WindowState.FullScreen:WindowState.Normal),run,()=>failure,"fresh production output restored",30);
                         await Task.Delay(200);

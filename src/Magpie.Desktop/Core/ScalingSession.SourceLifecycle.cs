@@ -27,6 +27,7 @@ internal sealed partial class ScalingSession
             _suspendedWindowState=output.WindowState;_suspendedClientSize=output.ClientSize;_suspendedPosition=output.Position;
             foreach(var combo in output.GetVisualDescendants().OfType<ComboBox>().ToArray())combo.IsDropDownOpen=false;
             output.Hide();
+            DetachSuspendedWindowsOwner();
         }
         _stageEngine=null;_displayedStages=[];
         Status?.Invoke(Localization.CurrentLanguage.StartsWith("zh",StringComparison.Ordinal)?
