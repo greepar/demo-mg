@@ -19,6 +19,25 @@ internal static class WindowsPointerMappingTests
         Check(WindowsPointerMapping.Axis(1,0,3,0,4,0,4)==2);
         Check(WindowsPointerMapping.Axis(4,4,5,-9,-7,-9,-7)==-9);
         bool rejected=false;try {WindowsPointerMapping.Axis(0,0,0,0,1,0,1);}catch(ArgumentException){rejected=true;}Check(rejected);
+        var screen=new NativePointerRect(0,0,1000,1000);
+        var full=new WindowsPointerMapping(new(100,100,200,200),screen,screen);
+        NativePointerRect? Clip(NativePointerRect[] monitors,bool captured=true,bool focused=true)=>WindowsMonitorClip.Compute(full,monitors,150,150,captured,focused);
+        Check(Clip([screen])!.Value.Equals(full.Source));
+        Check(Clip([screen,new(1000,0,2000,1000)])!.Value.Equals(new NativePointerRect(100,100,int.MaxValue,200)));
+        Check(Clip([screen,new(-1000,0,0,1000)])!.Value.Equals(new NativePointerRect(int.MinValue,100,200,200)));
+        Check(Clip([screen,new(0,-1000,1000,0)])!.Value.Equals(new NativePointerRect(100,int.MinValue,200,200)));
+        Check(Clip([screen,new(0,1000,1000,2000)])!.Value.Equals(new NativePointerRect(100,100,200,int.MaxValue)));
+        Check(Clip([screen,new(1200,0,2200,1000)])!.Value.Right==int.MaxValue);
+        Check(Clip([screen,new(1000,1100,2000,2100)])!.Value.Right==200);
+        Check(Clip([screen,new(1000,505,2000,800)])!.Value.Right==int.MaxValue);
+        Check(Clip([screen,new(1000,100,2000,505)])!.Value.Right==200);
+        Check(Clip([]) is null&&Clip([screen],false,false) is null);
+        var bars=new WindowsPointerMapping(full.Source,new(100,100,900,900),screen);
+        Check(WindowsMonitorClip.Compute(bars,[screen],150,150,true,true)!.Value.Equals(full.Source));
+        Check(WindowsMonitorClip.Compute(bars,[screen],150,150,true,false)!.Value.Equals(new NativePointerRect(0,0,300,300)));
+        Check(WindowsMonitorClip.Compute(bars,[screen],500,500,false,true)!.Value.Equals(bars.Destination));
+        var cropped=new WindowsPointerMapping(full.Source,new(-5,-7,1005,1007),screen);
+        Check(WindowsMonitorClip.Compute(cropped,[screen],150,150,true,true)!.Value.Equals(new NativePointerRect(101,101,198,198)));
         if(!OperatingSystem.IsWindows())
         {
             Check(NativeCore.WindowsSystemCursor(0)==0&&NativeCore.WindowsPointerWindow(0,0,0,0)==0);

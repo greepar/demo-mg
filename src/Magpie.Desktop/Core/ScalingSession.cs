@@ -441,6 +441,14 @@ internal sealed partial class ScalingSession
         var offset=PresentationPlan.Destination(viewport.Width,viewport.Height,(uint)_bitmap.PixelSize.Width,(uint)_bitmap.PixelSize.Height,_settings.OutputAlignment);
         _image.Margin=new Thickness((origin.X+offset.X)/_output.RenderScaling,(origin.Y+offset.Y)/_output.RenderScaling,0,0);
         _image.Width=_bitmap.PixelSize.Width/_output.RenderScaling;_image.Height=_bitmap.PixelSize.Height/_output.RenderScaling;
+        if(_toolbar is {} toolbar)
+        {
+            double top=Math.Clamp(_image.Margin.Top,0,Math.Max(0,_output.ClientSize.Height-1));
+            double width=Math.Min(_output.ClientSize.Width,Math.Max(320,_image.Width));
+            double left=Math.Clamp(_image.Margin.Left,0,Math.Max(0,_output.ClientSize.Width-width));
+            toolbar.HorizontalAlignment=Avalonia.Layout.HorizontalAlignment.Left;toolbar.Width=width;
+            toolbar.Margin=new Thickness(left,top,0,0);toolbar.MaxHeight=Math.Max(1,_output.ClientSize.Height-top);
+        }
     }
     private unsafe bool Present(byte[] pixels, uint width, uint height)
     {

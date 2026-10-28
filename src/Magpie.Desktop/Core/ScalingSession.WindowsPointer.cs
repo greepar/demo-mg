@@ -36,6 +36,7 @@ internal sealed partial class ScalingSession
     private Image? _windowsCursorOverlay;
     private WriteableBitmap? _windowsCursorBitmap;
     private NativePointerRect? _windowsAppliedClip;
+    private NativePointerRect? _windowsRequestedClip;
     private int _windowsHitGeneration;
     private bool _windowsHitPending;
     private int _windowsHitArea;
@@ -78,20 +79,27 @@ internal sealed partial class ScalingSession
         }
         finally {SetWindowsClip(ref previous);}
     }
-    private void ClipWindowsSource(bool clip)
+    private void ClipWindowsSource(bool clip)=>ApplyWindowsClip(clip?_windowsPointerMapping.Source:null);
+    private void ApplyWindowsClip(NativePointerRect? clip)
     {
-        if(clip)
+        if(clip is {} wanted)
         {
-            var wanted=_windowsPointerMapping.Source;
-            if(ReadWindowsClip(out var actual)&&_windowsAppliedClip is {} last&&actual.Equals(last)&&actual.Equals(wanted))return;
-            if(SetWindowsClip(ref wanted)&&ReadWindowsClip(out actual))_windowsAppliedClip=actual;
+            if(ReadWindowsClip(out var actual)&&_windowsAppliedClip is {} last&&actual.Equals(last)&&_windowsRequestedClip is {} request&&request.Equals(wanted))return;
+            if(!SetWindowsClip(ref wanted)||!ReadWindowsClip(out actual))throw new InvalidOperationException("Cannot apply native pointer boundaries.");
+            _windowsRequestedClip=wanted;_windowsAppliedClip=actual;
         }
         else if(_windowsAppliedClip is {} previous)
         {
             // Do not clear a clip subsequently installed by another app.
-            if(ReadWindowsClip(out var actual)&&actual.Equals(previous))ClearWindowsClip(0);
-            _windowsAppliedClip=null;
+            if(ReadWindowsClip(out var actual)&&actual.Equals(previous)&&!ClearWindowsClip(0))throw new InvalidOperationException("Cannot release native pointer boundaries.");
+            _windowsAppliedClip=null;_windowsRequestedClip=null;
         }
+    }
+    private void ApplyWindowsMonitorClip(int x,int y,bool captured,nint owner)
+    {
+        if(_output is null)return;
+        var monitors=_output.Screens.All.Select(s=>new NativePointerRect(s.Bounds.X,s.Bounds.Y,s.Bounds.Right,s.Bounds.Bottom)).ToArray();
+        ApplyWindowsClip(WindowsMonitorClip.Compute(_windowsPointerMapping,monitors,x,y,captured,OutputForeground()==owner));
     }
     private void EndWindowsPointer(bool mapBack=true)
     {
@@ -156,6 +164,10 @@ internal sealed partial class ScalingSession
         if(!ReadWindowsPointer(out var physical)) {_windowsPointerStatus="GetCursorPos failed";EndWindowsPointer(false);return;}
         nint output=_output.TryGetPlatformHandle()!.Handle,owner=unchecked((nint)_lastSourceInfo.WindowId);
         var visual=_windowsPointerCaptured?mapping.ToOutput(physical.X,physical.Y):(physical.X,physical.Y);
+        // Native source input bypasses Avalonia mouse messages. The toolbar
+        // still consumes the same virtual pointer that is drawn on the output.
+        var origin=_output.PointToScreen(default);double dpi=_output.RenderScaling;
+        _toolbarPointer=new Point((visual.Item1-origin.X)/dpi,(visual.Item2-origin.Y)/dpi);UpdateToolbarVisibility();
         var gui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
         bool nativeDrag=ReadWindowsGui(0,ref gui)&&gui.Capture!=0&&(gui.Flags&0x1c)==0;
         if(nativeDrag&&WindowsPointerRoot(gui.Capture,2)!=owner) {_windowsPointerStatus="another application's native capture";EndWindowsPointer(false);return;}
@@ -164,7 +176,6 @@ internal sealed partial class ScalingSession
             // Source owns the actual drag/capture; never warp midway through it.
             _windowsPointerStatus="native source drag";ClipWindowsSource((gui.Flags&2)==0);DrawWindowsCursor(visual.Item1,visual.Item2);return;
         }
-        ClipWindowsSource(false);
         bool onOutput=NativeCore.WindowsPointerWindow(output,visual.Item1,visual.Item2,0)==(ulong)output;
         if(!_windowsPointerCaptured&&onOutput&&!nativeDrag&&OutputForeground()==owner&&
             !WindowsPointerOnOverlay(visual.Item1,visual.Item2)&&!mapping.Destination.Contains(visual.Item1,visual.Item2))
@@ -183,6 +194,7 @@ internal sealed partial class ScalingSession
                 }
                 EndWindowsPointer(!nativeDrag);
             }
+            else ClipWindowsSource(false);
             return;
         }
         var mapped=_windowsPointerCaptured?(physical.X,physical.Y):mapping.ToSource(visual.Item1,visual.Item2);
@@ -203,6 +215,7 @@ internal sealed partial class ScalingSession
             var afterHide=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
             if(ReadWindowsCursor(ref afterHide))_windowsCursorAfterHide=afterHide.Flags;
             _windowsSystemCursorHidden=true;_windowsPointerCaptured=true;
+            ApplyWindowsMonitorClip(mapped.Item1,mapped.Item2,true,owner);
             // Original _ReliableSetCursorPos refreshes the real source cursor.
             // This is a cursor notification, never fabricated mouse input.
             nint child=WindowsPointerChild(new(mapped.Item1,mapped.Item2));
@@ -214,6 +227,7 @@ internal sealed partial class ScalingSession
             }
         }
         else if(!DrawWindowsCursor(visual.Item1,visual.Item2))EndWindowsPointer();
+        if(_windowsPointerCaptured)ApplyWindowsMonitorClip(mapped.Item1,mapped.Item2,true,owner);
     }
     private unsafe bool DrawWindowsCursor(int x,int y)
     {

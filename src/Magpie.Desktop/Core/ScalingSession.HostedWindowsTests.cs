@@ -277,6 +277,14 @@ internal sealed partial class ScalingSession
                     await WaitHosted(()=> {source.Refresh();window=source.MainWindowHandle;return window!=0;},null,()=>failure,"owned source HWND");
                     RequireOwnedSource(source,window);FixtureActivate(window);
                     await WaitHosted(()=>FixtureForeground()==window,null,()=>failure,"owned source foreground");
+                    if(fullscreen)
+                    {
+                        // A genuinely wide native source creates large top/bottom
+                        // bars; the toolbar must remain reachable from the image.
+                        RequireOwnedSource(source,window);
+                        if(!PositionOwnedOutput(window,0,0,0,520,140,0x16))throw new InvalidOperationException("Cannot size owned wide source.");
+                        await Task.Delay(100);
+                    }
                     evidence.SourcePid=(uint)source.Id;evidence.SourceWindow=(ulong)window;
                     Phase("initial production capture");run=session.RunAsync(owner,fullscreen,0);
                     await WaitHosted(()=>session._bitmap is not null&&session._lastSourceSequence>0,run,()=>failure,"initial production bitmap",30);

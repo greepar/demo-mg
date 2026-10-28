@@ -83,6 +83,7 @@ internal sealed partial class ScalingSession
             await WaitHosted(()=>ReadHostedScreenPixel(movedVisual)==inverse,run,failure,"native software cursor follows actual source drag",5);
             if(FixtureForeground()!=sourceWindow||(FixtureKeyState(1)&0x8000)!=0||(long)FixtureProperty(sourceWindow,"MagpieFixtureWheelDelta")!=120)
                 throw new InvalidOperationException("Scaled native source mouse lost foreground or input state.");
+            await VerifyHostedMonitorAndToolbar(source,sourceWindow,run,failure,evidence,origin,client,moved);
             evidence.ScaledNativeMousePassed=true;
         }
         catch(Exception)

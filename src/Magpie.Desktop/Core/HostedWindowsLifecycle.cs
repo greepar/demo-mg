@@ -51,6 +51,11 @@ internal sealed class HostedLifecycleCase
     public bool NativeInvertCursorPassed {get;set;}
     public uint NativeInvertCursorPixel {get;set;}
     public bool NativePointerCleanupPassed {get;set;}
+    public bool NativeMonitorClipPassed {get;set;}
+    public bool NativeToolbarExitPassed {get;set;}
+    public bool NativeFullscreenBoundsPassed {get;set;}
+    public int NativeMonitorCount {get;set;}
+    public int NativeBoundaryClampChecks {get;set;}
     public uint LayeredScreenPixel {get;set;}
     public bool TopmostPreferenceHonored {get;set;}
     public bool SourceTopmostInherited {get;set;}

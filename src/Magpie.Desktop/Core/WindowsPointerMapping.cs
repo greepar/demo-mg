@@ -9,6 +9,7 @@ internal static class WindowsCursorVisibility
     internal static bool Draw(uint flags,bool ownedHide,uint before,uint after)=>
         flags==1||(ownedHide&&flags==2&&before==1&&after==2);
 }
+internal enum WindowsPointerRound { Nearest,Floor,Ceiling }
 
 [StructLayout(LayoutKind.Sequential)]
 internal struct NativePointerRect
@@ -23,18 +24,18 @@ internal readonly record struct WindowsPointerMapping(NativePointerRect Source,N
 {
     // Original CursorManager maps pixel centres, including both end pixels.
     // Outside the source, preserve unscaled distance and optionally skip bars.
-    internal static int Axis(int point,int left,int right,int toLeft,int toRight,int outsideLeft,int outsideRight,MidpointRounding rounding=MidpointRounding.AwayFromZero)
+    internal static int Axis(int point,int left,int right,int toLeft,int toRight,int outsideLeft,int outsideRight,WindowsPointerRound rounding=WindowsPointerRound.Nearest)
     {
         if(right<=left||toRight<=toLeft)throw new ArgumentException("Empty pointer rectangle.");
         if(point<left)return checked(outsideLeft+point-left);
         if(point>=right)return checked(outsideRight+point-right);
         if(right-left==1)return toLeft;
         double delta=(double)(point-left)/(right-left-1)*(toRight-toLeft-1);
-        return checked(toLeft+(int)Math.Round(delta,rounding));
+        return checked(toLeft+(int)(rounding switch {WindowsPointerRound.Floor=>Math.Floor(delta),WindowsPointerRound.Ceiling=>Math.Ceiling(delta),_=>Math.Round(delta,MidpointRounding.AwayFromZero)}));
     }
-    internal (int X,int Y) ToSource(int x,int y)=>(
-        Axis(x,Destination.Left,Destination.Right,Source.Left,Source.Right,Source.Left,Source.Right),
-        Axis(y,Destination.Top,Destination.Bottom,Source.Top,Source.Bottom,Source.Top,Source.Bottom));
+    internal (int X,int Y) ToSource(int x,int y,WindowsPointerRound rounding=WindowsPointerRound.Nearest)=>(
+        Axis(x,Destination.Left,Destination.Right,Source.Left,Source.Right,Source.Left,Source.Right,rounding),
+        Axis(y,Destination.Top,Destination.Bottom,Source.Top,Source.Bottom,Source.Top,Source.Bottom,rounding));
     internal (int X,int Y) ToOutput(int x,int y,bool skipBars=false)=>(
         Axis(x,Source.Left,Source.Right,Destination.Left,Destination.Right,skipBars?Renderer.Left:Destination.Left,skipBars?Renderer.Right:Destination.Right),
         Axis(y,Source.Top,Source.Bottom,Destination.Top,Destination.Bottom,skipBars?Renderer.Top:Destination.Top,skipBars?Renderer.Bottom:Destination.Bottom));

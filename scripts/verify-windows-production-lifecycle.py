@@ -109,6 +109,8 @@ try:
             if not case['LayeredRepaintPassed'] or case['LayeredScreenPixel']!=(211|(47<<8)|(173<<16)):raise RuntimeError('Layered native output lost compositor pixels or stopped repainting.')
             if not all(case[key] for key in ('ScaledNativeMousePassed','NativeInvertCursorPassed','NativePointerCleanupPassed')):raise RuntimeError('Scaled native pointer/cursor/cleanup acceptance is missing.')
             if case['NativeInvertCursorPixel']!=(232|(188<<8)|(146<<16)):raise RuntimeError('Actual XOR cursor compositor pixel is missing.')
+            if not all(case[key] for key in ('NativeMonitorClipPassed','NativeToolbarExitPassed','NativeFullscreenBoundsPassed')):raise RuntimeError('Native monitor/toolbar/fullscreen coverage is missing.')
+            if case['NativeMonitorCount']<1 or (case['Fullscreen'] and case['NativeMonitorCount']==1 and case['NativeBoundaryClampChecks']!=1):raise RuntimeError('Single-monitor native boundary clamp was not exercised.')
             if not (case['FirstSequence']<case['RestoredSequence']<case['ShownSequence']):raise RuntimeError('Restoration did not advance real capture sequences.')
             if not case['SourcePid'] or not case['SourceWindow'] or 'swiftshader' not in case['Device'].lower():raise RuntimeError('Missing actual source/software Vulkan identity.')
             if not case['SourceClosedWithoutError'] and not case['Fullscreen']:raise RuntimeError('Source closure failed.')

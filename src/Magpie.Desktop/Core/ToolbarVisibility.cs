@@ -12,7 +12,7 @@ internal static class ToolbarVisibility
         if(state==ToolbarState.AlwaysShow||itemActive)return 1;
         if(pointer is not {} point)return 0;
         double x=Math.Max(Math.Max(bounds.Left-point.X,point.X-bounds.Right),0);
-        double y=Math.Max(Math.Max(-point.Y,point.Y-bounds.Bottom),0);
+        double y=Math.Max(Math.Max(bounds.Top-point.Y,point.Y-bounds.Bottom),0);
         // OverlayDrawer::_CalcToolbarAlpha: 10 DIP plateau, 40 DIP fade.
         return (40-Math.Clamp(Math.Sqrt(x*x+y*y)-10,0,40))/40;
     }

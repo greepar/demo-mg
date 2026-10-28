@@ -13,6 +13,9 @@ internal static class ToolbarTests
             if(Math.Abs(actual-wanted)>1e-8)throw new InvalidOperationException("Toolbar fade differs from original distance formula.");
         }
         if(ToolbarVisibility.Alpha(ToolbarState.AutoHide,rect,null,false)!=0 || ToolbarVisibility.Alpha(ToolbarState.AutoHide,rect,null,true)!=1)throw new InvalidOperationException("Toolbar activity did not protect active interaction.");
+        if(ToolbarVisibility.Alpha(ToolbarState.AutoHide,new Rect(100,200,320,80),new Point(110,170),false)!=.5||
+            ToolbarVisibility.Alpha(ToolbarState.AutoHide,new Rect(100,200,320,80),new Point(110,149),false)!=0)
+            throw new InvalidOperationException("Letterboxed toolbar fade did not use its actual image-relative top.");
         if(ToolbarVisibility.Next(ToolbarState.Off)!=ToolbarState.AlwaysShow||ToolbarVisibility.Next(ToolbarState.AlwaysShow)!=ToolbarState.AutoHide||ToolbarVisibility.Next(ToolbarState.AutoHide)!=ToolbarState.Off)throw new InvalidOperationException("Toolbar shortcut state order differs from the original.");
         string path=Path.Combine(Path.GetTempPath(),"magpie-toolbar-"+Guid.NewGuid().ToString("N"),"settings.json");
         try
