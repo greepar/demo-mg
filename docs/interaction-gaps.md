@@ -58,6 +58,8 @@ Linux 移除恒为零的帧序号替身，接入交付序号/暂停与恢复状�
 
 ### Windows 初始焦点与源键盘
 
+`e79dadc0` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40666263245/job/122741417143) 现已实际通过 GDI/WGC × 普通/全屏四场景生产联合门，WGC 未跳过：初始/两次恢复后原生输出点击及源键盘均通过；渲染提交阻塞期间保持 native hidden、置顶偏好与源置顶继承、独立前台应用保持可见和键盘/源身份、几何/GPU 暂停/截图/关闭清理也通过。更新下文历史待验证/失败状态，范围见 [本次实际结果](source-lifecycle.md#e79dadc0-实际-owned-window-与原生输入结果)。鼠标到源的操作、软件光标、游戏模式等继续缺失，WGC 间歇超时与 NNEDI3 问题仍未定位/排除，完整目标未完成。
+
 后续真实点击门已定位并修复部分 owned-window / Avalonia 主动聚焦 / 批量窗口层级问题：`54e59c6c` 已实际通过 GDI 普通窗口全部联合检查，以及全屏初始点击、置顶设置和独立前台应用切换；全屏恢复仍有原生命中失败。`bda833b6` 尚未执行到追加 UI 验证，先在原生 WGC 标题栏隐藏恢复阶段超时。现补充受 hosted/fixture opt-in 限制的阶段/等待链诊断、显式归还 frame buffer 与重复隐藏恢复检查，不增加重试或放宽超时。该间歇超时与 NNEDI3 问题一样仍需定位，不能称为底层稳定性或完整交互已经验收。各次失败与范围见 [源生命周期证据](source-lifecycle.md#前台层级与禁用置顶)。
 
 `b34e68ea` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40628594500/job/122619391301) 已实际通过新增初始/两次恢复的原生键盘验收：GDI/WGC × 窗口/全屏四个场景均保留源前台，每个场景 `NativeKeyboardChecks=3`，B 字符、Esc/F12 的按下和释放到达 Win32 源。后续 `1d0ea02e` 增加输出原生非激活样式/鼠标激活处理，以及三个阶段真实输出点击后的前台/键盘复验，仍需该提交目标 CI。见 [初始焦点与源键盘](source-lifecycle.md#windows-初始显示焦点与源键盘)。这不补齐输出到源的鼠标映射、光标、游戏模式或跨平台输入，完整目标仍未完成。
