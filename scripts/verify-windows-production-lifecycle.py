@@ -106,7 +106,7 @@ try:
             if case['State']=='unavailable' and case['Backend']=='GraphicsCapture':continue
             if case['State']!='passed' or not all(case[key] for key in ('NativeOutputHidden','ForegroundPreserved','InitialForegroundPreserved','IdleGpuPreserved','SourceExitedCleanly','TopmostPreferenceHonored','SourceTopmostInherited','OtherForegroundPreserved','LayeredNativeMousePassed')) or case['NativeKeyboardChecks']!=3 or case['NativeOutputClickChecks']!=3 or case['ResumeHeldHiddenChecks']!=2:
                 raise RuntimeError('Missing source/native-output/focus/idle checks: '+str(case))
-            if case['LayeredScreenPixel']!=211|(47<<8)|(173<<16):raise RuntimeError('Layered native output lost compositor pixels.')
+            if not case['LayeredRepaintPassed'] or case['LayeredScreenPixel']!=(211|(47<<8)|(173<<16)):raise RuntimeError('Layered native output lost compositor pixels or stopped repainting.')
             if not (case['FirstSequence']<case['RestoredSequence']<case['ShownSequence']):raise RuntimeError('Restoration did not advance real capture sequences.')
             if not case['SourcePid'] or not case['SourceWindow'] or 'swiftshader' not in case['Device'].lower():raise RuntimeError('Missing actual source/software Vulkan identity.')
             if not case['SourceClosedWithoutError'] and not case['Fullscreen']:raise RuntimeError('Source closure failed.')

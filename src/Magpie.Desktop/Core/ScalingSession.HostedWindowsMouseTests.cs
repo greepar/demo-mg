@@ -95,6 +95,13 @@ internal sealed partial class ScalingSession
             uint during=ReadHostedScreenPixel(point);
             if(during!=expectedPixel)throw new InvalidOperationException($"Layered output lost actual compositor content: pixel={during:x}, expected={expectedPixel:x}.");
             evidence.LayeredScreenPixel=during;
+            // A retained pre-style desktop image is insufficient: verify new
+            // Avalonia drawing still reaches DWM while mouse-transparent.
+            marker.Background=new SolidColorBrush(Color.FromRgb(69,197,83));
+            await WaitHosted(()=>ReadHostedScreenPixel(point)==(69u|(197u<<8)|(83u<<16)),run,failure,"fresh layered compositor repaint",5);
+            marker.Background=new SolidColorBrush(Color.FromRgb(211,47,173));
+            await WaitHosted(()=>ReadHostedScreenPixel(point)==expectedPixel,run,failure,"second layered compositor repaint",5);
+            evidence.LayeredRepaintPassed=true;
             long down=(long)FixtureProperty(sourceWindow,"MagpieFixtureMouseDown"),up=(long)FixtureProperty(sourceWindow,"MagpieFixtureMouseUp");
             long drag=(long)FixtureProperty(sourceWindow,"MagpieFixtureDrag"),wheel=(long)FixtureProperty(sourceWindow,"MagpieFixtureWheel");
             // Separate genuine down/move/up exercises native source capture;
