@@ -43,6 +43,8 @@ internal sealed partial class ScalingSession
     {
         [FieldOffset(0)]public uint Type;
         [FieldOffset(8)]public ushort Key;
+        [FieldOffset(8)]public int MouseX;
+        [FieldOffset(12)]public int MouseY;
         [FieldOffset(12)]public uint Flags;
         [FieldOffset(16)]public int MouseData;
         [FieldOffset(20)]public uint MouseFlags;

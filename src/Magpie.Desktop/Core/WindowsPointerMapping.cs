@@ -1,6 +1,15 @@
 using System.Runtime.InteropServices;
 namespace Magpie.Desktop.Core;
 
+internal static class WindowsCursorVisibility
+{
+    // Some desktops report suppression as the result of our global hide. Only
+    // compensate an observed SHOWING -> SUPPRESSED transition caused by that
+    // call; pre-existing touch/pen suppression and application hiding stay hidden.
+    internal static bool Draw(uint flags,bool ownedHide,uint before,uint after)=>
+        flags==1||(ownedHide&&flags==2&&before==1&&after==2);
+}
+
 [StructLayout(LayoutKind.Sequential)]
 internal struct NativePointerRect
 {

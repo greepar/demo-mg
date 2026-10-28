@@ -41,6 +41,7 @@ internal sealed partial class ScalingSession
     private int _windowsHitArea;
     private PixelPoint? _windowsHitPoint;
     private string _windowsPointerStatus="not started";
+    private uint _windowsCursorBeforeHide,_windowsCursorAfterHide;
 
     private static NativePointerRect WindowsRect(Visual visual,double width,double height)
     {
@@ -195,7 +196,12 @@ internal sealed partial class ScalingSession
             if(!source.Contains(mapped.Item1,mapped.Item2)||!DrawWindowsCursor(visual.Item1,visual.Item2))return;
             SetWindowsPassthrough(true);
             MoveWindowsPointerReliably(mapped.Item1,mapped.Item2);
+            _windowsCursorBeforeHide=0;_windowsCursorAfterHide=0;
+            var beforeHide=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
+            if(ReadWindowsCursor(ref beforeHide))_windowsCursorBeforeHide=beforeHide.Flags;
             if(NativeCore.WindowsSystemCursor(0)!=1) {_windowsPointerStatus="system cursor visibility API unavailable";SetWindowsPassthrough(false);MoveWindowsPointerReliably(visual.Item1,visual.Item2);return;}
+            var afterHide=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
+            if(ReadWindowsCursor(ref afterHide))_windowsCursorAfterHide=afterHide.Flags;
             _windowsSystemCursorHidden=true;_windowsPointerCaptured=true;
             // Original _ReliableSetCursorPos refreshes the real source cursor.
             // This is a cursor notification, never fabricated mouse input.
@@ -214,7 +220,8 @@ internal sealed partial class ScalingSession
         if(_bitmap is null||_output?.Content is not Grid grid||_image is null)return false;
         var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
         if(!ReadWindowsCursor(ref cursor)) {_windowsPointerStatus="GetCursorInfo failed";return false;}
-        if((cursor.Flags&1)==0) {_windowsPointerStatus="source cursor not visible: flags="+cursor.Flags;if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
+        if(!WindowsCursorVisibility.Draw(cursor.Flags,_windowsSystemCursorHidden,_windowsCursorBeforeHide,_windowsCursorAfterHide))
+        {_windowsPointerStatus="source cursor not visible: flags="+cursor.Flags;if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
         if(NativeCore.WindowsCursorCopy((ulong)cursor.Cursor,out var shape,24)!=1) {_windowsPointerStatus="native cursor copy: "+NativeCore.Error().Message;return false;}
         try
         {

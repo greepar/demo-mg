@@ -7,6 +7,22 @@ namespace Magpie.Desktop.Core;
 
 internal sealed partial class ScalingSession
 {
+    [DllImport("user32",EntryPoint="GetSystemMetrics")]private static extern int HostedDesktopMetric(int index);
+    private static unsafe void MoveHostedMouseInput(Process source,nint sourceWindow,nint output,FixturePoint point)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
+        if(FixtureForeground()!=sourceWindow||FixtureRoot(FixtureAtPoint(point),2)!=output)
+            throw new InvalidOperationException("Native mouse entry requires the owned foreground source and its visible output.");
+        int left=HostedDesktopMetric(76),top=HostedDesktopMetric(77),width=HostedDesktopMetric(78),height=HostedDesktopMetric(79);
+        if(width<=0||height<=0||width>32768||height>32768||point.X<left||point.X>=left+width||point.Y<top||point.Y>=top+height)
+            throw new InvalidOperationException("Hosted desktop cannot represent the exact requested absolute mouse pixel.");
+        // Pixel-centre normalization for the real absolute mouse event. A plain
+        // SetCursorPos warp does not establish mouse input as the last device.
+        FixtureKeyboardInput input=new() {MouseX=(int)(((long)(point.X-left)*65536+32768)/width),
+            MouseY=(int)(((long)(point.Y-top)*65536+32768)/height),MouseFlags=0xc001};
+        if(FixtureSendInput(1,&input,sizeof(FixtureKeyboardInput))!=1)
+            throw new InvalidOperationException("Cannot deliver native mouse entry movement: "+Marshal.GetLastWin32Error());
+    }
     private async Task VerifyHostedScaledPointer(Process source,nint sourceWindow,Task run,Func<string?> failure,HostedLifecycleCase evidence)
     {
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
@@ -27,14 +43,17 @@ internal sealed partial class ScalingSession
         bool buttonDown=false;
         try
         {
-            if(!FixtureMoveCursor(visual.X,visual.Y))throw new InvalidOperationException("Cannot enter scaled output with physical pointer.");
+            if((long)FixtureProperty(sourceWindow,"MagpieFixtureCursorDisplayCount")<1000)
+                throw new InvalidOperationException("Owned source did not establish its visible-cursor display count.");
+            MoveHostedMouseInput(source,sourceWindow,HostedOutputHandle(),visual);
+            await WaitHosted(()=>FixtureCursor(out var at)&&at.X==visual.X&&at.Y==visual.Y,run,failure,"exact native absolute mouse entry");
             _windowsPointerSuppressed=false;
             try {await WaitHosted(()=>_windowsPointerCaptured&&_windowsSystemCursorHidden&&_windowsCursorOverlay is {IsVisible:true},run,failure,"production native virtual cursor",10);}
             catch(Exception error)
             {
                 FixtureCursor(out var now);var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};ReadWindowsCursor(ref cursor);
                 var m=_windowsPointerMapping;
-                throw new InvalidOperationException($"Native pointer status={_windowsPointerStatus}; captured={_windowsPointerCaptured}; hidden={_windowsSystemCursorHidden}; passthrough={_windowsPointerPassthrough}; overlay={_windowsCursorOverlay?.IsVisible}; pointer={now.X},{now.Y}; expectedPointer={physical.X},{physical.Y}; inputVisual={visual.X},{visual.Y}; cursorFlags={cursor.Flags}; cursor={cursor.Cursor}; sourceRect={m.Source.Left},{m.Source.Top},{m.Source.Right},{m.Source.Bottom}; destRect={m.Destination.Left},{m.Destination.Top},{m.Destination.Right},{m.Destination.Bottom}; imageBounds={_image.Bounds}; bitmap={_bitmap.PixelSize}; hitOutput={NativeCore.WindowsPointerWindow(HostedOutputHandle(),visual.X,visual.Y,0)}; expectedOutput={HostedOutputHandle()}; hitSource={NativeCore.WindowsPointerWindow(HostedOutputHandle(),physical.X,physical.Y,1)}; expectedSource={sourceWindow}.",error);
+                throw new InvalidOperationException($"Native pointer status={_windowsPointerStatus}; captured={_windowsPointerCaptured}; hidden={_windowsSystemCursorHidden}; passthrough={_windowsPointerPassthrough}; overlay={_windowsCursorOverlay?.IsVisible}; pointer={now.X},{now.Y}; expectedPointer={physical.X},{physical.Y}; inputVisual={visual.X},{visual.Y}; cursorFlags={cursor.Flags}; beforeHide={_windowsCursorBeforeHide}; afterHide={_windowsCursorAfterHide}; cursor={cursor.Cursor}; sourceShowCount={(long)FixtureProperty(sourceWindow,"MagpieFixtureCursorDisplayCount")-1000}; sourceCursorUpdates={FixtureProperty(sourceWindow,"MagpieFixtureCursorUpdates")}; sourceRect={m.Source.Left},{m.Source.Top},{m.Source.Right},{m.Source.Bottom}; destRect={m.Destination.Left},{m.Destination.Top},{m.Destination.Right},{m.Destination.Bottom}; imageBounds={_image.Bounds}; bitmap={_bitmap.PixelSize}; hitOutput={NativeCore.WindowsPointerWindow(HostedOutputHandle(),visual.X,visual.Y,0)}; expectedOutput={HostedOutputHandle()}; hitSource={NativeCore.WindowsPointerWindow(HostedOutputHandle(),physical.X,physical.Y,1)}; expectedSource={sourceWindow}.",error);
             }
             if(!FixtureCursor(out var actual)||actual.X!=physical.X||actual.Y!=physical.Y)
                 throw new InvalidOperationException($"Scaled pointer landed at {actual.X},{actual.Y}, expected independent source pixel {physical.X},{physical.Y}.");
@@ -65,6 +84,12 @@ internal sealed partial class ScalingSession
             if(FixtureForeground()!=sourceWindow||(FixtureKeyState(1)&0x8000)!=0||(long)FixtureProperty(sourceWindow,"MagpieFixtureWheelDelta")!=120)
                 throw new InvalidOperationException("Scaled native source mouse lost foreground or input state.");
             evidence.ScaledNativeMousePassed=true;
+        }
+        catch(Exception)
+        {
+            var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};ReadWindowsCursor(ref cursor);
+            Console.Error.WriteLine($"SCALED POINTER FAILURE STATE: status={_windowsPointerStatus}; cursorFlags={cursor.Flags}; beforeHide={_windowsCursorBeforeHide}; afterHide={_windowsCursorAfterHide}; captured={_windowsPointerCaptured}; hidden={_windowsSystemCursorHidden}; sourceCount={(long)FixtureProperty(sourceWindow,"MagpieFixtureCursorDisplayCount")-1000}; sourceCursorUpdates={FixtureProperty(sourceWindow,"MagpieFixtureCursorUpdates")}.");
+            throw;
         }
         finally
         {

@@ -6,6 +6,9 @@ internal static class WindowsPointerMappingTests
     {
         void Check(bool ok) {if(!ok)throw new InvalidOperationException("Original Windows physical cursor mapping differs.");}
         Check(Marshal.SizeOf<NativePointerRect>()==16&&Marshal.SizeOf<NativeCursorShape>()==24);
+        Check(WindowsCursorVisibility.Draw(1,false,0,0)&&WindowsCursorVisibility.Draw(2,true,1,2));
+        Check(!WindowsCursorVisibility.Draw(0,true,1,2)&&!WindowsCursorVisibility.Draw(2,true,2,2)&&
+            !WindowsCursorVisibility.Draw(2,false,1,2)&&!WindowsCursorVisibility.Draw(2,true,1,1));
         var m=new WindowsPointerMapping(new(-20,-30,80,20),new(100,200,400,350),new(80,180,450,380));
         Check(m.ToOutput(-20,-30)==(100,200)&&m.ToOutput(79,19)==(399,349));
         Check(m.ToSource(100,200)==(-20,-30)&&m.ToSource(399,349)==(79,19));

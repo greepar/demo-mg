@@ -22,6 +22,10 @@
 namespace {
 constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2;
 LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
+    if(message==WM_SETCURSOR) {
+        auto count=reinterpret_cast<uintptr_t>(GetPropW(window,L"MagpieFixtureCursorUpdates"));
+        SetPropW(window,L"MagpieFixtureCursorUpdates",reinterpret_cast<HANDLE>(count+1));
+    }
     // Native mouse acceptance for the disposable production-output test. These
     // properties observe real dispatched input, never posted mouse messages.
     if(message==WM_LBUTTONDOWN||message==WM_LBUTTONUP||message==WM_MOUSEWHEEL||
@@ -113,6 +117,12 @@ int child(DWORD parent) {
     require(RegisterClassW(&cls)!=0,"Cannot register source fixture class");
     HWND window=CreateWindowW(cls.lpszClassName,title(parent).c_str(),WS_OVERLAPPEDWINDOW,100,100,300,240,nullptr,nullptr,instance,nullptr);
     require(window!=nullptr,"Cannot create source fixture window");
+    // Explicit visible-cursor contract for this source application, including
+    // desktops whose initial display count is -1 because no mouse is installed.
+    // Balance only our own increment when the source exits.
+    struct CursorDisplay {~CursorDisplay(){ShowCursor(FALSE);}} cursorDisplay;
+    int cursorCount=ShowCursor(TRUE);
+    SetPropW(window,L"MagpieFixtureCursorDisplayCount",reinterpret_cast<HANDLE>(intptr_t(cursorCount)+1000));
     ShowWindow(window,SW_SHOW);UpdateWindow(window);AllowSetForegroundWindow(parent);SetForegroundWindow(window);
     HANDLE parentWait{};
     require(RegisterWaitForSingleObject(&parentWait,owner.get(),[](void* context,BOOLEAN) {
