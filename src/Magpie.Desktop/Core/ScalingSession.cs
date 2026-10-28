@@ -328,6 +328,7 @@ internal sealed partial class ScalingSession
             MinWidth = initial is {} minimum ? minimum.MinimumWidth/initialScale : 320, MinHeight = initial is {} minimumSize ? minimumSize.MinimumHeight/initialScale : 200, Background = Brushes.Black,
             Content = content, WindowStartupLocation = WindowStartupLocation.CenterScreen
         };
+        ConfigureWindowsOutputFocus(_output);
         _output.Deactivated+=(_,_)=>EndProfilerDrag(false);
         _output.Closed+=(_,_)=>EndProfilerDrag(false);
         _initialSizingApplied=initial.HasValue;

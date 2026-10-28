@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 namespace Magpie.Desktop.Core;
 
@@ -17,6 +19,14 @@ internal sealed partial class ScalingSession
     [DllImport("user32",EntryPoint="GetPropW",CharSet=CharSet.Unicode)]private static extern nint FixtureProperty(nint window,string property);
     [DllImport("user32",EntryPoint="GetAsyncKeyState")]private static extern short FixtureKeyState(int key);
     [DllImport("user32",EntryPoint="SendInput",SetLastError=true)]private static extern unsafe uint FixtureSendInput(uint count,FixtureKeyboardInput* inputs,int size);
+    [DllImport("user32",EntryPoint="GetCursorPos")]private static extern bool FixtureCursor(out FixturePoint point);
+    [DllImport("user32",EntryPoint="SetCursorPos")]private static extern bool FixtureMoveCursor(int x,int y);
+    [DllImport("user32",EntryPoint="ClientToScreen")]private static extern bool FixtureToScreen(nint window,ref FixturePoint point);
+    [DllImport("user32",EntryPoint="GetClientRect")]private static extern bool FixtureClient(nint window,out FixtureRect rect);
+    [DllImport("user32",EntryPoint="WindowFromPoint")]private static extern nint FixtureAtPoint(FixturePoint point);
+    [DllImport("user32",EntryPoint="GetAncestor")]private static extern nint FixtureRoot(nint window,uint flag);
+    [StructLayout(LayoutKind.Sequential)]private struct FixturePoint {public int X,Y;}
+    [StructLayout(LayoutKind.Sequential)]private struct FixtureRect {public int Left,Top,Right,Bottom;}
     // This hosted fixture targets win-x64 only. INPUT includes the larger mouse
     // union; KEYBDINPUT starts at offset 8, not immediately after its DWORD tag.
     [StructLayout(LayoutKind.Explicit,Size=40)]
@@ -25,6 +35,52 @@ internal sealed partial class ScalingSession
         [FieldOffset(0)]public uint Type;
         [FieldOffset(8)]public ushort Key;
         [FieldOffset(12)]public uint Flags;
+        [FieldOffset(20)]public uint MouseFlags;
+    }
+
+    private static unsafe void SendHostedClick(Process source,nint sourceWindow,nint output,FixturePoint point)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
+        if(IntPtr.Size!=8||FixtureForeground()!=sourceWindow||FixtureRoot(FixtureAtPoint(point),2)!=output||
+            (FixtureKeyState(1)&0x8000)!=0)throw new InvalidOperationException("Hosted click requires the owned visible output above its foreground source, with no held mouse button.");
+        FixtureKeyboardInput* inputs=stackalloc FixtureKeyboardInput[2];
+        inputs[0]=new(){MouseFlags=2};inputs[1]=new(){MouseFlags=4};
+        uint inserted=FixtureSendInput(2,inputs,sizeof(FixtureKeyboardInput));
+        if(inserted!=2)
+        {
+            int error=Marshal.GetLastWin32Error();
+            if(inserted==1)FixtureSendInput(1,inputs+1,sizeof(FixtureKeyboardInput));
+            throw new InvalidOperationException($"Hosted mouse SendInput inserted {inserted}/2 events, error {error}.");
+        }
+    }
+    private async Task VerifyHostedOutputClick(Process source,nint sourceWindow,Task run,Func<string?> failure)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
+        nint window=HostedOutputHandle();
+        if(!FixtureClient(window,out var rect)||rect.Right<20||rect.Bottom<20||!FixtureCursor(out var original))
+            throw new InvalidOperationException("Cannot locate owned output for native click test.");
+        var point=new FixturePoint {X=rect.Right/2,Y=rect.Bottom-10};
+        if(!FixtureToScreen(window,ref point))throw new InvalidOperationException("Cannot map owned output client point.");
+        int presses=0,releases=0;
+        EventHandler<PointerPressedEventArgs> pressed=(_,e)=> {if(e.GetCurrentPoint(_output).Properties.IsLeftButtonPressed)presses++;};
+        EventHandler<PointerReleasedEventArgs> released=(_,_)=>releases++;
+        _output!.AddHandler(InputElement.PointerPressedEvent,pressed,RoutingStrategies.Tunnel,handledEventsToo:true);
+        _output.AddHandler(InputElement.PointerReleasedEvent,released,RoutingStrategies.Tunnel,handledEventsToo:true);
+        try
+        {
+            if(!FixtureMoveCursor(point.X,point.Y))throw new InvalidOperationException("Cannot move fixture cursor.");
+            SendHostedClick(source,sourceWindow,window,point);
+            await WaitHosted(()=>presses==1&&releases==1,run,failure,"actual output pointer press/release");
+            await Task.Delay(150);
+            if(FixtureForeground()!=sourceWindow||(FixtureKeyState(1)&0x8000)!=0)
+                throw new InvalidOperationException("Click activated the output or left the mouse button held.");
+        }
+        finally
+        {
+            _output?.RemoveHandler(InputElement.PointerPressedEvent,pressed);
+            _output?.RemoveHandler(InputElement.PointerReleasedEvent,released);
+            FixtureMoveCursor(original.X,original.Y);
+        }
     }
 
     private static unsafe void SendHostedKey(Process source,nint window,ushort key)
@@ -143,6 +199,7 @@ internal sealed partial class ScalingSession
                     await Task.Delay(200);
                     if(FixtureForeground()!=window)throw new InvalidOperationException("Initial output stole foreground focus from its source.");
                     evidence.InitialForegroundPreserved=true;
+                    await session.VerifyHostedOutputClick(source,window,run,()=>failure);evidence.NativeOutputClickChecks++;
                     await VerifyHostedSourceKeyboard(source,window,run,()=>failure);evidence.NativeKeyboardChecks++;
                     evidence.SourceWidth=session._captureFrameWidth;evidence.SourceHeight=session._captureFrameHeight;evidence.FirstSequence=session._lastSourceSequence;
                     if(!fullscreen) {session._output!.Width+=80;session._output.Height+=40;await Task.Delay(200);}
@@ -165,6 +222,7 @@ internal sealed partial class ScalingSession
                         if(!FixtureVisible(session.HostedOutputHandle()))throw new InvalidOperationException("Restored output is not a visible native window.");
                         if(FixtureForeground()!=window)throw new InvalidOperationException("Restored output stole foreground focus from the source.");
                         evidence.ForegroundPreserved=true;session.CheckHostedPixels();
+                        await session.VerifyHostedOutputClick(source,window,run,()=>failure);evidence.NativeOutputClickChecks++;
                         await VerifyHostedSourceKeyboard(source,window,run,()=>failure);evidence.NativeKeyboardChecks++;
                         if(!fullscreen&&(Math.Abs(session._output!.ClientSize.Width-oldSize.Width)>1||Math.Abs(session._output.ClientSize.Height-oldSize.Height)>1||session._output.Position!=oldPosition))
                             throw new InvalidOperationException("Windowed production recovery lost output geometry.");
