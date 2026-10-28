@@ -6,6 +6,7 @@
 #include "windows_graphics_capture.h"
 #include "capture_mailbox.h"
 #include "windows_capture_region.h"
+#include "windows_capture_diagnostics.h"
 #include "error.h"
 #include <d3d11.h>
 #include <dxgi.h>
@@ -147,6 +148,7 @@ struct WindowsGraphicsCapture::State {
     std::string failure;
     std::string waiting="Waiting for the first Graphics Capture frame";
     const char* operation="initialize apartment";
+    WindowsCaptureDiagnostics diagnostics;
     bool ready{};
     uint64_t revision{};
     std::thread worker;
@@ -155,7 +157,8 @@ struct WindowsGraphicsCapture::State {
         DWORD process{};GetWindowThreadProcessId(window,&process);source.process_id=process;
         source.flags=MP_SOURCE_WINDOW|MP_SOURCE_PID;mailbox.begin(source);
     }
-    ~State() {stop=true;wake->changed.notify_all();if(worker.joinable())worker.join();}
+    ~State() {diagnostics.consumer("join capture producer");stop=true;wake->changed.notify_all();if(worker.joinable())worker.join();}
+    void setOperation(const char* step) {operation=step;diagnostics.producer(step);}
     bool stopping() const {return stop||cancelled;}
     void checkSource() {if(stopping()||!valid())throw std::runtime_error("Graphics Capture source was stopped or destroyed");}
     void run() noexcept {
@@ -167,34 +170,39 @@ struct WindowsGraphicsCapture::State {
     void pause() {mailbox.pauseInput();++revision;}
     void fail(std::string message) {std::lock_guard lock(mutex);failure=std::move(message);pause();ready=true;started.notify_all();}
     void produce() {
+        setOperation("initialize apartment");
         Apartment apartment;
         checkSource();
-        operation="query capture support";
+        setOperation("query capture support");
         if(!factory<GraphicsCaptureSession,IGraphicsCaptureSessionStatics>().IsSupported())throw std::runtime_error("Windows Graphics Capture is not supported by this desktop");
         com_ptr<ID3D11Device> device;com_ptr<ID3D11DeviceContext> context;
-        operation="create D3D11 device";
+        setOperation("create D3D11 device");
         check_hresult(D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             nullptr,0,D3D11_SDK_VERSION,device.put(),nullptr,context.put()));
         IDirect3DDevice wrapped{nullptr};auto dxgi=device.as<IDXGIDevice>();
-        operation="wrap D3D11 device";
+        setOperation("wrap D3D11 device");
         check_hresult(CreateDirect3D11DeviceFromDXGIDevice(dxgi.get(),reinterpret_cast<::IInspectable**>(put_abi(wrapped))));
         GraphicsCaptureItem item{nullptr};
-        operation="create capture item for HWND";
+        setOperation("create capture item for HWND");
         auto interop=factory<GraphicsCaptureItem,IGraphicsCaptureItemInterop>();
         check_hresult(interop->CreateForWindow(window,guid_of<GraphicsCaptureItem>(),put_abi(item)));
         auto size=item.Size();
         if(size.Width<=0||size.Height<=0||uint64_t(size.Width)*uint32_t(size.Height)>16777216)throw std::runtime_error("Unsupported Graphics Capture dimensions");
-        operation="create free-threaded frame pool";
+        setOperation("create free-threaded frame pool");
         auto pool=factory<Direct3D11CaptureFramePool,IDirect3D11CaptureFramePoolStatics2>().CreateFreeThreaded(wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,size);
-        operation="create capture session";
+        setOperation("create capture session");
         auto session=pool.CreateCaptureSession(item);
         auto configure=[](const GraphicsCaptureSession& target) {
             if(factory<ApiInformation,IApiInformationStatics>().IsPropertyPresent(L"Windows.Graphics.Capture.GraphicsCaptureSession",L"IsCursorCaptureEnabled"))target.IsCursorCaptureEnabled(false);
         };
         struct Close {
-            GraphicsCaptureSession& session;Direct3D11CaptureFramePool& pool;
-            ~Close() {try {session.Close();}catch(...) {}try {pool.Close();}catch(...) {}}
-        } close{session,pool};
+            GraphicsCaptureSession& session;Direct3D11CaptureFramePool& pool;WindowsCaptureDiagnostics& diagnostics;
+            ~Close() {
+                diagnostics.producer("close capture session for shutdown");try {session.Close();}catch(...) {}
+                diagnostics.producer("close frame pool for shutdown");try {pool.Close();}catch(...) {}
+                diagnostics.producer("capture resources closed");
+            }
+        } close{session,pool,diagnostics};
         // No access request/picker is triggered. Keep the system capture border
         // where permission is required; omit captured cursor like the other ports.
         configure(session);
@@ -206,12 +214,12 @@ struct WindowsGraphicsCapture::State {
         auto closed=item.Closed(auto_revoke,[weak](const auto&,const auto&) {
             if(auto state=weak.lock()) {std::lock_guard lock(state->mutex);state->closed=true;state->changed.notify_one();}
         });
-        operation="start capture session";session.StartCapture();
+        setOperation("start capture session");session.StartCapture();
         auto restart=[&](winrt::Windows::Graphics::SizeInt32 replacement) {
             arrived.revoke();
-            operation="close capture session for resize/resume";
+            setOperation("close capture session for resize/resume");
             session.Close();
-            operation="replace frame pool for resize/resume";
+            setOperation("replace frame pool for resize/resume");
             // Closing a capture session can leave its pool unable to create a
             // second session (E_UNEXPECTED on supported Windows builds). A
             // session restart must own a fresh pool and event subscription.
@@ -219,7 +227,7 @@ struct WindowsGraphicsCapture::State {
             pool=factory<Direct3D11CaptureFramePool,IDirect3D11CaptureFramePoolStatics2>().CreateFreeThreaded(
                 wrapped,DirectXPixelFormat::B8G8R8A8UIntNormalized,2,replacement);
             arrived=pool.FrameArrived(auto_revoke,onArrival);
-            operation="restart capture session for resize/resume";
+            setOperation("restart capture session for resize/resume");
             session=pool.CreateCaptureSession(item);configure(session);session.StartCapture();size=replacement;
         };
         {std::lock_guard lock(mutex);ready=true;started.notify_all();}
@@ -251,13 +259,17 @@ struct WindowsGraphicsCapture::State {
                 {std::lock_guard lock(mutex);waiting="Waiting for a fresh frame from the restarted restored-source session";}
                 inactive=false;continue;
             }
-            operation="query source geometry";auto before=geometry(window,titleBar);
+            setOperation("query source geometry");auto before=geometry(window,titleBar);
             if(!haveGeometry||!(before==previous)) {
                 std::lock_guard lock(mutex);pause();previous=before;haveGeometry=true;
             }
-            operation="acquire latest frame";auto frame=pool.TryGetNextFrame();if(!frame)continue;
-            while(auto next=pool.TryGetNextFrame())frame=std::move(next);
-            operation="read frame content size";auto content=frame.ContentSize();
+            setOperation("acquire latest frame");auto frame=pool.TryGetNextFrame();if(!frame)continue;
+            struct CloseFrame {
+                Direct3D11CaptureFrame& frame;WindowsCaptureDiagnostics& diagnostics;
+                ~CloseFrame(){if(frame) {diagnostics.producer("return captured frame buffer");try {frame.Close();}catch(...) {}}}
+            } closeFrame{frame,diagnostics};
+            while(auto next=pool.TryGetNextFrame()) {setOperation("return superseded captured frame");frame.Close();frame=std::move(next);}
+            setOperation("read frame content size");auto content=frame.ContentSize();
             if(content.Width!=size.Width||content.Height!=size.Height) {
                 {std::lock_guard lock(mutex);pause();}
                 frame.Close();frame=nullptr;
@@ -273,9 +285,9 @@ struct WindowsGraphicsCapture::State {
                     " region="+std::to_string(before.region.right-before.region.left)+"x"+std::to_string(before.region.bottom-before.region.top)+" (minimum 64x64)";
                 continue;
             }
-            operation="access frame surface";
+            setOperation("access frame surface");
             auto access=frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
-            operation="query frame D3D11 texture";
+            setOperation("query frame D3D11 texture");
             com_ptr<ID3D11Texture2D> texture;check_hresult(access->GetInterface(__uuidof(ID3D11Texture2D),texture.put_void()));
             D3D11_TEXTURE2D_DESC description{};texture->GetDesc(&description);
             if(description.Format!=DXGI_FORMAT_B8G8R8A8_UNORM)
@@ -297,15 +309,15 @@ struct WindowsGraphicsCapture::State {
             if(!staging||width!=stagingWidth||height!=stagingHeight) {
                 staging=nullptr;D3D11_TEXTURE2D_DESC desc{};desc.Width=width;desc.Height=height;desc.MipLevels=desc.ArraySize=1;
                 desc.Format=DXGI_FORMAT_B8G8R8A8_UNORM;desc.SampleDesc.Count=1;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;
-                operation="allocate staging texture";
+                setOperation("allocate staging texture");
                 check_hresult(device->CreateTexture2D(&desc,nullptr,staging.put()));stagingWidth=width;stagingHeight=height;
             }
             auto x=UINT(before.region.left-before.frame.left),y=UINT(before.region.top-before.frame.top);
             D3D11_BOX crop{x,y,0,x+width,y+height,1};context->CopySubresourceRegion(staging.get(),0,0,0,0,texture.get(),0,&crop);
-            operation="map captured staging pixels";
+            setOperation("map captured staging pixels");
             D3D11_MAPPED_SUBRESOURCE mapped{};check_hresult(context->Map(staging.get(),0,D3D11_MAP_READ,0,&mapped));
             struct Unmap {ID3D11DeviceContext* context;ID3D11Texture2D* texture;~Unmap(){context->Unmap(texture,0);}} unmap{context.get(),staging.get()};
-            checkSource();operation="recheck source geometry";auto after=geometry(window,titleBar);
+            checkSource();setOperation("recheck source geometry");auto after=geometry(window,titleBar);
             std::lock_guard lock(mutex);
             if(suspension||IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
@@ -330,6 +342,7 @@ WindowsGraphicsCapture::WindowsGraphicsCapture(HWND window,bool titleBar,const s
 }
 WindowsGraphicsCapture::~WindowsGraphicsCapture()=default;
 int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t* height,uint64_t* revision) {
+    WindowsCaptureDiagnostics::ConsumerScope trace(state_->diagnostics,"frame: acquire mailbox mutex");
     std::lock_guard lock(state_->mutex);
     if(!state_->failure.empty())throw std::runtime_error(state_->failure);
     state_->checkSource();*revision=state_->revision;
@@ -337,13 +350,14 @@ int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t*
     if(state_->mailbox.deliver(rgba,width,height))return 1;
     error=state_->waiting;return 0;
 }
-bool WindowsGraphicsCapture::paused() const {std::lock_guard lock(state_->mutex);return state_->mailbox.inputPaused()||!state_->failure.empty();}
-uint64_t WindowsGraphicsCapture::revision() const {std::lock_guard lock(state_->mutex);return state_->revision;}
+bool WindowsGraphicsCapture::paused() const {WindowsCaptureDiagnostics::ConsumerScope trace(state_->diagnostics,"paused: acquire mailbox mutex");std::lock_guard lock(state_->mutex);return state_->mailbox.inputPaused()||!state_->failure.empty();}
+uint64_t WindowsGraphicsCapture::revision() const {WindowsCaptureDiagnostics::ConsumerScope trace(state_->diagnostics,"revision: acquire mailbox mutex");std::lock_guard lock(state_->mutex);return state_->revision;}
 bool WindowsGraphicsCapture::sizeMatches(uint32_t width,uint32_t height) const {
     try {auto current=geometry(state_->window,state_->titleBar);return current.region.right-current.region.left==int64_t(width)&&current.region.bottom-current.region.top==int64_t(height);}
     catch(...) {return false;}
 }
 void WindowsGraphicsCapture::suspend() {
+    WindowsCaptureDiagnostics::ConsumerScope trace(state_->diagnostics,"suspend: acquire mailbox mutex");
     std::lock_guard lock(state_->mutex);state_->suspension=true;state_->pause();state_->wake->changed.notify_one();
 }
 }

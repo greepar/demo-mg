@@ -37,11 +37,17 @@ LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
     if(message==WM_DESTROY) { PostQuitMessage(0);return 0; }
     return DefWindowProcW(window,message,w,l);
 }
-void require(bool ok,const char* text) { if(!ok)throw std::runtime_error(text); }
+void require(bool ok,const char* text) {
+    if(!ok) {std::cerr<<"CAPTURE FIXTURE ASSERT: "<<text<<std::endl;throw std::runtime_error(text);}
+}
 void native(bool ok,const char* operation) {
     // Read the thread-local error AFTER the call. Argument evaluation order
     // must not retain a c_str invalidated by that call updating the error.
-    if(!ok)throw std::runtime_error(std::string(operation)+": "+mp_last_error());
+    if(!ok) {
+        auto message=std::string(operation)+": "+mp_last_error();
+        std::cerr<<"CAPTURE FIXTURE CALL FAIL: "<<message<<std::endl;
+        throw std::runtime_error(message);
+    }
 }
 LONG WINAPI crash(EXCEPTION_POINTERS* exception) {
     auto address=exception->ExceptionRecord->ExceptionAddress;HMODULE module{};wchar_t path[32768]{};
@@ -158,7 +164,10 @@ int main(int argc,char** argv) {
                     Sleep(20);
                 }
             }
-            if(status==0)throw std::runtime_error(std::string("Timed out waiting for ")+phase+": "+mp_last_error());
+            if(status==0) {
+                std::cerr<<"CAPTURE FIXTURE TIMEOUT: "<<phase<<": "<<mp_last_error()<<std::endl;
+                throw std::runtime_error(std::string("Timed out waiting for ")+phase+": "+mp_last_error());
+            }
             native(status==1,phase);
             require(width>40&&height>40&&pixels,"Fixture produced no actual capture frame");
             RECT actual{};require(GetClientRect(process.window,&actual)!=0,"Cannot query actual source client");
@@ -182,7 +191,9 @@ int main(int argc,char** argv) {
                 require(different,"Title bar capture fabricated repeated client pixels in the native caption");
             }
             retained=pixels;retainedCopy.assign(pixels,pixels+size_t(width)*height*4);
-            return mp_capture_frame_sequence(capture.get());
+            const auto sequence=mp_capture_frame_sequence(capture.get());
+            std::cerr<<"CAPTURE FIXTURE DELIVERED: "<<phase<<" sequence="<<sequence<<" size="<<width<<'x'<<height<<std::endl;
+            return sequence;
         };
         auto first=frame("initial frame");mp_capture_source_info info{};
         native(mp_capture_source(capture.get(),&info,sizeof(info))==1,"Read source metadata");
@@ -225,6 +236,19 @@ int main(int argc,char** argv) {
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Pre-hide frame became valid before a fresh shown frame");
         const auto hiddenSequence=restored;restored=frame("shown after hidden frame");
         require(restored>hiddenSequence&&mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,hiddenSequence,&info,sizeof(info))==0,"Show did not require a fresh source epoch");
+        for(int cycle=0;cycle<4;++cycle) {
+            const auto previous=restored;
+            ShowWindow(process.window,SW_HIDE);Sleep(50);
+            require(mp_capture_source_state(capture.get())==2&&mp_capture_frame(capture.get(),&pixels,&width,&height)==0,
+                "Repeated hide did not suspend frame delivery");
+            require(mp_capture_frame_sequence(capture.get())==previous&&memcmp(retained,retainedCopy.data(),retainedCopy.size())==0,
+                "Repeated hide changed the delivered buffer/sequence");
+            ShowWindow(process.window,SW_SHOWNOACTIVATE);UpdateWindow(process.window);Sleep(50);
+            require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,previous,&info,sizeof(info))==0,
+                "Repeated show revived the pre-hide frame epoch");
+            restored=frame("repeated hide/show fresh frame");
+            require(restored>previous,"Repeated show did not produce a new delivered epoch");
+        }
         DWORD liveProcess{};DWORD liveThread=GetWindowThreadProcessId(process.window,&liveProcess);
         require(liveThread&&liveProcess==process.info.dwProcessId,"Disposable source identity changed unexpectedly");
         require(SendMessageTimeoutW(process.window,NotifyDestroy,0,0,SMTO_ABORTIFHUNG,2000,&result)!=0,"Cannot emit fixture lifetime event");
@@ -250,6 +274,6 @@ int main(int argc,char** argv) {
         require(mp_capture_source_state(capture.get())==3,"Closed source state not reported");
         mp_capture_cancel(capture.get());
         if(titleBar)std::cout<<"WINDOWS WGC TITLE BAR PASS: actual native caption pixels and client pixels, independent bounds, immutable active geometry, resize and independent recapture preserve selection.\n";
-        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, continuous grow/shrink/return, waiting-buffer preservation, minimize/restore fresh-frame guard, hide/show suspension without session failure, live source-state ABI, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
+        std::cout<<(wgc?"WINDOWS WGC FIXTURE PASS: ":"WINDOWS GDI FIXTURE PASS: ")<<"independent source process, actual painted RGBA, HWND/PID identity, rename, resize sequence rejection, continuous grow/shrink/return, waiting-buffer preservation, minimize/restore fresh-frame guard, hide/show suspension without session failure, repeated hide/show fresh-frame guard, live source-state ABI, actual out-of-context lifetime WinEvent, matching-tuple permanent rejection, independent recapture, destruction and cleanup; lifetime event is injected, no Vulkan or input injection.\n";return 0;
     }catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

@@ -67,4 +67,10 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 `54e59c6c` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40633735965/job/122635812917) 已实际通过 GDI 普通窗口全部门，以及全屏初始点击、置顶偏好、源置顶继承和独立前台应用可见性/键盘；全屏最小化恢复后底部命中仍失败，WGC 尚未执行到，不能算完整通过。后续恢复路径不再只看 Avalonia 保存的 Topmost 值：比较原生 WS_EX_TOPMOST，并在重显、owner 重建和模式变化时重新施加一次当前有效的原生层级。当前源前台时显式 NOACTIVATE 恢复上层；其他应用前台时仍走撤销/批量顺序，未改为永久置顶。原生命中点与输入断言保持，失败诊断补充命中/输出 exStyle。本次修复仍待对应目标运行证明。
 
+`bda833b6` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40634717491/job/122638913643) 没有执行到新的 UI 联合门：GDI 与普通 WGC 原生 fixture 通过，WGC 标题栏 fixture 在 shown-after-hidden 阶段后超时。捕获本身、后续校验还是析构卡住尚未区分，不能把此前同源码通过或重跑通过当作此间歇问题已修复。旧 wrapper 的 caption 报告还继承了普通 WGC 的 exit_code=0 / wgc_readback_tested=true；passed=false 和 timeout 才是该次标题栏结论。现已重置各场景独立的 readback/退出字段，保留原始失败产物。
+
+新增仅在 GitHub-hosted + explicit fixture opt-in 下启用的 native 5s 阶段/线程等待链日志：不获取 capture/mailbox/epoch 锁，不改变 45/90s 超时、失败判定和重试次数，不做内存转储；[WCT](https://learn.microsoft.com/en-us/windows/win32/debug/wct-reference) 权限不足或不支持的等待明确打印诊断错误，不能据此推断没有死锁。超时消息先于 fixture 析构输出，便于分辨清理卡住。WGC 每个读取/丢弃帧补显式 Close，且在纹理/映射引用释放后归还 frame buffer，见 [帧生命周期说明](https://learn.microsoft.com/en-us/windows/uwp/audio-video-camera/screen-capture#process-capture-frames)；这项资源释放完善尚不证明超时根因已解决。同时补原版全屏进入 topmost band 后显式 HWND_TOP 的步骤，不以 HWND_TOPMOST 代替带内排序。这些新实现均需本提交目标结果，完整目标继续未完成。
+
+原生 GDI/WGC/标题栏 fixture 另增加四轮实际 hide/show，独立检查保留缓冲、暂停前旧序号不能恢复、每轮新交付帧和像素/标题栏尺寸；wrapper 要求新的 repeated hide/show 标记，不能沿用旧可执行文件的成功。这些是对新超时的针对性覆盖，重复通过也不单独构成间歇问题已定位/修复的证明。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

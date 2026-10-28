@@ -21,7 +21,7 @@ try:
     result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
     output=result.stdout+result.stderr
     (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
-    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return','hide/show suspension without session failure','live source-state ABI')
+    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return','hide/show suspension without session failure','repeated hide/show fresh-frame guard','live source-state ABI')
     report.update(exit_code=result.returncode,passed=result.returncode==0 and all(marker in result.stdout for marker in required))
     print(output,flush=True)
 except subprocess.TimeoutExpired as failure:
@@ -34,7 +34,7 @@ if not report['passed']:raise SystemExit('Windows capture fixture did not produc
 # A server runner may lack WGC. Only the native capability probe may skip this
 # run; startup, device, pixel, geometry or lifecycle failures are failures.
 wgc=dict(report,passed=False,capture_tested='independent synthetic Win32 source process via actual Windows Graphics Capture',gpu_tested=False,
-         wgc_readback_tested=False,status='pending')
+         wgc_readback_tested=False,status='pending',exit_code=None)
 try:
     result=subprocess.run([str(binary),'--wgc'],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=90)
     output=result.stdout+result.stderr
@@ -50,14 +50,14 @@ except subprocess.TimeoutExpired as failure:
 (folder/'windows-wgc-fixture.json').write_text(json.dumps(wgc,indent=2)+'\n',encoding='utf-8')
 if wgc['status']=='failed':raise SystemExit('Available Windows Graphics Capture failed the actual source-window fixture.')
 
-caption=dict(wgc,passed=False,status='pending',title_bar_tested=False)
+caption=dict(wgc,passed=False,status='pending',title_bar_tested=False,wgc_readback_tested=False,exit_code=None)
 try:
     result=subprocess.run([str(binary),'--wgc-title-bar'],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=90)
     output=result.stdout+result.stderr
     (folder/'windows-wgc-title-bar-fixture.log').write_text(output,encoding='utf-8')
     unavailable=result.returncode==77 and 'WINDOWS WGC UNAVAILABLE:' in result.stdout
     passed=result.returncode==0 and all(marker in result.stdout for marker in ('WINDOWS WGC TITLE BAR PASS:','WINDOWS WGC FIXTURE PASS:',*required[1:]))
-    caption.update(exit_code=result.returncode,passed=passed,title_bar_tested=passed,status='unavailable' if unavailable else 'passed' if passed else 'failed')
+    caption.update(exit_code=result.returncode,passed=passed,title_bar_tested=passed,wgc_readback_tested=passed,status='unavailable' if unavailable else 'passed' if passed else 'failed')
     print(output,flush=True)
 except subprocess.TimeoutExpired as failure:
     def decode(value):return value.decode(errors='replace') if isinstance(value,bytes) else value or ''

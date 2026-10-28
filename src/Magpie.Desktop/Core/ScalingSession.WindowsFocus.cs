@@ -69,6 +69,10 @@ internal sealed partial class ScalingSession
             // ordering while Avalonia's Topmost property remains true.
             if(!PositionOwnedOutput(output,-1,0,0,0,0,0x0213))
                 throw new InvalidOperationException("Cannot restore the native foreground output layer.");
+            // Original full-screen branch also raises within the topmost band;
+            // HWND_TOPMOST alone does not establish order among topmost peers.
+            if(_output.WindowState==WindowState.FullScreen&&!PositionOwnedOutput(output,0,0,0,0,0,0x0213))
+                throw new InvalidOperationException("Cannot restore fullscreen output above its topmost peers.");
             _windowsOutputNeedsLayerRestore=false;
         }
         // Demotion must preserve the owner's place instead of leaving the
