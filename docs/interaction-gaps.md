@@ -2,6 +2,8 @@
 
 核对日期：2026-10-22。范围为本仓库 `Magpie.Desktop` 跨平台移植实现，对照原版 `HomeViewModel`、`ProfileViewModel`、`SettingsViewModel`、`AboutViewModel`、`CursorManager` 和当前 Avalonia 页面/会话代码。以下是当前源码审计确认的已知缺口，不把截图、构建成功或替身测试当作真实交互验收，也不承诺未实测场景不存在其他问题。
 
+2026-10-28 原生鼠标前置验证：`3535a2e9` 的 Windows 托管运行在 GDI/WGC × 窗口/全屏四个真实生产链路场景，通过 layered 输出保持屏幕标记可见、跨进程真实按下/拖动/释放/滚轮及恢复原有命中检查。该测试仅在一次性 hosted runner 临时设置样式，正常会话尚未启用缩放鼠标或软件光标。`0104c9f1` 补入新绘制内容实际到达屏幕的严格门，尚待对应目标结果，详见 [联合证据范围](source-lifecycle.md#windows-原生鼠标与渲染联合前置门)。完整交互目标继续未完成。
+
 ## 2026-10-23 目标机检查补充
 
 `02102163` 的 GitHub macOS arm64 / x64 job 已通过原生 SDK / Objective-C++ 编译、NativeAOT 链接、三项非 GPU 原生测试和托管交互模型、单可执行文件及静态依赖检查。详见 [macOS 证据与范围](macos-testing.md#2026-10-23-托管主机编译模型证据)。这些新增证据更新下文历史阶段的“尚未在 SDK 编译”状态；真实输入、源捕获、权限、GUI 和本轮 GPU 仍不因此通过。Windows 目标检查已修复 shader 路径/换行、MSVC 成员遮蔽/测试 CRT 用法、静态库与开发 DLL 导入库同名覆盖及测试夹具的 Linux env 路径假设。`43c43669` 的 Windows job 已通过原生 SDK/C++、AOT、三项非 GPU CTest 和全部托管交互模型，但因第三方 PDB 发布残留未过单文件检查；`a65e5825` 的 Windows、macOS arm64/x64 job 已通过发布规则修复后的原生编译/AOT/非 GPU 模型和单文件依赖检查。后续截图快捷键变更需要对应提交重新验证。下载的 EXE 导入表已核对无自有核心/Skia/HarfBuzz DLL，但不代表 GPU 或 GUI 验收通过。
