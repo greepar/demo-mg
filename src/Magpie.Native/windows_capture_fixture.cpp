@@ -19,6 +19,15 @@
 namespace {
 constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2;
 LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
+    // Observe dispatched keyboard events; the parent reads these properties
+    // after SendInput, without posting keyboard messages to this window.
+    if(message==WM_KEYDOWN||message==WM_KEYUP||message==WM_CHAR) {
+        const wchar_t* property=message==WM_KEYDOWN?L"MagpieFixtureKeyDown":message==WM_KEYUP?L"MagpieFixtureKeyUp":L"MagpieFixtureChar";
+        auto count=reinterpret_cast<uintptr_t>(GetPropW(window,property));
+        SetPropW(window,property,reinterpret_cast<HANDLE>(count+1));
+        SetPropW(window,message==WM_CHAR?L"MagpieFixtureLastChar":L"MagpieFixtureLastKey",reinterpret_cast<HANDLE>(w));
+        return 0;
+    }
     if(message==WM_PAINT) {
         PAINTSTRUCT paint{};HDC dc=BeginPaint(window,&paint);RECT rect{};GetClientRect(window,&rect);
         HBRUSH brush=CreateSolidBrush(RGB(23,67,109));FillRect(dc,&rect,brush);DeleteObject(brush);EndPaint(window,&paint);return 0;

@@ -42,6 +42,8 @@ internal sealed class HostedLifecycleCase
     public uint SourceHeight {get;set;}
     public bool NativeOutputHidden {get;set;}
     public bool ForegroundPreserved {get;set;}
+    public bool InitialForegroundPreserved {get;set;}
+    public int NativeKeyboardChecks {get;set;}
     public bool IdleGpuPreserved {get;set;}
     public bool SourceClosedWithoutError {get;set;}
     public bool SourceExitedCleanly {get;set;}

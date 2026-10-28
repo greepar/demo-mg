@@ -320,8 +320,11 @@ internal sealed partial class ScalingSession
         }
         _output = new Window
         {
+            // Original Windows scaling windows keep keyboard/IME focus in the
+            // source. Showing the presentation must not activate it instead.
+            ShowActivated = !OperatingSystem.IsWindows(),
             WindowState=fullscreen?WindowState.FullScreen:WindowState.Normal,
-            Title = $"Magpie · {_settings.SelectedModeName} · Esc to stop", Width = initial is {} size ? size.Width/initialScale : 1280, Height = initial is {} initialSize ? initialSize.Height/initialScale : 720,
+            Title = $"Magpie · {_settings.SelectedModeName}" + (OperatingSystem.IsWindows()?"":" · Esc to stop"), Width = initial is {} size ? size.Width/initialScale : 1280, Height = initial is {} initialSize ? initialSize.Height/initialScale : 720,
             MinWidth = initial is {} minimum ? minimum.MinimumWidth/initialScale : 320, MinHeight = initial is {} minimumSize ? minimumSize.MinimumHeight/initialScale : 200, Background = Brushes.Black,
             Content = content, WindowStartupLocation = WindowStartupLocation.CenterScreen
         };

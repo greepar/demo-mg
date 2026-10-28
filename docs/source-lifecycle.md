@@ -41,4 +41,10 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 [Windows job 122399243582](https://github.com/greepar/demo-mg/actions/runs/40563711659/job/122399243582) 已实际通过生产联合门。产物明确记录 GDI/WGC × 普通窗口/全屏四个 passed，WGC 没有跳过；设备为 SwiftShader Device (Subzero)。新帧序号分别为 2→17→24、2→9→17、1→14→20、1→8→14，均覆盖原生最小化/恢复和隐藏/显示。四条路径的 native HWND 隐藏、恢复后源前台保留、暂停 GPU 序号、截图、正常源退出和清理通过；普通窗口还验证了源隐藏时关闭不报错，全屏验证隐藏时 Stop。此结果补上该限定生产循环矩阵的实际证据，不扩大为任意应用、输入、DPI 或初始焦点已对齐。
 
+## Windows 初始显示焦点与源键盘
+
+原版 `ScalingWindow` 使用 `WS_EX_NOACTIVATE`，并在意外获得前台时把焦点还给源；它不把普通 Esc/F12 变成全局停止/截图键。移植版首次显示现在请求 `ShowActivated=false`，避免输出替换源的键盘焦点；Windows 标题不再承诺源获得焦点时按 Esc 停止。输出真正获得焦点时的现有本地处理仍保留。工具栏点击、鼠标激活和焦点纠正尚未达到原版完整行为。
+
+一次性 hosted Windows 联合门增加初始显示以及两次恢复后的实际 `SendInput` 检查：B、Esc、F12 的按下和释放，由自有 Win32 源窗口收到的消息计数证明，B 还检查 `TranslateMessage` 产生的字符。注入前检查平台/runner/专用入口、源 HWND/PID/前台身份和未按住的修饰键；不使用 PostMessage 伪造键盘到达，也不向用户桌面回退。见 [SendInput](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput) 和 [INPUT 布局](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-input)。该新增门仍待本提交 Windows CI 实际执行；`NativeKeyboardChecks=3` 才覆盖三个阶段，旧报告不能代替。有限的源原生键盘测试不等于鼠标映射、IME、Raw Input、剪贴板、子窗口、游戏输入或全平台输入已经验收，广义 `NativeInputDeliveryTested` 继续为 false。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

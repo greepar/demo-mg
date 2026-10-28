@@ -14,6 +14,55 @@ internal sealed partial class ScalingSession
     [DllImport("user32",EntryPoint="SetForegroundWindow")]private static extern bool FixtureActivate(nint window);
     [DllImport("user32",EntryPoint="IsWindowVisible")]private static extern bool FixtureVisible(nint window);
     [DllImport("user32",EntryPoint="PostMessageW")]private static extern bool FixturePost(nint window,uint message,nuint w,nint l);
+    [DllImport("user32",EntryPoint="GetPropW",CharSet=CharSet.Unicode)]private static extern nint FixtureProperty(nint window,string property);
+    [DllImport("user32",EntryPoint="GetAsyncKeyState")]private static extern short FixtureKeyState(int key);
+    [DllImport("user32",EntryPoint="SendInput",SetLastError=true)]private static extern unsafe uint FixtureSendInput(uint count,FixtureKeyboardInput* inputs,int size);
+    // This hosted fixture targets win-x64 only. INPUT includes the larger mouse
+    // union; KEYBDINPUT starts at offset 8, not immediately after its DWORD tag.
+    [StructLayout(LayoutKind.Explicit,Size=40)]
+    private struct FixtureKeyboardInput
+    {
+        [FieldOffset(0)]public uint Type;
+        [FieldOffset(8)]public ushort Key;
+        [FieldOffset(12)]public uint Flags;
+    }
+
+    private static unsafe void SendHostedKey(Process source,nint window,ushort key)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,window);
+        if(IntPtr.Size!=8||FixtureForeground()!=window)throw new InvalidOperationException("Native keyboard test requires its owned foreground source on win-x64.");
+        foreach(int held in new[]{0x10,0x11,0x12,0x5b,0x5c,(int)key})
+            if((FixtureKeyState(held)&0x8000)!=0)throw new InvalidOperationException("Runner has a held key; refusing to modify its state.");
+        FixtureKeyboardInput* inputs=stackalloc FixtureKeyboardInput[2];
+        inputs[0]=new(){Type=1,Key=key};inputs[1]=new(){Type=1,Key=key,Flags=2};
+        uint inserted=FixtureSendInput(2,inputs,sizeof(FixtureKeyboardInput));
+        if(inserted!=2)
+        {
+            int error=Marshal.GetLastWin32Error();
+            if(inserted==1)FixtureSendInput(1,inputs+1,sizeof(FixtureKeyboardInput));
+            throw new InvalidOperationException($"Hosted SendInput inserted {inserted}/2 events, error {error}.");
+        }
+    }
+    private static async Task VerifyHostedSourceKeyboard(Process source,nint window,Task run,Func<string?> failure)
+    {
+        // Escape/F12 must reach the foreground source as in the original;
+        // the output's local convenience handlers must not steal those keys.
+        foreach(ushort key in new ushort[]{0x42,0x1b,0x7b})
+        {
+            RequireOwnedSource(source,window);
+            long down=(long)FixtureProperty(window,"MagpieFixtureKeyDown"),up=(long)FixtureProperty(window,"MagpieFixtureKeyUp");
+            long chars=(long)FixtureProperty(window,"MagpieFixtureChar");
+            SendHostedKey(source,window,key);
+            await WaitHosted(()=>(long)FixtureProperty(window,"MagpieFixtureKeyDown")==down+1&&
+                (long)FixtureProperty(window,"MagpieFixtureKeyUp")==up+1&&
+                (key!=0x42||(long)FixtureProperty(window,"MagpieFixtureChar")>chars),run,failure,"native source keyboard delivery");
+            RequireOwnedSource(source,window);
+            if(FixtureForeground()!=window||(long)FixtureProperty(window,"MagpieFixtureLastKey")!=key||
+                (FixtureKeyState(key)&0x8000)!=0)throw new InvalidOperationException("Source lost foreground/key identity or injected key remained held.");
+            if(key==0x42&&(long)FixtureProperty(window,"MagpieFixtureLastChar") is not (0x62 or 0x42))
+                throw new InvalidOperationException("Native source did not receive the expected translated B character.");
+        }
+    }
 
     private static void RequireOwnedSource(Process source,nint window)
     {
@@ -91,6 +140,10 @@ internal sealed partial class ScalingSession
                     evidence.Device=Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))??"";
                     if(!evidence.Device.Contains("SwiftShader",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Expected the explicitly selected SwiftShader Vulkan test driver, got "+evidence.Device);
                     report.SoftwareVulkan=true;session.CheckHostedPixels();
+                    await Task.Delay(200);
+                    if(FixtureForeground()!=window)throw new InvalidOperationException("Initial output stole foreground focus from its source.");
+                    evidence.InitialForegroundPreserved=true;
+                    await VerifyHostedSourceKeyboard(source,window,run,()=>failure);evidence.NativeKeyboardChecks++;
                     evidence.SourceWidth=session._captureFrameWidth;evidence.SourceHeight=session._captureFrameHeight;evidence.FirstSequence=session._lastSourceSequence;
                     if(!fullscreen) {session._output!.Width+=80;session._output.Height+=40;await Task.Delay(200);}
                     var oldSize=session._output!.ClientSize;var oldPosition=session._output.Position;
@@ -112,6 +165,7 @@ internal sealed partial class ScalingSession
                         if(!FixtureVisible(session.HostedOutputHandle()))throw new InvalidOperationException("Restored output is not a visible native window.");
                         if(FixtureForeground()!=window)throw new InvalidOperationException("Restored output stole foreground focus from the source.");
                         evidence.ForegroundPreserved=true;session.CheckHostedPixels();
+                        await VerifyHostedSourceKeyboard(source,window,run,()=>failure);evidence.NativeKeyboardChecks++;
                         if(!fullscreen&&(Math.Abs(session._output!.ClientSize.Width-oldSize.Width)>1||Math.Abs(session._output.ClientSize.Height-oldSize.Height)>1||session._output.Position!=oldPosition))
                             throw new InvalidOperationException("Windowed production recovery lost output geometry.");
                         if(minimize)evidence.RestoredSequence=session._lastSourceSequence;else evidence.ShownSequence=session._lastSourceSequence;
@@ -152,7 +206,7 @@ internal sealed partial class ScalingSession
             }
             report.Passed=report.Cases.Count==4&&report.Cases.Where(c=>c.Backend=="Gdi").All(c=>c.State=="passed")&&report.Cases.All(c=>c.State is "passed" or "unavailable");
             if(!report.Passed)throw new InvalidOperationException("Incomplete production lifecycle matrix.");
-            Console.WriteLine("WINDOWS PRODUCTION LIFECYCLE PASS: real owned Win32 source, native capture, SwiftShader Vulkan, Avalonia native output, minimize/hide/fresh restore, foreground/geometry, idle GPU, screenshot and stop/source-close cleanup; no input injection or hardware Vulkan coverage.");
+            Console.WriteLine("WINDOWS PRODUCTION LIFECYCLE PASS: real owned Win32 source, native capture, SwiftShader Vulkan, Avalonia native output, initial/resumed foreground and native source keyboard, minimize/hide/fresh restore, geometry, idle GPU, screenshot and stop/source-close cleanup; mouse/IME/game/hardware Vulkan coverage remains incomplete.");
         }
         finally {RuntimeSettings.Current.DisableFP16=disable;RuntimeSettings.Current.KeepScreenOn=keepAwake;RuntimeSettings.Current.MinimumFrameRate=minimum;Save();}
     }
