@@ -86,3 +86,9 @@ Avalonia 12.1.1 的 SetFullScreen 在模式改变时调用 Shell MarkFullscreen�
 [Windows job 122741417143](https://github.com/greepar/demo-mg/actions/runs/40666263245/job/122741417143) 已实际通过 GDI/WGC × 普通窗口/全屏四个场景，WGC 未跳过。每条路径 NativeOutputClickChecks=3、NativeKeyboardChecks=3、ResumeHeldHiddenChecks=2：原生输出底部点击/释放、源前台 B 字符与 Esc/F12 按下释放，在初始/最小化恢复/隐藏恢复后全部通过；实际 stage gate 阻塞 200ms 时源已恢复但 native 输出仍隐藏。禁用置顶、继承源置顶、独立前台应用可见/键盘不偷跑/不换源、回到原源、几何/暂停 GPU/截图和源关闭/隐藏停止及进程正常清理均通过。原生 GDI/WGC/标题栏的四轮重复 hide/show、SDK/AOT/单文件也通过。同一提交的 Linux 软件 Vulkan 回归、Windows 及两个 macOS 架构均已成功，完整 run 40666263245 为 success。
 
 本机最终 committed-source AOT 单文件/非 GPU 模型门、AMD core 和三项私有 Wayland UI 通过，安装的是 SHA256=67f60d08bda787a1828b9140fb7fac14d56a18e85209f4ab8988ed3f74adf9da 的实际测试文件；未显示用户桌面窗口。目标原始 JSON/PNG 位于 `artifacts/desktop/windows-owned-taskbar-target-e79`，限定证据汇总为 `artifacts/desktop/windows-owned-taskbar-target-summary.json`。此结果证明以上合成源生产链路，不证明源鼠标映射、光标/3D 游戏、真实应用/IME、硬件 Vulkan、多屏 DPI/UIPI/UWP 或所有交互已完成。前次 WGC 间歇超时尚未复现定位，NNEDI3 间歇零像素仍未解决，均未因这次通过改为 resolved。
+
+## Windows 原生鼠标与渲染联合前置门
+
+原版依赖 layered 输出的 `WS_EX_TRANSPARENT` 将真实鼠标交给另一进程，详见 [Windows layered 命中规则](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#layered-windows)。不能用同线程 `HTTRANSPARENT` 或 PostMessage 鼠标近似来宣称等价。新增受原有 hosted/fixture 三重限制的四路径测试：仅移动自己的独立源到真实输出下面，等待实际新帧，添加与源颜色不同的输出标记，用 desktop GetPixel 检查原生屏幕合成内容，再对自己输出临时设置原版 layered/transparent/alpha255 样式。要求屏幕标记保持可见，原生命中变为准确源 HWND，真实 SendInput 按下/释放/滚轮和系统移动到达源窗口，原生捕获下的 drag 坐标、wheel delta、前台与释放状态正确，清理后原有输出点击继续通过。
+
+本机 AOT 编译和 Windows fixture 严格语法通过；目标结果尚待此提交 CI。该门只检验当前 Avalonia 窗口渲染方式能否承载原版鼠标核心，正常会话尚不自动启用穿透，也未接缩放坐标映射、软件光标、源遮挡/边缘/多屏/3D 模式，不能算源鼠标控制已完成。屏幕像素与原生事件门不因 RenderTargetBitmap 成功而跳过或放宽。

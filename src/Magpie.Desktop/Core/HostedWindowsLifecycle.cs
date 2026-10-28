@@ -45,6 +45,8 @@ internal sealed class HostedLifecycleCase
     public bool InitialForegroundPreserved {get;set;}
     public int NativeKeyboardChecks {get;set;}
     public int NativeOutputClickChecks {get;set;}
+    public bool LayeredNativeMousePassed {get;set;}
+    public uint LayeredScreenPixel {get;set;}
     public bool TopmostPreferenceHonored {get;set;}
     public bool SourceTopmostInherited {get;set;}
     public bool OtherForegroundPreserved {get;set;}

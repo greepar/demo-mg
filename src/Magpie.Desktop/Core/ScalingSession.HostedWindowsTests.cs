@@ -44,6 +44,7 @@ internal sealed partial class ScalingSession
         [FieldOffset(0)]public uint Type;
         [FieldOffset(8)]public ushort Key;
         [FieldOffset(12)]public uint Flags;
+        [FieldOffset(16)]public int MouseData;
         [FieldOffset(20)]public uint MouseFlags;
     }
 
@@ -291,6 +292,8 @@ internal sealed partial class ScalingSession
                     await VerifyHostedSourceKeyboard(source,window,run,()=>failure);evidence.NativeKeyboardChecks++;
                     Phase("foreground topmost policy and independent application");
                     await session.VerifyHostedWindowLayers(source,window,run,()=>failure,evidence);
+                    Phase("layered rendering and native cross-process mouse");
+                    await session.VerifyHostedLayeredMouse(source,window,run,()=>failure,evidence);
                     evidence.SourceWidth=session._captureFrameWidth;evidence.SourceHeight=session._captureFrameHeight;evidence.FirstSequence=session._lastSourceSequence;
                     if(!fullscreen) {session._output!.Width+=80;session._output.Height+=40;await Task.Delay(200);}
                     var oldSize=session._output!.ClientSize;var oldPosition=session._output.Position;

@@ -104,15 +104,17 @@ try:
             raise RuntimeError('Incomplete production lifecycle evidence.')
         for case in cases:
             if case['State']=='unavailable' and case['Backend']=='GraphicsCapture':continue
-            if case['State']!='passed' or not all(case[key] for key in ('NativeOutputHidden','ForegroundPreserved','InitialForegroundPreserved','IdleGpuPreserved','SourceExitedCleanly','TopmostPreferenceHonored','SourceTopmostInherited','OtherForegroundPreserved')) or case['NativeKeyboardChecks']!=3 or case['NativeOutputClickChecks']!=3 or case['ResumeHeldHiddenChecks']!=2:
+            if case['State']!='passed' or not all(case[key] for key in ('NativeOutputHidden','ForegroundPreserved','InitialForegroundPreserved','IdleGpuPreserved','SourceExitedCleanly','TopmostPreferenceHonored','SourceTopmostInherited','OtherForegroundPreserved','LayeredNativeMousePassed')) or case['NativeKeyboardChecks']!=3 or case['NativeOutputClickChecks']!=3 or case['ResumeHeldHiddenChecks']!=2:
                 raise RuntimeError('Missing source/native-output/focus/idle checks: '+str(case))
+            if case['LayeredScreenPixel']!=211|(47<<8)|(173<<16):raise RuntimeError('Layered native output lost compositor pixels.')
             if not (case['FirstSequence']<case['RestoredSequence']<case['ShownSequence']):raise RuntimeError('Restoration did not advance real capture sequences.')
             if not case['SourcePid'] or not case['SourceWindow'] or 'swiftshader' not in case['Device'].lower():raise RuntimeError('Missing actual source/software Vulkan identity.')
             if not case['SourceClosedWithoutError'] and not case['Fullscreen']:raise RuntimeError('Source closure failed.')
             if not case['StopWhileHidden'] and case['Fullscreen']:raise RuntimeError('Hidden stop failed.')
             screenshot=(folder/case['Screenshot']).resolve()
             if not screenshot.is_relative_to(folder.resolve()) or not screenshot.is_file() or screenshot.read_bytes()[:8]!=b'\x89PNG\r\n\x1a\n':raise RuntimeError('Missing actual screenshot artifact.')
-        report.update(passed=True,production_capture_loop=True,software_vulkan_tested=True,native_source_keyboard_tested=True,cases=cases,
+        report.update(passed=True,production_capture_loop=True,software_vulkan_tested=True,native_source_keyboard_tested=True,
+                      layered_cross_process_mouse_tested=True,scaled_pointer_mapping_tested=False,cases=cases,
                       wgc_runtime_tested=all(c['State']=='passed' for c in cases if c['Backend']=='GraphicsCapture'))
 except subprocess.TimeoutExpired as error:
     def decode(value):return value.decode('utf-8',errors='replace') if isinstance(value,bytes) else value or ''
@@ -121,4 +123,4 @@ except subprocess.TimeoutExpired as error:
 except Exception as error:
     report['failure']=str(error);save();raise
 finally:save()
-print('PASS: actual Windows production source/capture/software-Vulkan/Avalonia initial/restore focus and native source keyboard matrix; mouse, IME, game input and hardware Vulkan remain unverified.')
+print('PASS: Windows production lifecycle, keyboard and layered cross-process mouse/rendering prerequisite; scaled pointer mapping, software cursor, IME, game input and hardware Vulkan remain unverified.')

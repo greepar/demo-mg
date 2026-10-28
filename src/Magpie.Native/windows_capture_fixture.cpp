@@ -19,6 +19,20 @@
 namespace {
 constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2;
 LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
+    // Native mouse acceptance for the disposable production-output test. These
+    // properties observe real dispatched input, never posted mouse messages.
+    if(message==WM_LBUTTONDOWN||message==WM_LBUTTONUP||message==WM_MOUSEWHEEL||
+        (message==WM_MOUSEMOVE&&(w&MK_LBUTTON))) {
+        const wchar_t* property=message==WM_LBUTTONDOWN?L"MagpieFixtureMouseDown":
+            message==WM_LBUTTONUP?L"MagpieFixtureMouseUp":message==WM_MOUSEWHEEL?L"MagpieFixtureWheel":L"MagpieFixtureDrag";
+        auto count=reinterpret_cast<uintptr_t>(GetPropW(window,property));
+        SetPropW(window,property,reinterpret_cast<HANDLE>(count+1));
+        SetPropW(window,L"MagpieFixtureMousePoint",reinterpret_cast<HANDLE>(l));
+        if(message==WM_LBUTTONDOWN)SetCapture(window);
+        if(message==WM_LBUTTONUP)ReleaseCapture();
+        if(message==WM_MOUSEWHEEL)SetPropW(window,L"MagpieFixtureWheelDelta",reinterpret_cast<HANDLE>(intptr_t(SHORT(HIWORD(w)))));
+        return 0;
+    }
     // Observe dispatched keyboard events; the parent reads these properties
     // after SendInput, without posting keyboard messages to this window.
     if(message==WM_KEYDOWN||message==WM_KEYUP||message==WM_CHAR) {
