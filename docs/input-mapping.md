@@ -18,7 +18,7 @@
 
 原有每场景三次真实输出点击、三次源 B/Esc/F12 键盘、两次 stage gate 阻塞期间的 native hidden、置顶/独立前台应用、最小化/隐藏恢复、GPU 暂停/截图、源关闭与 Stop 清理均继续通过。Windows SDK/NativeAOT/静态单文件、普通/标题栏实际捕获回归也通过；对应两个 macOS 架构构建/模型成功，不能据此声称 macOS 事件送达。原始证据 `artifacts/desktop/windows-pointer-device-target-bd3`，SHA256 限定汇总 `artifacts/desktop/windows-pointer-device-target-summary.json`。这里使用一次性托管 runner、独立合成源和软件 Vulkan，尚非真实游戏、硬件 GPU、多屏/IME/触控全体验验收；前述剩余功能及 WGC 透明恢复帧/间歇挂起、NNEDI3 问题都继续未完成。
 
-同一 committed-source 的 Linux AOT/静态单文件/模型门、AMD 实际 Vulkan core 和两项私有 Wayland 源生命周期 UI 通过，未显示用户桌面；已原子安装的文件 SHA256=c7ac91bb1859c0cfc868352b996f51c9d1d985331e23fab42dba81c7563ed975，汇总 `artifacts/desktop/windows-pointer-device-local-summary.json`。本机 UI 的源与指针为注入，不能当作 Linux 原生输入已完成。Linux 托管全套软件 Vulkan 回归按该 job 的独立状态记录，不与本机 core 或已完成的 Windows 结果混用。
+同一 committed-source 的 Linux AOT/静态单文件/模型门、AMD 实际 Vulkan core 和两项私有 Wayland 源生命周期 UI 通过，未显示用户桌面；已原子安装的文件 SHA256=c7ac91bb1859c0cfc868352b996f51c9d1d985331e23fab42dba81c7563ed975，汇总 `artifacts/desktop/windows-pointer-device-local-summary.json`。本机 UI 的源与指针为注入，不能当作 Linux 原生输入已完成。同一 run 40679326639 的 Linux 托管全套软件 Vulkan 回归随后成功，四个 job 均为 success；这不代替三平台实际应用输入与硬件 GPU 验收。
 
 ## 历史基础阶段
 
