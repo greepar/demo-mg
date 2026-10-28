@@ -8,9 +8,19 @@
 
 软件光标读取真实系统形状、尺寸与热点，复制后释放 ICONINFO 位图和 HICON；将实际缩放像素上的小矩形交给 [DrawIconEx](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-drawiconex) 处理彩色 alpha / mask / 单色 AND-XOR，再作为独立本地图层提交，原始效果输出及截图不混入光标。单色 mask 高度按 [ICONINFO](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-iconinfo) 的双高规则恢复。全局显隐使用原版 ShowSystemCursor/Magnification 回落，进入失败保持系统光标；源暂停/关闭/Stop 恢复自己的透明、光标、clip 状态。
 
-这些实现尚待对应目标 CI，不把下面历史捕获证据当作已验收。新增四路径生产测试使用独立源自定义的原生 XOR 光标，系统 SendInput 和原生拖动，独立 Win32 坐标公式检查真正落点，并要求屏幕合成像素出现原图反色、随真实源移动以及清理后重新可点击。原有生命周期测试显式暂停新指针，以便分别检查原来输出点击/焦点契约与新增源输入路径。
+新增四路径生产测试使用独立源自定义的原生 XOR 光标，系统 SendInput 和原生拖动，独立 Win32 坐标公式检查真正落点，并要求屏幕合成像素出现原图反色、随真实源移动以及清理后重新可点击。原有生命周期测试显式暂停新指针，以便分别检查原来输出点击/焦点契约与新增源输入路径。实现时尚待目标验证，后续实际结果如下，不以历史捕获证据代替。
 
 仍缺光标倍率/插值/自动隐藏/速度调整配置、原版四向多屏 clip、源/输出原生移动时的稳定光标、3D 相对鼠标，以及更广泛真实应用/IME/UIPI/UWP 验收。Linux 输入与 macOS 实际应用验收继续缺失，完整目标未完成。
+
+### bd3f980d 首次实际源鼠标与软件光标结果
+
+[Windows job 122785685764](https://github.com/greepar/demo-mg/actions/runs/40679326639/job/122785685764) 的 GDI/WGC × 窗口/全屏四条路径均通过，WGC 未跳过。真实绝对鼠标 MOVE 进入输出，生产控制器将实际指针移至独立 Win32 客户区公式期望位置；真实源按下、native capture 下的拖动、释放与 delta=120 滚轮均送达，光标随实际源点移动。每条 `ScaledNativeMousePassed` / `NativeInvertCursorPassed` / `NativePointerCleanupPassed` / `LayeredRepaintPassed` 均为 true，屏幕实测反色 COLORREF=0x92bce8。四张 `native-pointer.png` 各有准确 19 个 RGB(232,188,146) 像素，与独立源原生 AND/XOR 十字的 10+10−1 个像素一致；已查看窗口/全屏实际截图。源的显示计数仅在独立进程增加一次并退出平衡，正常系统的既有触摸抑制和主动隐藏不被无条件忽略。
+
+原有每场景三次真实输出点击、三次源 B/Esc/F12 键盘、两次 stage gate 阻塞期间的 native hidden、置顶/独立前台应用、最小化/隐藏恢复、GPU 暂停/截图、源关闭与 Stop 清理均继续通过。Windows SDK/NativeAOT/静态单文件、普通/标题栏实际捕获回归也通过；对应两个 macOS 架构构建/模型成功，不能据此声称 macOS 事件送达。原始证据 `artifacts/desktop/windows-pointer-device-target-bd3`，SHA256 限定汇总 `artifacts/desktop/windows-pointer-device-target-summary.json`。这里使用一次性托管 runner、独立合成源和软件 Vulkan，尚非真实游戏、硬件 GPU、多屏/IME/触控全体验验收；前述剩余功能及 WGC 透明恢复帧/间歇挂起、NNEDI3 问题都继续未完成。
+
+同一 committed-source 的 Linux AOT/静态单文件/模型门、AMD 实际 Vulkan core 和两项私有 Wayland 源生命周期 UI 通过，未显示用户桌面；已原子安装的文件 SHA256=c7ac91bb1859c0cfc868352b996f51c9d1d985331e23fab42dba81c7563ed975，汇总 `artifacts/desktop/windows-pointer-device-local-summary.json`。本机 UI 的源与指针为注入，不能当作 Linux 原生输入已完成。Linux 托管全套软件 Vulkan 回归按该 job 的独立状态记录，不与本机 core 或已完成的 Windows 结果混用。
+
+## 历史基础阶段
 
 本阶段为真实输入路径补基础和边界保护，不表示 Windows/Linux 输入转发已完成。
 
