@@ -203,6 +203,13 @@ internal sealed partial class ScalingSession
             catch (Exception ex) { if (!_stop.IsCancellationRequested) failure = ex.Message; }
             finally
             {
+                // Release global pointer state before native teardown: a WGC
+                // driver/session join must never delay showing the cursor.
+                await Dispatcher.UIThread.InvokeAsync(()=>
+                {
+                    _windowsFocusPoll?.Dispose();_windowsFocusPoll=null;
+                    try {EndWindowsPointer();}catch(Exception cleanup) {failure??=cleanup.Message;}
+                });
                 _powerUpdateStop?.Cancel();
                 try { await _powerUpdate; }catch(Exception cleanup) { failure??=cleanup.Message; }
                 for(int attempt=0;attempt<2;attempt++)
@@ -220,6 +227,8 @@ internal sealed partial class ScalingSession
                     _stageEngine=null;_displayedStages=[];
                     _finished = true;
                     _windowsFocusPoll?.Dispose();_windowsFocusPoll=null;
+                    EndWindowsPointer();if(_windowsCursorOverlay is {} cursor)cursor.Source=null;
+                    _windowsCursorOverlay=null;_windowsCursorBitmap?.Dispose();_windowsCursorBitmap=null;
                     _output?.Close(); _output = null;
                     _bitmap?.Dispose(); _bitmap = null;
                     Finished?.Invoke(failure);
@@ -356,7 +365,7 @@ internal sealed partial class ScalingSession
                 });
         };
         _output.KeyDown += (_, args) => HandleOutputKey(args);
-        _output.Closing += (_, _) => { _inputPoll?.Dispose();_inputPoll=null;_windowsFocusPoll?.Dispose();_windowsFocusPoll=null;Stop(); };
+        _output.Closing += (_, _) => { EndWindowsPointer();_inputPoll?.Dispose();_inputPoll=null;_windowsFocusPoll?.Dispose();_windowsFocusPoll=null;Stop(); };
         InitializeToolbar(fullscreen);
         SetSourceGeometry(sourceWidth,sourceHeight);
         if(fullscreen)_output.WindowState=WindowState.FullScreen;

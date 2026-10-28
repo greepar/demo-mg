@@ -222,6 +222,21 @@ extern "C" int mp_capture_mark_output_fullscreen(void* capture,void* output,uint
 extern "C" void* mp_capture_create() {
     return mp_capture_create_backend(0);
 }
+extern "C" int mp_capture_windows_pointer_rect(void* capture,uint64_t window,uint32_t process,uint64_t sequence,mp_pointer_rect* rect,uint32_t size) {
+    try {
+        if(!capture||!rect||size!=sizeof(*rect))throw std::runtime_error("Invalid pointer geometry arguments");
+        auto& c=*static_cast<Capture*>(capture);
+        if(!window||!process||window!=uint64_t(reinterpret_cast<uintptr_t>(c.window))||process!=c.sourceProcess||!c.snapshotMatches(sequence))return 0;
+        RECT region{};
+        if(c.graphics) {if(!c.graphics->pointerRect(region))return 0;}
+        else {
+            POINT origin{};if(!GetClientRect(c.window,&region)||!ClientToScreen(c.window,&origin))return 0;
+            OffsetRect(&region,origin.x,origin.y);
+        }
+        if(!c.snapshotMatches(sequence))return 0;
+        *rect={region.left,region.top,region.right,region.bottom};return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
 extern "C" void mp_capture_destroy(void* c){delete static_cast<Capture*>(c);}
 extern "C" uint32_t mp_capture_backend(void){return magpie::WindowsGraphicsCapture::supported()?4u:3u;}
 extern "C" uint32_t mp_capture_backend_mask(void){return (1u<<3)|(magpie::WindowsGraphicsCapture::supported()?(1u<<4):0u);}

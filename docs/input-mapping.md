@@ -1,5 +1,17 @@
 # 原生输入映射与源身份
 
+## 2026-10-28 Windows 原生虚拟指针实现
+
+已接正常会话的 Windows 原生路径：从已显示帧的 HWND/PID/epoch 查询真实源区域（GDI 客户区、WGC 已交付帧对应的实际裁剪区），再应用用户裁剪。WGC 区域另与当前完整几何复核，未交付或重建期间拒绝输入。坐标按原版首末像素中心映射，出界保持非缩放距离，前台源黑边进入/退出采用原版跳边语义；不改 macOS 的逻辑点映射。
+
+输出使用 layered/transparent/NOACTIVATE 与真实指针移动。系统原生按下/滚轮/拖动仍由源应用及其子窗口接收，不转发 PostMessage 输入。z-order 命中移植了可见、透明、cloaked、自定义窗口区域判定，源/输出被遮挡或虚拟位置进入本地工具栏/profiler 时退出。原生源捕获拖动时保留真实 capture，不在手势中重新 warp，按原版有条件保存/恢复裁剪；异步有界源边缘命中避免 UI 等待源窗口。
+
+软件光标读取真实系统形状、尺寸与热点，复制后释放 ICONINFO 位图和 HICON；将实际缩放像素上的小矩形交给 [DrawIconEx](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-drawiconex) 处理彩色 alpha / mask / 单色 AND-XOR，再作为独立本地图层提交，原始效果输出及截图不混入光标。单色 mask 高度按 [ICONINFO](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-iconinfo) 的双高规则恢复。全局显隐使用原版 ShowSystemCursor/Magnification 回落，进入失败保持系统光标；源暂停/关闭/Stop 恢复自己的透明、光标、clip 状态。
+
+这些实现尚待对应目标 CI，不把下面历史捕获证据当作已验收。新增四路径生产测试使用独立源自定义的原生 XOR 光标，系统 SendInput 和原生拖动，独立 Win32 坐标公式检查真正落点，并要求屏幕合成像素出现原图反色、随真实源移动以及清理后重新可点击。原有生命周期测试显式暂停新指针，以便分别检查原来输出点击/焦点契约与新增源输入路径。
+
+仍缺光标倍率/插值/自动隐藏/速度调整配置、原版四向多屏 clip、源/输出原生移动时的稳定光标、3D 相对鼠标，以及更广泛真实应用/IME/UIPI/UWP 验收。Linux 输入与 macOS 实际应用验收继续缺失，完整目标未完成。
+
 本阶段为真实输入路径补基础和边界保护，不表示 Windows/Linux 输入转发已完成。
 
 原版 Windows 的 `CursorManager` 与 `ScalingWindow` 使用透明/不激活窗口、系统光标位置/裁剪和前台源跟踪维持实际输入。直接 PostMessage 鼠标/按键不能替代该路径，特别是子窗口、IME、相对鼠标及游戏。后续 Windows 移植仍需实现该原生路径与软件光标，不能把下面的模型或 GDI 捕获测试算作输入送达验收。

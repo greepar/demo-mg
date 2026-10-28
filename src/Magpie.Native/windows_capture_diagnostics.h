@@ -6,6 +6,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <mutex>
 #include <thread>
@@ -14,6 +15,9 @@ namespace magpie {
 // Hosted-fixture diagnostics only. No capture locks, process memory dumps,
 // retries, timeout changes, or extra references to WinRT capture resources.
 class WindowsCaptureDiagnostics {
+    bool enabled_{};
+    uint64_t sampleRevision_=~uint64_t(0);
+    uint32_t samples_{},lastCenter_{};
     std::atomic<const char*> producerStep_{"initialize apartment"},consumerStep_{"capture construction"};
     std::atomic<DWORD> producerThread_{0},consumerThread_{GetCurrentThreadId()};
     std::jthread observer_;
@@ -44,6 +48,7 @@ public:
     WindowsCaptureDiagnostics() {
         if(!environment("GITHUB_ACTIONS","true")||!environment("RUNNER_ENVIRONMENT","github-hosted")||
             !environment("MAGPIE_HOSTED_WINDOWS_CAPTURE_FIXTURE","1"))return;
+        enabled_=true;
         observer_=std::jthread([this](std::stop_token stop) {
             std::mutex mutex;std::condition_variable_any changed;std::unique_lock lock(mutex);
             while(!stop.stop_requested()) {
@@ -57,6 +62,19 @@ public:
         });
     }
     void producer(const char* step) {producerThread_=GetCurrentThreadId();producerStep_=step;}
+    void pixels(const uint8_t* bgra,uint32_t width,uint32_t height,size_t stride,uint64_t revision,int64_t timestamp,bool titleBar) {
+        if(!enabled_)return;
+        const uint8_t* center=bgra+size_t(height/2)*stride+size_t(width/2)*4;
+        uint32_t packed{};std::memcpy(&packed,center,4);
+        if(sampleRevision_!=revision) {sampleRevision_=revision;samples_=0;}
+        if(samples_++<2||packed!=lastCenter_) {
+            std::fprintf(stderr,"WGC RAW PIXELS: pid=%lu revision=%llu timestamp=%lld title=%d size=%ux%u stride=%llu centerBGRA=%u,%u,%u,%u\n",
+                GetCurrentProcessId(),static_cast<unsigned long long>(revision),static_cast<long long>(timestamp),int(titleBar),width,height,
+                static_cast<unsigned long long>(stride),unsigned(center[0]),unsigned(center[1]),unsigned(center[2]),unsigned(center[3]));
+            std::fflush(stderr);
+        }
+        lastCenter_=packed;
+    }
     void consumer(const char* step) {consumerThread_=GetCurrentThreadId();consumerStep_=step;}
     struct ConsumerScope {
         WindowsCaptureDiagnostics& owner;

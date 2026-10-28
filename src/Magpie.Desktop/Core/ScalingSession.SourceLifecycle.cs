@@ -19,6 +19,7 @@ internal sealed partial class ScalingSession
     {
         if(_sourceSuspended||_stop.IsCancellationRequested)return;
         _sourceSuspended=true;_suspendedSequence=_lastSourceSequence;_suspendedSource=_lastSourceInfo;
+        EndWindowsPointer();
         _suspendedHadOutput=_output is not null;
         Interlocked.Exchange(ref _screenshotPending,0);
         EndProfilerDrag(false);_stageMenu?.Hide();_graphParameterFlyout?.Hide();

@@ -145,6 +145,8 @@ struct WindowsGraphicsCapture::State {
     std::mutex mutex;
     std::condition_variable started;
     CaptureMailbox mailbox;
+    Geometry pendingGeometry{},deliveredGeometry{};
+    bool haveDeliveredGeometry{};
     std::string failure;
     std::string waiting="Waiting for the first Graphics Capture frame";
     const char* operation="initialize apartment";
@@ -320,7 +322,9 @@ struct WindowsGraphicsCapture::State {
             checkSource();setOperation("recheck source geometry");auto after=geometry(window,titleBar);
             std::lock_guard lock(mutex);
             if(suspension||IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
+            diagnostics.pixels(static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch,revision,frame.SystemRelativeTime().count(),titleBar);
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
+            pendingGeometry=after;
             waiting="Waiting for the next Graphics Capture frame";
         }
         // Revoke before closing; queued callbacks only hold weak signal state.
@@ -347,7 +351,9 @@ int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t*
     if(!state_->failure.empty())throw std::runtime_error(state_->failure);
     state_->checkSource();*revision=state_->revision;
     if(state_->suspension) {error="Waiting for the Graphics Capture source to resume";return 0;}
-    if(state_->mailbox.deliver(rgba,width,height))return 1;
+    if(state_->mailbox.deliver(rgba,width,height)) {
+        state_->deliveredGeometry=state_->pendingGeometry;state_->haveDeliveredGeometry=true;return 1;
+    }
     error=state_->waiting;return 0;
 }
 bool WindowsGraphicsCapture::paused() const {WindowsCaptureDiagnostics::ConsumerScope trace(state_->diagnostics,"paused: acquire mailbox mutex");std::lock_guard lock(state_->mutex);return state_->mailbox.inputPaused()||!state_->failure.empty();}
@@ -355,6 +361,15 @@ uint64_t WindowsGraphicsCapture::revision() const {WindowsCaptureDiagnostics::Co
 bool WindowsGraphicsCapture::sizeMatches(uint32_t width,uint32_t height) const {
     try {auto current=geometry(state_->window,state_->titleBar);return current.region.right-current.region.left==int64_t(width)&&current.region.bottom-current.region.top==int64_t(height);}
     catch(...) {return false;}
+}
+bool WindowsGraphicsCapture::pointerRect(RECT& region) const {
+    try {
+        const auto current=geometry(state_->window,state_->titleBar);
+        std::lock_guard lock(state_->mutex);
+        if(!state_->valid()||state_->cancelled||state_->suspension||!state_->haveDeliveredGeometry||
+            state_->mailbox.inputPaused()||!state_->failure.empty()||!(current==state_->deliveredGeometry))return false;
+        region=current.region;return true;
+    }catch(...) {return false;}
 }
 void WindowsGraphicsCapture::suspend() {
     WindowsCaptureDiagnostics::ConsumerScope trace(state_->diagnostics,"suspend: acquire mailbox mutex");

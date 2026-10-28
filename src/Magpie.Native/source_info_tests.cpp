@@ -9,6 +9,19 @@
 void require(bool value,const char* message) { if(!value)throw std::runtime_error(message); }
 int main() {
     try {
+        static_assert(sizeof(mp_pointer_rect)==16&&sizeof(mp_cursor_shape)==24);
+        mp_pointer_rect pointerRect{1,2,3,4};mp_cursor_shape cursorShape{99,2,3,1,1};
+#ifdef _WIN32
+        require(mp_capture_windows_pointer_rect(nullptr,1,1,1,&pointerRect,sizeof(pointerRect))==-1,"Null native pointer capture accepted");
+        require(mp_windows_cursor_copy(0,&cursorShape,sizeof(cursorShape))==-1,"Invalid native cursor copied");
+        uint8_t cursorPixel[4]={1,2,3,4};
+        require(mp_windows_cursor_draw(0,cursorPixel,4,1,1,0,0,1,1)==-1&&cursorPixel[0]==1&&cursorPixel[3]==4,"Invalid cursor draw modified caller pixels");
+#else
+        require(mp_capture_windows_pointer_rect(nullptr,1,1,1,&pointerRect,sizeof(pointerRect))==0,"Unsupported pointer backend pretended to bind");
+        require(mp_windows_cursor_copy(0,&cursorShape,sizeof(cursorShape))==0,"Unsupported cursor backend pretended to copy");
+#endif
+        require(pointerRect.left==1&&pointerRect.bottom==4&&cursorShape.handle==99,"Rejected pointer query changed caller output");
+        require(mp_windows_pointer_window(nullptr,0,0,0)==0,"Pointer query without an owned output performed hit testing");
         // Repeat on a plain native entry thread with no pre-initialized COM.
         // A managed host can keep an MTA alive and conceal stale WinRT factory
         // caches between otherwise balanced capability probes.

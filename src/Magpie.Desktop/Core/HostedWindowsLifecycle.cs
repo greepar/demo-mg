@@ -47,6 +47,10 @@ internal sealed class HostedLifecycleCase
     public int NativeOutputClickChecks {get;set;}
     public bool LayeredNativeMousePassed {get;set;}
     public bool LayeredRepaintPassed {get;set;}
+    public bool ScaledNativeMousePassed {get;set;}
+    public bool NativeInvertCursorPassed {get;set;}
+    public uint NativeInvertCursorPixel {get;set;}
+    public bool NativePointerCleanupPassed {get;set;}
     public uint LayeredScreenPixel {get;set;}
     public bool TopmostPreferenceHonored {get;set;}
     public bool SourceTopmostInherited {get;set;}

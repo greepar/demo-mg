@@ -51,15 +51,20 @@ jobs:
         if: runner.os != 'Linux'
         run: python scripts/prepare-desktop-ci.py
       - name: Build Windows native capture core before AOT
+        id: windows_native
         if: runner.os == 'Windows'
         run: python scripts/build-native.py --rid win-x64 --configuration Release --build-dir artifacts/native/win-x64/Release
       - name: Disposable Windows source-window capture regression
         if: runner.os == 'Windows'
         run: python scripts/verify-windows-capture-fixture.py
       - name: Native SDK, AOT, interaction models and single executable
+        id: platform_build
+        # Keep the native fixture failure red, but collect the independent
+        # production/UI evidence when its native build itself succeeded.
+        if: ${{ !cancelled() && (success() || (runner.os == 'Windows' && steps.windows_native.outcome == 'success')) }}
         run: python scripts/verify-platform-build.py --rid ${{ matrix.rid }}
       - name: Disposable Windows production capture and UI lifecycle
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' && steps.platform_build.outcome == 'success' }}
         run: python scripts/verify-windows-production-lifecycle.py
       - name: Linux software Vulkan regression
         if: runner.os == 'Linux'

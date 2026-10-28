@@ -74,8 +74,11 @@ internal sealed partial class ScalingSession
         _windowsFocusPoll?.Dispose();
         _windowsFocusPoll=DispatcherTimer.Run(()=>
         {
-            if(_output is null||_stop.IsCancellationRequested)return false;
-            try {UpdateWindowsOutputOwner();}
+            try
+            {
+                if(_output is null||_stop.IsCancellationRequested) {EndWindowsPointer();return false;}
+                UpdateWindowsOutputOwner();UpdateWindowsPointer();
+            }
             catch(Exception error) {Console.Error.WriteLine("Output window policy: "+error.Message);Stop();}
             return true;
         },TimeSpan.FromMilliseconds(16));
@@ -200,7 +203,8 @@ internal sealed partial class ScalingSession
         _windowsOutputNeedsLayerRestore=true;
         // Match original ScalingWindow: source keyboard focus survives both
         // initial showing and clicks on the presentation/overlay controls.
-        Win32Properties.AddWindowStylesCallback(output,static(style,extended)=>(style,extended|0x08000000)); // WS_EX_NOACTIVATE
+        Win32Properties.AddWindowStylesCallback(output,(style,extended)=>(style,
+            (extended&~0x20u)|0x08000000u|(_windowsPointerLayered?0x80000u:0u)|(_windowsPointerCaptured?0x20u:0u))); // WS_EX_NOACTIVATE
         Win32Properties.AddWndProcHookCallback(output,KeepWindowsSourceActive);
         var handle=output.TryGetPlatformHandle();
         if(handle is not {HandleDescriptor:"HWND",Handle:not 0})throw new InvalidOperationException("Windows output has no HWND for its activation policy.");

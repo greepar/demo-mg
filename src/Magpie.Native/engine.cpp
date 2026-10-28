@@ -15,6 +15,12 @@
 
 namespace magpie { thread_local std::string error; }
 #ifndef _WIN32
+extern "C" int mp_capture_windows_pointer_rect(void*,uint64_t,uint32_t,uint64_t,mp_pointer_rect*,uint32_t) {return 0;}
+extern "C" int mp_windows_cursor_copy(uint64_t,mp_cursor_shape*,uint32_t) {return 0;}
+extern "C" void mp_windows_cursor_destroy(uint64_t) {}
+extern "C" int mp_windows_cursor_draw(uint64_t,uint8_t*,uint64_t,uint32_t,uint32_t,int32_t,int32_t,uint32_t,uint32_t) {return 0;}
+extern "C" int mp_windows_system_cursor(int) {return 0;}
+extern "C" uint64_t mp_windows_pointer_window(void*,int32_t,int32_t,int) {return 0;}
 extern "C" uint32_t mp_capture_source_state(void*) { return 0; }
 extern "C" int mp_capture_restore_output_layer(void*,void*,uint64_t,uint32_t) { return 0; }
 extern "C" int mp_capture_mark_output_fullscreen(void*,void*,uint64_t,uint32_t,int) { return 0; }

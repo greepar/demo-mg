@@ -62,6 +62,12 @@ internal static class NativeCore
         [MarshalAs(UnmanagedType.LPUTF8Str)] string reservedCharacter,int reservedCode,ulong reservedModifiers,ulong expectedWindow,uint expectedProcess,ulong expectedSequence,[MarshalAs(UnmanagedType.LPUTF8Str)] string screenshotCharacter,int screenshotCode,ulong screenshotModifiers);
 
     [DllImport(Library,EntryPoint="mp_capture_overlay_region")] internal static extern int CaptureOverlayRegion(CaptureHandle capture,double x,double y,double width,double height);
+    [DllImport(Library,EntryPoint="mp_capture_windows_pointer_rect")] internal static extern int CaptureWindowsPointerRect(CaptureHandle capture,ulong window,uint process,ulong sequence,out NativePointerRect rect,uint size);
+    [DllImport(Library,EntryPoint="mp_windows_pointer_window")] internal static extern ulong WindowsPointerWindow(nint output,int x,int y,int skipOutput);
+    [DllImport(Library,EntryPoint="mp_windows_cursor_copy")] internal static extern int WindowsCursorCopy(ulong cursor,out NativeCursorShape shape,uint size);
+    [DllImport(Library,EntryPoint="mp_windows_cursor_destroy")] internal static extern void WindowsCursorDestroy(ulong cursor);
+    [DllImport(Library,EntryPoint="mp_windows_cursor_draw")] internal static extern unsafe int WindowsCursorDraw(ulong cursor,byte* rgba,ulong bytes,uint width,uint height,int x,int y,uint drawWidth,uint drawHeight);
+    [DllImport(Library,EntryPoint="mp_windows_system_cursor")] internal static extern int WindowsSystemCursor(int show);
 
     internal static void VerifyInteractionModels()
     {
@@ -82,6 +88,7 @@ internal static class NativeCore
         GpuTimingPresentationTests.Verify();
         OverlayPlacementTests.Verify();
         ProfilerSessionInfoTests.Verify();
+        WindowsPointerMappingTests.Verify();
         Console.WriteLine("INTERACTION MODEL PASS: native source ABI and non-GPU settings/shortcut/countdown/toolbar/configuration tests; no UI, capture picker or permission dialog.");
     }
 

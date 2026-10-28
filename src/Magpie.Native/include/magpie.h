@@ -174,6 +174,16 @@ int mp_capture_configure_input(void* capture,void* native_window,double x,double
 // Additional local profiler hit region in output logical client coordinates.
 // Zero width/height clears it. Cocoa main thread only; other backends return 0.
 int mp_capture_overlay_region(void* capture,double x,double y,double width,double height);
+// Windows native pointer primitives. Other systems return unsupported without
+// altering output. Physical desktop pixels; source identity/epoch is mandatory.
+typedef struct mp_pointer_rect { int32_t left,top,right,bottom; } mp_pointer_rect;
+typedef struct mp_cursor_shape { uint64_t handle; uint32_t width,height,hot_x,hot_y; } mp_cursor_shape;
+int mp_capture_windows_pointer_rect(void* capture,uint64_t window,uint32_t process,uint64_t sequence,mp_pointer_rect* rect,uint32_t size);
+int mp_windows_cursor_copy(uint64_t cursor,mp_cursor_shape* shape,uint32_t size);
+void mp_windows_cursor_destroy(uint64_t cursor);
+int mp_windows_cursor_draw(uint64_t cursor,uint8_t* rgba,uint64_t bytes,uint32_t width,uint32_t height,int32_t x,int32_t y,uint32_t draw_width,uint32_t draw_height);
+int mp_windows_system_cursor(int show);
+uint64_t mp_windows_pointer_window(void* output,int32_t x,int32_t y,int skip_output);
 // 1=new frame, 0=waiting for frame, -1=error. No X11 window identifiers.
 // Returned pixels remain valid until the next non-waiting frame call or capture destruction.
 // Waiting calls and asynchronous producer callbacks do not alter the delivered buffer.

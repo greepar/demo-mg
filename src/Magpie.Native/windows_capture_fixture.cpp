@@ -7,12 +7,15 @@
 #include <cstring>
 #include <cstdio>
 #include <atomic>
+#include <array>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <fstream>
 
 // Opt-in only: creates a disposable source process/window on the hosted runner.
 // Never registered with the default CTest suite or run on the user's desktop.
@@ -98,7 +101,15 @@ int child(DWORD parent) {
     std::unique_ptr<void,decltype(&CloseHandle)> owner(OpenProcess(SYNCHRONIZE,FALSE,parent),CloseHandle);
     require(bool(owner),"Fixture parent is not alive");
     HINSTANCE instance=GetModuleHandleW(nullptr);
+    // Genuine native AND/XOR cursor: transparent except an inversion cross at
+    // its hotspot. Desktop GetPixel excludes the OS pointer, so the production
+    // test can independently prove its software cursor is actually composed.
+    std::array<BYTE,128> andMask,xorMask{};andMask.fill(255);
+    for(int i=0;i<10;++i) {xorMask[size_t(i)*4]|=BYTE(0x80>>3);xorMask[3*4+size_t(i/8)]|=BYTE(0x80>>(i%8));}
+    HCURSOR cursor=CreateCursor(instance,3,3,32,32,andMask.data(),xorMask.data());
+    require(cursor!=nullptr,"Cannot create native inversion cursor fixture");
     WNDCLASSW cls{};cls.lpfnWndProc=sourceProc;cls.hInstance=instance;cls.lpszClassName=L"MagpieGdiDisposableSource";
+    cls.hCursor=cursor;
     require(RegisterClassW(&cls)!=0,"Cannot register source fixture class");
     HWND window=CreateWindowW(cls.lpszClassName,title(parent).c_str(),WS_OVERLAPPEDWINDOW,100,100,300,240,nullptr,nullptr,instance,nullptr);
     require(window!=nullptr,"Cannot create source fixture window");
@@ -110,6 +121,7 @@ int child(DWORD parent) {
     MSG message{};while(GetMessageW(&message,nullptr,0,0)>0) { TranslateMessage(&message);DispatchMessageW(&message); }
     UnregisterWaitEx(parentWait,INVALID_HANDLE_VALUE);
     if(IsWindow(window))DestroyWindow(window);
+    UnregisterClassW(cls.lpszClassName,instance);DestroyCursor(cursor);
     return 0;
 }
 struct Process {
@@ -195,7 +207,22 @@ int main(int argc,char** argv) {
             }
             require(width==uint32_t(actual.right-actual.left)&&height==expectedHeight,"Capture dimensions do not match independently queried source/caption bounds");
             const auto* sample=pixels+(size_t(height/2)*width+width/2)*4;
-            require(sample[0]==23&&sample[1]==67&&sample[2]==109&&sample[3]==255,"GDI RGBA pixels differ from independently painted source");
+            if(sample[0]!=23||sample[1]!=67||sample[2]!=109||sample[3]!=255) {
+                const auto sequence=mp_capture_frame_sequence(capture.get());
+                std::cerr<<"CAPTURE PIXEL MISMATCH: backend="<<backend<<" title="<<titleBar<<" phase="<<phase<<" sequence="<<sequence
+                    <<" size="<<width<<'x'<<height<<" centerRGBA="<<unsigned(sample[0])<<','<<unsigned(sample[1])<<','<<unsigned(sample[2])<<','<<unsigned(sample[3])<<std::endl;
+                HDC dc=GetDC(process.window);COLORREF live=dc?GetPixel(dc,actual.right/2,actual.bottom/2):CLR_INVALID;
+                if(dc)ReleaseDC(process.window,dc);
+                std::cerr<<"CAPTURE PIXEL LIVE CLIENT: colorref="<<std::hex<<live<<std::dec<<std::endl;
+                // Preserve the failing first delivery before any further frame
+                // call or teardown. No retry or repaint to hide the mismatch.
+                auto path=std::filesystem::path("artifacts/platform-build-checks/win-x64")/
+                    (std::string("windows-capture-mismatch-")+std::to_string(backend)+(titleBar?"-title":"")+"-"+std::to_string(sequence)+".rgba");
+                std::filesystem::create_directories(path.parent_path());
+                std::ofstream saved(path,std::ios::binary);saved.write(reinterpret_cast<const char*>(pixels),std::streamsize(size_t(width)*height*4));
+                require(bool(saved),"Cannot preserve first mismatching capture pixels");saved.close();
+                require(false,"Captured RGBA pixels differ from independently painted source");
+            }
             if(titleBar) {
                 bool different=false;
                 for(uint32_t y=0;y<height-uint32_t(actual.bottom-actual.top);++y) {

@@ -20,5 +20,6 @@ public:
     uint64_t revision() const;
     void suspend();
     bool sizeMatches(uint32_t width,uint32_t height) const;
+    bool pointerRect(RECT& region) const;
 };
 }

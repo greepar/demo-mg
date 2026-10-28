@@ -263,7 +263,7 @@ internal sealed partial class ScalingSession
                 var settings=new RuntimeSettings {Effect=0,CaptureBackend=backend,FrameRateLimiterEnabled=true,MaximumFrameRate=60};
                 settings.ScreenshotDirectory=Path.Combine(HostedWindowsLifecycle.Output,backend+(fullscreen?"-fullscreen":"-windowed"));
                 settings.ScreenshotTemplate="source";
-                var session=new ScalingSession(settings);Task? run=null;string? failure=null;Process? source=null;
+                var session=new ScalingSession(settings) {_windowsPointerSuppressed=true};Task? run=null;string? failure=null;Process? source=null;
                 void Phase(string value){evidence.Phase=value;Console.WriteLine("WINDOWS PRODUCTION PHASE: "+backend+" "+fullscreen+" "+value);Save();}
                 session.Finished+=message=>failure=message;
                 try
@@ -294,6 +294,8 @@ internal sealed partial class ScalingSession
                     await session.VerifyHostedWindowLayers(source,window,run,()=>failure,evidence);
                     Phase("layered rendering and native cross-process mouse");
                     await session.VerifyHostedLayeredMouse(source,window,run,()=>failure,evidence);
+                    Phase("production scaled native pointer and inversion cursor");
+                    await session.VerifyHostedScaledPointer(source,window,run,()=>failure,evidence);
                     evidence.SourceWidth=session._captureFrameWidth;evidence.SourceHeight=session._captureFrameHeight;evidence.FirstSequence=session._lastSourceSequence;
                     if(!fullscreen) {session._output!.Width+=80;session._output.Height+=40;await Task.Delay(200);}
                     var oldSize=session._output!.ClientSize;var oldPosition=session._output.Position;
@@ -370,7 +372,7 @@ internal sealed partial class ScalingSession
             }
             report.Passed=report.Cases.Count==4&&report.Cases.Where(c=>c.Backend=="Gdi").All(c=>c.State=="passed")&&report.Cases.All(c=>c.State is "passed" or "unavailable");
             if(!report.Passed)throw new InvalidOperationException("Incomplete production lifecycle matrix.");
-            Console.WriteLine("WINDOWS PRODUCTION LIFECYCLE PASS: real owned Win32 source, native capture, SwiftShader Vulkan, Avalonia native output, initial/resumed foreground and native source keyboard, minimize/hide/fresh restore, geometry, idle GPU, screenshot and stop/source-close cleanup; mouse/IME/game/hardware Vulkan coverage remains incomplete.");
+            Console.WriteLine("WINDOWS PRODUCTION LIFECYCLE PASS: real owned Win32 source, native capture, SwiftShader Vulkan, Avalonia native output, initial/resumed keyboard, fresh layered repaint, scaled native mouse and actual XOR software cursor, minimize/hide/fresh restore, geometry, idle GPU, screenshot and cleanup; real-app/IME/game/multimonitor/hardware Vulkan coverage remains incomplete.");
         }
         finally {RuntimeSettings.Current.DisableFP16=disable;RuntimeSettings.Current.KeepScreenOn=keepAwake;RuntimeSettings.Current.MinimumFrameRate=minimum;Save();}
     }
