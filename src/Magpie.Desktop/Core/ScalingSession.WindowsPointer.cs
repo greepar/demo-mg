@@ -26,6 +26,8 @@ internal sealed partial class ScalingSession
     [DllImport("user32",EntryPoint="ClipCursor")]private static extern bool ClearWindowsClip(nint clip);
     [DllImport("user32",EntryPoint="GetGUIThreadInfo")]private static extern bool ReadWindowsGui(uint thread,ref WindowsGuiInfo info);
     [DllImport("user32",EntryPoint="GetAncestor")]private static extern nint WindowsPointerRoot(nint window,uint kind);
+    [DllImport("user32",EntryPoint="WindowFromPoint")]private static extern nint WindowsPointerChild(PixelPoint point);
+    [DllImport("user32",EntryPoint="PostMessageW")]private static extern bool HintWindowsCursor(nint window,uint message,nint w,nint l);
     [DllImport("user32",EntryPoint="MonitorFromPoint")]private static extern nint WindowsPointerMonitor(PixelPoint point,uint flags);
     [DllImport("user32",EntryPoint="SendMessageTimeoutW")]private static extern nint WindowsPointerHit(nint window,uint message,nint w,nint l,uint flags,uint timeout,out nint result);
     [DllImport("user32",EntryPoint="SetLayeredWindowAttributes",SetLastError=true)]private static extern bool SetWindowsPointerAlpha(nint window,uint color,byte alpha,uint flags);
@@ -38,6 +40,7 @@ internal sealed partial class ScalingSession
     private bool _windowsHitPending;
     private int _windowsHitArea;
     private PixelPoint? _windowsHitPoint;
+    private string _windowsPointerStatus="not started";
 
     private static NativePointerRect WindowsRect(Visual visual,double width,double height)
     {
@@ -134,31 +137,31 @@ internal sealed partial class ScalingSession
     {
         if(!OperatingSystem.IsWindows())return;
         if(_windowsPointerSuppressed||_sourceSuspended||_stop.IsCancellationRequested||_output is not {IsVisible:true}||_bitmap is null||_image is null)
-        {EndWindowsPointer();return;}
+        {_windowsPointerStatus="inactive/suppressed";EndWindowsPointer();return;}
         NativePointerRect source;
         lock(_captureLock)
         {
             if(_capture is not {IsClosed:false,IsInvalid:false} capture||NativeCore.CaptureWindowsPointerRect(capture,
                 _lastSourceInfo.WindowId,_lastSourceInfo.ProcessId,_lastSourceSequence,out source,16)!=1)
-            {EndWindowsPointer();return;}
+            {_windowsPointerStatus="waiting for matching source geometry";EndWindowsPointer();return;}
         }
         var crop=SourceRegion.Resolve(_settings,_captureFrameWidth,_captureFrameHeight);
         source=new(checked(source.Left+(int)crop.X),checked(source.Top+(int)crop.Y),checked(source.Left+(int)(crop.X+crop.Width)),checked(source.Top+(int)(crop.Y+crop.Height)));
         var mapping=new WindowsPointerMapping(source,WindowsRect(_image,_image.Bounds.Width,_image.Bounds.Height),WindowsRect(_output,_output.ClientSize.Width,_output.ClientSize.Height));
         if(mapping.Destination.Width!=_bitmap.PixelSize.Width||mapping.Destination.Height!=_bitmap.PixelSize.Height)
-        {EndWindowsPointer();return;}
+        {_windowsPointerStatus="waiting for pixel-aligned destination geometry";EndWindowsPointer();return;}
         if(_windowsPointerCaptured&&!mapping.Equals(_windowsPointerMapping))EndWindowsPointer();
         _windowsPointerMapping=mapping;
-        if(!ReadWindowsPointer(out var physical)) {EndWindowsPointer(false);return;}
+        if(!ReadWindowsPointer(out var physical)) {_windowsPointerStatus="GetCursorPos failed";EndWindowsPointer(false);return;}
         nint output=_output.TryGetPlatformHandle()!.Handle,owner=unchecked((nint)_lastSourceInfo.WindowId);
         var visual=_windowsPointerCaptured?mapping.ToOutput(physical.X,physical.Y):(physical.X,physical.Y);
         var gui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
         bool nativeDrag=ReadWindowsGui(0,ref gui)&&gui.Capture!=0&&(gui.Flags&0x1c)==0;
-        if(nativeDrag&&WindowsPointerRoot(gui.Capture,2)!=owner) {EndWindowsPointer(false);return;}
+        if(nativeDrag&&WindowsPointerRoot(gui.Capture,2)!=owner) {_windowsPointerStatus="another application's native capture";EndWindowsPointer(false);return;}
         if(nativeDrag&&_windowsPointerCaptured)
         {
             // Source owns the actual drag/capture; never warp midway through it.
-            ClipWindowsSource((gui.Flags&2)==0);DrawWindowsCursor(visual.Item1,visual.Item2);return;
+            _windowsPointerStatus="native source drag";ClipWindowsSource((gui.Flags&2)==0);DrawWindowsCursor(visual.Item1,visual.Item2);return;
         }
         ClipWindowsSource(false);
         bool onOutput=NativeCore.WindowsPointerWindow(output,visual.Item1,visual.Item2,0)==(ulong)output;
@@ -168,6 +171,7 @@ internal sealed partial class ScalingSession
                 Math.Clamp(visual.Item2,mapping.Destination.Top,mapping.Destination.Bottom-1));
         if(!onOutput||WindowsPointerOnOverlay(visual.Item1,visual.Item2)||!mapping.Destination.Contains(visual.Item1,visual.Item2))
         {
+            _windowsPointerStatus="outside output/image or over local overlay";
             if(_windowsPointerCaptured)
             {
                 var exit=mapping.ToOutput(physical.X,physical.Y,OutputForeground()==owner);
@@ -182,16 +186,26 @@ internal sealed partial class ScalingSession
         }
         var mapped=_windowsPointerCaptured?(physical.X,physical.Y):mapping.ToSource(visual.Item1,visual.Item2);
         bool sourceVisible=NativeCore.WindowsPointerWindow(output,mapped.Item1,mapped.Item2,1)==(ulong)owner;
-        if(!sourceVisible||nativeDrag) {EndWindowsPointer(!nativeDrag);return;}
+        if(!sourceVisible||nativeDrag) {_windowsPointerStatus="source point occluded or native capture busy";EndWindowsPointer(!nativeDrag);return;}
         CheckWindowsPointerEdge(owner,new(mapped.Item1,mapped.Item2));
-        if(_windowsHitArea is >=10 and <=17) {EndWindowsPointer();return;}
+        if(_windowsHitArea is >=10 and <=17) {_windowsPointerStatus="native sizing edge";EndWindowsPointer();return;}
+        _windowsPointerStatus="captured";
         if(!_windowsPointerCaptured)
         {
             if(!source.Contains(mapped.Item1,mapped.Item2)||!DrawWindowsCursor(visual.Item1,visual.Item2))return;
             SetWindowsPassthrough(true);
             MoveWindowsPointerReliably(mapped.Item1,mapped.Item2);
-            if(NativeCore.WindowsSystemCursor(0)!=1) {SetWindowsPassthrough(false);MoveWindowsPointerReliably(visual.Item1,visual.Item2);return;}
+            if(NativeCore.WindowsSystemCursor(0)!=1) {_windowsPointerStatus="system cursor visibility API unavailable";SetWindowsPassthrough(false);MoveWindowsPointerReliably(visual.Item1,visual.Item2);return;}
             _windowsSystemCursorHidden=true;_windowsPointerCaptured=true;
+            // Original _ReliableSetCursorPos refreshes the real source cursor.
+            // This is a cursor notification, never fabricated mouse input.
+            nint child=WindowsPointerChild(new(mapped.Item1,mapped.Item2));
+            if(child!=0&&WindowsPointerRoot(child,2)==owner&&OutputWindowProcess(child,out uint process)!=0&&process==_lastSourceInfo.ProcessId)
+            {
+                nint packed=unchecked((nint)((uint)(ushort)mapped.Item1|((uint)(ushort)mapped.Item2<<16)));
+                WindowsPointerHit(child,0x84,0,packed,2,10,out nint area);
+                HintWindowsCursor(child,0x20,owner,unchecked((nint)((0x200u<<16)|(uint)(ushort)area)));
+            }
         }
         else if(!DrawWindowsCursor(visual.Item1,visual.Item2))EndWindowsPointer();
     }
@@ -199,9 +213,9 @@ internal sealed partial class ScalingSession
     {
         if(_bitmap is null||_output?.Content is not Grid grid||_image is null)return false;
         var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
-        if(!ReadWindowsCursor(ref cursor))return false;
-        if((cursor.Flags&1)==0) {if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
-        if(NativeCore.WindowsCursorCopy((ulong)cursor.Cursor,out var shape,24)!=1)return false;
+        if(!ReadWindowsCursor(ref cursor)) {_windowsPointerStatus="GetCursorInfo failed";return false;}
+        if((cursor.Flags&1)==0) {_windowsPointerStatus="source cursor not visible: flags="+cursor.Flags;if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
+        if(NativeCore.WindowsCursorCopy((ulong)cursor.Cursor,out var shape,24)!=1) {_windowsPointerStatus="native cursor copy: "+NativeCore.Error().Message;return false;}
         try
         {
             var dest=_windowsPointerMapping.Destination;
@@ -212,7 +226,7 @@ internal sealed partial class ScalingSession
             using(var background=_bitmap.Lock())
                 for(int row=0;row<height;row++)new ReadOnlySpan<byte>((byte*)background.Address+(top-dest.Top+row)*background.RowBytes+(left-dest.Left)*4,width*4).CopyTo(pixels.AsSpan(row*width*4,width*4));
             fixed(byte* data=pixels)
-                if(NativeCore.WindowsCursorDraw(shape.Handle,data,(ulong)pixels.Length,(uint)width,(uint)height,x-(int)shape.HotX-left,y-(int)shape.HotY-top,shape.Width,shape.Height)!=1)return false;
+                if(NativeCore.WindowsCursorDraw(shape.Handle,data,(ulong)pixels.Length,(uint)width,(uint)height,x-(int)shape.HotX-left,y-(int)shape.HotY-top,shape.Width,shape.Height)!=1) {_windowsPointerStatus="native cursor draw: "+NativeCore.Error().Message;return false;}
             if(_windowsCursorOverlay is null)
             {
                 _windowsCursorOverlay=new Image {IsHitTestVisible=false,Stretch=Avalonia.Media.Stretch.Fill,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top};

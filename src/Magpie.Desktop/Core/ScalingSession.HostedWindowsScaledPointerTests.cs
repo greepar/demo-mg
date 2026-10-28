@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
@@ -28,7 +29,13 @@ internal sealed partial class ScalingSession
         {
             if(!FixtureMoveCursor(visual.X,visual.Y))throw new InvalidOperationException("Cannot enter scaled output with physical pointer.");
             _windowsPointerSuppressed=false;
-            await WaitHosted(()=>_windowsPointerCaptured&&_windowsSystemCursorHidden&&_windowsCursorOverlay is {IsVisible:true},run,failure,"production native virtual cursor",10);
+            try {await WaitHosted(()=>_windowsPointerCaptured&&_windowsSystemCursorHidden&&_windowsCursorOverlay is {IsVisible:true},run,failure,"production native virtual cursor",10);}
+            catch(Exception error)
+            {
+                FixtureCursor(out var now);var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};ReadWindowsCursor(ref cursor);
+                var m=_windowsPointerMapping;
+                throw new InvalidOperationException($"Native pointer status={_windowsPointerStatus}; captured={_windowsPointerCaptured}; hidden={_windowsSystemCursorHidden}; passthrough={_windowsPointerPassthrough}; overlay={_windowsCursorOverlay?.IsVisible}; pointer={now.X},{now.Y}; expectedPointer={physical.X},{physical.Y}; inputVisual={visual.X},{visual.Y}; cursorFlags={cursor.Flags}; cursor={cursor.Cursor}; sourceRect={m.Source.Left},{m.Source.Top},{m.Source.Right},{m.Source.Bottom}; destRect={m.Destination.Left},{m.Destination.Top},{m.Destination.Right},{m.Destination.Bottom}; imageBounds={_image.Bounds}; bitmap={_bitmap.PixelSize}; hitOutput={NativeCore.WindowsPointerWindow(HostedOutputHandle(),visual.X,visual.Y,0)}; expectedOutput={HostedOutputHandle()}; hitSource={NativeCore.WindowsPointerWindow(HostedOutputHandle(),physical.X,physical.Y,1)}; expectedSource={sourceWindow}.",error);
+            }
             if(!FixtureCursor(out var actual)||actual.X!=physical.X||actual.Y!=physical.Y)
                 throw new InvalidOperationException($"Scaled pointer landed at {actual.X},{actual.Y}, expected independent source pixel {physical.X},{physical.Y}.");
             const uint inverse=232u|(188u<<8)|(146u<<16);
