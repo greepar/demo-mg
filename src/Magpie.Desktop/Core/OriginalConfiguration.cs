@@ -10,7 +10,7 @@ internal static class OriginalConfiguration
     private static readonly HashSet<string> GlobalFields=new(StringComparer.Ordinal)
     {
         "version","language","theme","developerMode","countdownSeconds","downCount","showNotifyIcon","showTrayIcon","keepScreenOn",
-        "disableFP16","duplicateFrameDetectionMode","enableStatisticsForDynamicDetection","minFrameRate",
+        "disableFP16","disableTopmost","duplicateFrameDetectionMode","enableStatisticsForDynamicDetection","minFrameRate",
         "scalingModes","profiles","scalingProfiles","shortcuts","hotkeys","overlay"
     };
     private static readonly HashSet<string> ProfileFields=new(StringComparer.Ordinal)
@@ -61,6 +61,7 @@ internal static class OriginalConfiguration
         if(Find(root,"showNotifyIcon","showTrayIcon") is {} tray)settings.ShowTrayIcon=Boolean(tray);
         if(Find(root,"keepScreenOn") is {} awake)settings.KeepScreenOn=Boolean(awake);
         if(Find(root,"disableFP16") is {} fp16)settings.DisableFP16=Boolean(fp16);
+        if(Find(root,"disableTopmost") is {} topmost)settings.DisableTopmost=Boolean(topmost);
         if(Find(root,"duplicateFrameDetectionMode") is {} duplicate)settings.DuplicateFrameDetection=(DuplicateFrameMode)Integer(duplicate,0,2);
         if(Find(root,"enableStatisticsForDynamicDetection") is {} statistics)settings.StatisticsForDynamicDetection=Boolean(statistics);
         if(Find(root,"minFrameRate") is {} minimum)settings.MinimumFrameRate=Number(minimum);
@@ -128,7 +129,7 @@ internal static class OriginalConfiguration
             var globals=settings.CopyForProfile();
             profile.Settings=new RuntimeSettings { Modes=modes,Language=globals.Language,Theme=globals.Theme,
                 FullscreenShortcut=globals.FullscreenShortcut,WindowedShortcut=globals.WindowedShortcut,ToolbarShortcut=globals.ToolbarShortcut,ScreenshotShortcut=globals.ScreenshotShortcut,
-                KeepScreenOn=globals.KeepScreenOn,DisableFP16=globals.DisableFP16,DuplicateFrameDetection=globals.DuplicateFrameDetection,
+                KeepScreenOn=globals.KeepScreenOn,DisableFP16=globals.DisableFP16,DisableTopmost=globals.DisableTopmost,DuplicateFrameDetection=globals.DuplicateFrameDetection,
                 StatisticsForDynamicDetection=globals.StatisticsForDynamicDetection,MinimumFrameRate=globals.MinimumFrameRate,
                 ShowTrayIcon=globals.ShowTrayIcon,CountdownSeconds=globals.CountdownSeconds,DeveloperMode=globals.DeveloperMode };
             ReadProfile(source,profile.Settings,$"profiles[{i}].");settings.Profiles.Add(profile);

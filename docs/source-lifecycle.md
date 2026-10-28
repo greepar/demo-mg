@@ -55,4 +55,12 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 `30d24577` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40629746244/job/122623110211) 已实际确认初始输出 owner/可见点及按下释放，但点击后的前台/鼠标状态断言失败，整条门仍未通过。核对 [Avalonia 12.1.1 AppWndProc](https://github.com/AvaloniaUI/Avalonia/blob/12.1.1/src/Windows/Avalonia.Win32/WindowImpl.AppWndProc.cs)：鼠标按下在 MA_NOACTIVATE 之外仍主动 SetFocus，`ShouldTakeFocusOnClick` 是内部实现的保护属性，公开 Win32Properties 没有关闭此行为的选项。移植版接入原版 `_UpdateSrcState` 的意外焦点纠正规则：仅当本输出实际取得前台，并且所显示源的 capture epoch/窗口/PID 仍有效时，在 WM_SETFOCUS 中同步恢复源前台；其他应用在前台时不执行。保留原有点击消息与严格实测门，不模拟控件点击或吞掉输入，也没有修改 NuGet 缓存/反射内部成员。该补充仍需对应 CI 证明，失败数据保留。
 
+`ffcc6b93` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40630798967/job/122626444408) 已实际通过 GDI 普通窗口的三个点击/键盘阶段、两次隐藏恢复和正常关闭。随后全屏场景的底部客户区点 `(512,758)` 命中其他原生窗口，源仍为前台且左键未按住，测试拒绝注入。整次联合门仍失败，不能计作全屏/WGC 点击已通过；没有改测试点避开遮挡。
+
+## 前台层级与禁用置顶
+
+对照原版 `_CalcTopmostState`，新增源为置顶窗口时继承置顶；否则仅在源确为前台、可用且没有 enabled popup，并且未勾选“禁用置顶”时临时置顶输出。[GetWindow](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindow) 返回 owner 自身或本输出时不当作源应用对话框。失去前台时撤销自动置顶，返回源的窗口层级。原版开发者 `disableTopmost` 已接 UI、即时应用、持久化/恢复、失败回退和原版配置迁移；原有文件缺少字段时为 false。Linux/macOS 保留偏好但禁用该控制，未冒充实现其系统窗口层级管理。原版自有 HWND 的 TreatAsDesktopFullscreen shell hint 同步设置并在原生销毁时移除，不操作系统任务栏窗口。另修复运行统计刷新重新加回 Windows “Esc to stop” 标题的问题。
+
+16ms UI 定时器只更新窗口策略，不提交 GPU；WGC 静态源没有新帧时仍可跟随前台和偏好变化，隐藏/结束后停止处理，关闭/会话清理显式释放。继续保留 owner 和原生点击命中验证，新增四场景“禁用自动置顶、继承自有源置顶、返回普通层、重新启用、切到另一独立自有应用、键盘不偷跑/不换捕获源、回到原源”实际门。独立应用必须保持前台且原生客户区可见；本提交目标 CI 仍待执行，不能凭代码或模型通过宣布实际层级已完成。管理员/不同完整性级别、UWP、真实系统弹层、源弹窗和多显示器仍缺专项验证；尚未完整复刻原版异步 DWM/批量 Z-order 分支。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

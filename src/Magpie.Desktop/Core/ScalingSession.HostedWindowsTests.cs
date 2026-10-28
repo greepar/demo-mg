@@ -59,6 +59,7 @@ internal sealed partial class ScalingSession
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
         nint window=HostedOutputHandle();
         if(OutputWindowStyle(window,-8)!=sourceWindow)throw new InvalidOperationException("Output lost its native source owner.");
+        if(FixtureProperty(window,"TreatAsDesktopFullscreen")!=1)throw new InvalidOperationException("Output lost the original fullscreen shell hint.");
         if(!FixtureClient(window,out var rect)||rect.Right<20||rect.Bottom<20||!FixtureCursor(out var original))
             throw new InvalidOperationException("Cannot locate owned output for native click test.");
         var point=new FixturePoint {X=rect.Right/2,Y=rect.Bottom-10};
@@ -126,6 +127,69 @@ internal sealed partial class ScalingSession
     {
         if(source.HasExited||window==0||FixtureOwner(window,out var pid)==0||pid!=(uint)source.Id)
             throw new InvalidOperationException("Fixture source identity changed; refusing window operations.");
+    }
+    private async Task VerifyHostedWindowLayers(Process source,nint sourceWindow,Task run,Func<string?> failure,HostedLifecycleCase evidence)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
+        var global=RuntimeSettings.Current;bool disabled=global.DisableTopmost;double minimum=global.MinimumFrameRate;
+        Process? other=null;nint otherWindow=0;
+        bool NativeTopmost()=>_output is not null&&(OutputWindowStyle(HostedOutputHandle(),-20)&8)!=0;
+        void SetSourceTopmost(bool value)
+        {
+            RequireOwnedSource(source,sourceWindow);
+            if(!PositionOwnedOutput(sourceWindow,value?-1:-2,0,0,0,0,0x13))throw new InvalidOperationException("Cannot set owned fixture source topmost state.");
+        }
+        try
+        {
+            global.MinimumFrameRate=0;global.DisableTopmost=true;global.Save();
+            await WaitHosted(()=>!_output!.Topmost&&!NativeTopmost(),run,failure,"disable topmost preference");
+            SetSourceTopmost(true);
+            await WaitHosted(()=>_output!.Topmost&&NativeTopmost(),run,failure,"inherit topmost source while automatic topmost is disabled");
+            evidence.SourceTopmostInherited=true;
+            SetSourceTopmost(false);
+            await WaitHosted(()=>!_output!.Topmost&&!NativeTopmost(),run,failure,"return source/output to normal window layer");
+            global.DisableTopmost=false;global.Save();
+            await WaitHosted(()=>_output!.Topmost&&NativeTopmost(),run,failure,"foreground source automatic topmost restored");
+            evidence.TopmostPreferenceHonored=true;
+            var launch=new ProcessStartInfo(HostedWindowsLifecycle.Fixture) {UseShellExecute=false,CreateNoWindow=true};
+            launch.ArgumentList.Add("--source");launch.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            other=Process.Start(launch)??throw new InvalidOperationException("Cannot create independent foreground fixture.");
+            await WaitHosted(()=> {other.Refresh();otherWindow=other.MainWindowHandle;return otherWindow!=0;},run,failure,"independent foreground HWND");
+            RequireOwnedSource(other,otherWindow);
+            if(otherWindow==sourceWindow)throw new InvalidOperationException("Independent fixture reused the live selected source HWND.");
+            FixtureActivate(otherWindow);
+            await WaitHosted(()=>FixtureForeground()==otherWindow&&!_output!.Topmost&&!NativeTopmost(),run,failure,"independent foreground and output demotion");
+            if(!FixtureClient(otherWindow,out var rect))throw new InvalidOperationException("Cannot locate independent foreground client.");
+            var point=new FixturePoint {X=rect.Right/2,Y=rect.Bottom/2};
+            if(!FixtureToScreen(otherWindow,ref point)||FixtureRoot(FixtureAtPoint(point),2)!=otherWindow)
+                throw new InvalidOperationException("Scaling output obscures the independent foreground application.");
+            long keys=(long)FixtureProperty(sourceWindow,"MagpieFixtureKeyDown");
+            await Task.Delay(250);
+            await VerifyHostedSourceKeyboard(other,otherWindow,run,failure);
+            if(FixtureForeground()!=otherWindow||(long)FixtureProperty(sourceWindow,"MagpieFixtureKeyDown")!=keys||
+                _lastSourceInfo.WindowId!=(ulong)sourceWindow||_lastSourceInfo.ProcessId!=(uint)source.Id)
+                throw new InvalidOperationException("Independent foreground input was stolen or capture silently changed source.");
+            RequireOwnedSource(source,sourceWindow);FixtureActivate(sourceWindow);
+            await WaitHosted(()=>FixtureForeground()==sourceWindow&&_output!.Topmost&&NativeTopmost(),run,failure,"selected foreground source and output layer restored");
+            await VerifyHostedSourceKeyboard(source,sourceWindow,run,failure);
+            evidence.OtherForegroundPreserved=true;
+        }
+        finally
+        {
+            if(!source.HasExited)SetSourceTopmost(false);
+            global.DisableTopmost=disabled;global.MinimumFrameRate=minimum;global.Save();
+            if(other is not null)
+            {
+                if(!other.HasExited)
+                {
+                    if(otherWindow!=0) {RequireOwnedSource(other,otherWindow);FixturePost(otherWindow,0x10,0,0);}
+                    try {await other.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));}
+                    catch(TimeoutException){other.Kill(entireProcessTree:true);await other.WaitForExitAsync();}
+                }
+                int exit=other.ExitCode;other.Dispose();
+                if(exit!=0)throw new InvalidOperationException("Independent foreground fixture did not exit cleanly.");
+            }
+        }
     }
     private static async Task WaitHosted(Func<bool> ready,Task? run,Func<string?> failure,string phase,int seconds=20)
     {
@@ -203,6 +267,8 @@ internal sealed partial class ScalingSession
                     evidence.InitialForegroundPreserved=true;
                     await session.VerifyHostedOutputClick(source,window,run,()=>failure);evidence.NativeOutputClickChecks++;
                     await VerifyHostedSourceKeyboard(source,window,run,()=>failure);evidence.NativeKeyboardChecks++;
+                    Phase("foreground topmost policy and independent application");
+                    await session.VerifyHostedWindowLayers(source,window,run,()=>failure,evidence);
                     evidence.SourceWidth=session._captureFrameWidth;evidence.SourceHeight=session._captureFrameHeight;evidence.FirstSequence=session._lastSourceSequence;
                     if(!fullscreen) {session._output!.Width+=80;session._output.Height+=40;await Task.Delay(200);}
                     var oldSize=session._output!.ClientSize;var oldPosition=session._output.Position;

@@ -45,6 +45,9 @@ internal sealed class HostedLifecycleCase
     public bool InitialForegroundPreserved {get;set;}
     public int NativeKeyboardChecks {get;set;}
     public int NativeOutputClickChecks {get;set;}
+    public bool TopmostPreferenceHonored {get;set;}
+    public bool SourceTopmostInherited {get;set;}
+    public bool OtherForegroundPreserved {get;set;}
     public bool IdleGpuPreserved {get;set;}
     public bool SourceClosedWithoutError {get;set;}
     public bool SourceExitedCleanly {get;set;}

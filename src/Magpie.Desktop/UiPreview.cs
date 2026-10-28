@@ -580,6 +580,13 @@ internal static class UiPreview
                 var gpuToggle=performancePage.FindControl<CheckBox>("GpuProfilingToggle")!;gpuToggle.IsChecked=true;
                 if(!Core.RuntimeSettings.Current.GpuProfilingEnabled || new HomePage().FindControl<CheckBox>("GpuProfilingToggle")!.IsChecked!=true)throw new InvalidOperationException("GPU profiler setting did not persist/restore.");
                 gpuToggle.IsChecked=false;if(Core.RuntimeSettings.Current.GpuProfilingEnabled)throw new InvalidOperationException("GPU profiler setting did not disable.");
+                var topmostToggle=performancePage.FindControl<CheckBox>("DisableTopmostToggle")!;
+                if(topmostToggle.IsEnabled!=OperatingSystem.IsWindows())throw new InvalidOperationException("Topmost policy capability differs from its implemented platform.");
+                topmostToggle.IsChecked=true;
+                if(!Core.RuntimeSettings.Current.DisableTopmost||new HomePage().FindControl<CheckBox>("DisableTopmostToggle")!.IsChecked!=true)
+                    throw new InvalidOperationException("Disable-topmost preference did not save/restore.");
+                topmostToggle.IsChecked=false;
+                if(Core.RuntimeSettings.Current.DisableTopmost)throw new InvalidOperationException("Disable-topmost preference did not clear.");
                 await Task.Delay(100);gpuToggle.BringIntoView();break;
             case "HomeDuplicateMenu":
                 var duplicatePage=First<HomePage>();duplicatePage.FindControl<SettingsExpander>("DeveloperOptions")!.IsVisible=true;

@@ -189,7 +189,7 @@ internal sealed partial class ScalingSession
                     if(processor.Performance.TrySnapshot(Stopwatch.GetTimestamp(),out var counters))
                     {
                         var output=plan.Chain[^1];
-                        string title=$"Magpie · {plan.Name} · {plan.Crop.Width}×{plan.Crop.Height} → {output.Width}×{output.Height} · Scaled {counters.ScaledFps:F1} FPS · {deviceName} · Esc to stop";
+                        string title=$"Magpie · {plan.Name} · {plan.Crop.Width}×{plan.Crop.Height} → {output.Width}×{output.Height} · Scaled {counters.ScaledFps:F1} FPS · {deviceName}"+(OperatingSystem.IsWindows()?"":" · Esc to stop");
                         string details=FramePerformance.Describe(counters,plan.Detection,plan.DynamicStatistics,plan.Gpu);
                         await Dispatcher.UIThread.InvokeAsync(()=> { if(_output is not null)_output.Title=title;if(_statistics is not null)_statistics.Text=details;UpdateProfilerMetrics(counters,plan.Detection,plan.DynamicStatistics);UpdateGpuProfile(processor.GpuProfile); });
                     }
@@ -219,6 +219,7 @@ internal sealed partial class ScalingSession
                 {
                     _stageEngine=null;_displayedStages=[];
                     _finished = true;
+                    _windowsFocusPoll?.Dispose();_windowsFocusPoll=null;
                     _output?.Close(); _output = null;
                     _bitmap?.Dispose(); _bitmap = null;
                     Finished?.Invoke(failure);
@@ -351,13 +352,14 @@ internal sealed partial class ScalingSession
                 });
         };
         _output.KeyDown += (_, args) => HandleOutputKey(args);
-        _output.Closing += (_, _) => { _inputPoll?.Dispose();_inputPoll=null;Stop(); };
+        _output.Closing += (_, _) => { _inputPoll?.Dispose();_inputPoll=null;_windowsFocusPoll?.Dispose();_windowsFocusPoll=null;Stop(); };
         InitializeToolbar(fullscreen);
         SetSourceGeometry(sourceWidth,sourceHeight);
         if(fullscreen)_output.WindowState=WindowState.FullScreen;
         else if(sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner);
         // The output must survive the main window being hidden to the tray.
         _output.Show();
+        StartWindowsOutputPolling();
         StartMacInputPolling();
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner,true);
         UpdateSize();

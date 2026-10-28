@@ -27,6 +27,7 @@ internal sealed class RuntimeSettings
     public bool GpuProfilingEnabled { get; set; }
     public OverlayPlacement ProfilerPlacement { get; set; }=new();
     public bool DisableFP16 { get; set; }
+    public bool DisableTopmost { get; set; }
     public bool KeepScreenOn { get; set; }
     public DuplicateFrameMode DuplicateFrameDetection { get; set; } = DuplicateFrameMode.Dynamic;
     public bool StatisticsForDynamicDetection { get; set; }
