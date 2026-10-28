@@ -63,4 +63,6 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 16ms UI 定时器只更新窗口策略，不提交 GPU；WGC 静态源没有新帧时仍可跟随前台和偏好变化，隐藏/结束后停止处理，关闭/会话清理显式释放。继续保留 owner 和原生点击命中验证，新增四场景“禁用自动置顶、继承自有源置顶、返回普通层、重新启用、切到另一独立自有应用、键盘不偷跑/不换捕获源、回到原源”实际门。独立应用必须保持前台且原生客户区可见；本提交目标 CI 仍待执行，不能凭代码或模型通过宣布实际层级已完成。管理员/不同完整性级别、UWP、真实系统弹层、源弹窗和多显示器仍缺专项验证；尚未完整复刻原版异步 DWM/批量 Z-order 分支。
 
+`568c0760` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40632450922/job/122631737883) 已实际通过初始点击、禁用自动置顶及源置顶继承，但独立前台应用客户区被输出遮挡，整次门失败。随后移植原版批量 demotion 顺序到静态 C++ 核心：读取前台/自身 token 的完整性级别，常规分支批量撤销置顶并靠近源，再仅为仍然相同的前台 HWND/PID/线程恢复顶部；较高/未知完整性级别分支等待 DWM 合成、使用 NOOWNERZORDER 调整源和输出，不尝试移动该前台窗口。C ABI 只接受本进程顶层、owner 为当前 capture 存活源的输出；源身份不匹配或已丢失返回 unavailable，错误输出拒绝，其他平台返回不支持。增加 Advapi32 系统库链接，不增加自有动态库。严格独立应用可见性/键盘断言保持，目标 CI 仍待本提交。DWM 等待当前在 UI 策略调用内执行，尚未做到原版异步后台调度，较高权限及其他真实应用矩阵仍未验收。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

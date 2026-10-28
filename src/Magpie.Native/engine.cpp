@@ -16,6 +16,7 @@
 namespace magpie { thread_local std::string error; }
 #ifndef _WIN32
 extern "C" uint32_t mp_capture_source_state(void*) { return 0; }
+extern "C" int mp_capture_restore_output_layer(void*,void*,uint64_t,uint32_t) { return 0; }
 #endif
 #ifndef __APPLE__
 extern "C" int mp_capture_overlay_region(void*,double,double,double,double) { return 0; }

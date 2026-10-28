@@ -63,9 +63,13 @@ internal sealed partial class ScalingSession
         _output.Topmost=wanted;
         // Demotion must preserve the owner's place instead of leaving the
         // presentation above an unrelated newly foreground application.
-        if(!wanted&&_output.TryGetPlatformHandle() is {HandleDescriptor:"HWND"} handle&&
-            !PositionOwnedOutput(handle.Handle,owner,0,0,0,0,0x0213))
-            throw new InvalidOperationException("Cannot return scaling output to its source's window layer.");
+        if(!wanted&&_output.TryGetPlatformHandle() is {HandleDescriptor:"HWND"} handle)
+        {
+            lock(_captureLock)
+                if(_capture is {IsClosed:false,IsInvalid:false} capture&&
+                    NativeCore.CaptureRestoreOutputLayer(capture,handle.Handle,_lastSourceInfo.WindowId,_lastSourceInfo.ProcessId)<0)
+                    throw NativeCore.Error();
+        }
     }
 
     private bool RestoreWindowsSourceFocus(nint window)

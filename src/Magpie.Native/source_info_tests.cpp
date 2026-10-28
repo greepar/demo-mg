@@ -69,6 +69,10 @@ int main() {
         std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create(),mp_capture_destroy);require(bool(capture),mp_last_error());
         require(mp_capture_frame_sequence(capture.get())==0,"Unselected capture fabricated a delivered-frame sequence");
         require(mp_capture_source_state(capture.get())==0,"Unselected capture fabricated live window availability");
+        require(mp_capture_restore_output_layer(nullptr,reinterpret_cast<void*>(uintptr_t(1)),1,2)==0,
+            "Null capture attempted output layer operations");
+        require(mp_capture_restore_output_layer(capture.get(),reinterpret_cast<void*>(uintptr_t(1)),1,2)==0,
+            "Unselected/unsupported capture attempted output layer operations");
         mp_capture_source_info titleSnapshot=magpie::emptySource();
         require(mp_capture_snapshot_title(capture.get(),1,2,3,&titleSnapshot,sizeof(titleSnapshot))==0,"Unselected capture returned a foreign live title");
         require(mp_capture_snapshot_title(capture.get(),1,2,3,&titleSnapshot,sizeof(titleSnapshot)-1)==0,"Live title accepted an invalid ABI size");

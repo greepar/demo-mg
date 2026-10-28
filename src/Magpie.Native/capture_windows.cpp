@@ -7,6 +7,7 @@
 #include "capture_epoch.h"
 #include "windows_source_watch.h"
 #include "windows_graphics_capture.h"
+#include "windows_output_layer.h"
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -187,6 +188,20 @@ extern "C" int mp_capture_snapshot_title(void* capture,uint64_t expectedWindow,u
         auto result=magpie::emptySource();result.kind=1;result.window_id=expectedWindow;result.process_id=expectedProcess;
         result.flags=MP_SOURCE_WINDOW|MP_SOURCE_PID|MP_SOURCE_TITLE;magpie::sourceText(result.title,utf8(title,size_t(length)));*info=result;return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return 0;}
+}
+extern "C" int mp_capture_restore_output_layer(void* capture,void* output,uint64_t expectedWindow,uint32_t expectedProcess) {
+    try {
+        if(!capture||!output||!expectedWindow||!expectedProcess)return 0;
+        auto& c=*static_cast<Capture*>(capture);
+        HWND window=static_cast<HWND>(output);DWORD process{};
+        if(c.cancelled||uint64_t(reinterpret_cast<uintptr_t>(c.window))!=expectedWindow||c.sourceProcess!=expectedProcess||!c.sameSource())return 0;
+        if(window==c.window||!GetWindowThreadProcessId(window,&process)||process!=GetCurrentProcessId()||
+            GetAncestor(window,GA_ROOT)!=window||GetWindow(window,GW_OWNER)!=c.window)
+            throw std::runtime_error("Output layer restoration requires this process's top-level window owned by the selected live source");
+        if(c.suspended())return 0;
+        if(!magpie::restoreOutputLayer(window,c.window))throw std::runtime_error("Cannot restore source/output/foreground window order");
+        return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
 }
 extern "C" void* mp_capture_create() {
     return mp_capture_create_backend(0);

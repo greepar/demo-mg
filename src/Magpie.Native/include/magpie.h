@@ -113,6 +113,10 @@ uint64_t mp_capture_frame_sequence(void* capture);
 // 1=available, 2=hidden/minimized (wait for a fresh frame), 3=stopped/lost.
 // A suspended/lost source invalidates its old delivered-frame epoch.
 uint32_t mp_capture_source_state(void* capture);
+// Windows only: original batch demotion order for our top-level presentation
+// owned by this capture's live source. 1=restored, 0=unavailable/source waiting,
+// -1=invalid output or native error. Does not change activation or geometry.
+int mp_capture_restore_output_layer(void* capture,void* output,uint64_t source_window,uint32_t source_process);
 // Version 1, caller-owned UTF-8 snapshot. Empty/unflagged fields are unknown;
 // never inferred from the capturing application's own process or stream name.
 // kind: 0=unknown, 1=window, 2=display, 3=virtual display.

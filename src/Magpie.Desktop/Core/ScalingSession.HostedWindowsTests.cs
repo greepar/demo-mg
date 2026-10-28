@@ -141,6 +141,13 @@ internal sealed partial class ScalingSession
         }
         try
         {
+            lock(_captureLock)
+            {
+                if(_capture is not {} capture||NativeCore.CaptureRestoreOutputLayer(capture,sourceWindow,(ulong)sourceWindow,(uint)source.Id)!=-1||
+                    NativeCore.CaptureRestoreOutputLayer(capture,HostedOutputHandle(),(ulong)sourceWindow+1,(uint)source.Id)!=0)
+                    throw new InvalidOperationException("Native layer guard accepted a foreign output or mismatched source identity.");
+            }
+            if(FixtureForeground()!=sourceWindow)throw new InvalidOperationException("Rejected native layer request changed foreground.");
             global.MinimumFrameRate=0;global.DisableTopmost=true;global.Save();
             await WaitHosted(()=>!_output!.Topmost&&!NativeTopmost(),run,failure,"disable topmost preference");
             SetSourceTopmost(true);

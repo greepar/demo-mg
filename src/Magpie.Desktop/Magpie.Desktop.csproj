@@ -66,6 +66,7 @@
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <NativeLibrary Include="$(VulkanSdkRoot)/Lib/vulkan-1.lib" />
     <LinkerArg Include="user32.lib" />
+    <LinkerArg Include="advapi32.lib" />
     <LinkerArg Include="gdi32.lib" />
     <LinkerArg Include="d3d11.lib" />
     <LinkerArg Include="dxgi.lib" />
