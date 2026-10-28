@@ -75,7 +75,7 @@ internal sealed partial class ScalingSession
             await WaitHosted(()=>presses==1&&releases==1,run,failure,"actual output pointer press/release");
             await Task.Delay(150);
             if(FixtureForeground()!=sourceWindow||(FixtureKeyState(1)&0x8000)!=0)
-                throw new InvalidOperationException("Click activated the output or left the mouse button held.");
+                throw new InvalidOperationException($"Click changed focus/button state: expectedSource={sourceWindow}; foreground={FixtureForeground()}; output={window}; leftState={FixtureKeyState(1)}.");
         }
         finally
         {
