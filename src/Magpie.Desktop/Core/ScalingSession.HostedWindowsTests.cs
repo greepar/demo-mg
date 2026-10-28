@@ -41,8 +41,9 @@ internal sealed partial class ScalingSession
     private static unsafe void SendHostedClick(Process source,nint sourceWindow,nint output,FixturePoint point)
     {
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
-        if(IntPtr.Size!=8||FixtureForeground()!=sourceWindow||FixtureRoot(FixtureAtPoint(point),2)!=output||
-            (FixtureKeyState(1)&0x8000)!=0)throw new InvalidOperationException("Hosted click requires the owned visible output above its foreground source, with no held mouse button.");
+        nint foreground=FixtureForeground(),hit=FixtureAtPoint(point),root=FixtureRoot(hit,2);short button=FixtureKeyState(1);
+        if(IntPtr.Size!=8||foreground!=sourceWindow||root!=output||(button&0x8000)!=0)
+            throw new InvalidOperationException($"Hosted click requires its owned visible output: point={point.X},{point.Y}; source={sourceWindow}; foreground={foreground}; output={output}; hit={hit}; root={root}; leftState={button}.");
         FixtureKeyboardInput* inputs=stackalloc FixtureKeyboardInput[2];
         inputs[0]=new(){MouseFlags=2};inputs[1]=new(){MouseFlags=4};
         uint inserted=FixtureSendInput(2,inputs,sizeof(FixtureKeyboardInput));
@@ -57,6 +58,7 @@ internal sealed partial class ScalingSession
     {
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
         nint window=HostedOutputHandle();
+        if(OutputWindowStyle(window,-8)!=sourceWindow)throw new InvalidOperationException("Output lost its native source owner.");
         if(!FixtureClient(window,out var rect)||rect.Right<20||rect.Bottom<20||!FixtureCursor(out var original))
             throw new InvalidOperationException("Cannot locate owned output for native click test.");
         var point=new FixturePoint {X=rect.Right/2,Y=rect.Bottom-10};

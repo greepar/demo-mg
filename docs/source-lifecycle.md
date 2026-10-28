@@ -49,4 +49,8 @@ CI 包装器读取 runner 已安装 Chrome/Edge 的 x64 SwiftShader ICD，检查
 
 鼠标激活回归在同三个阶段向输出客户区的实际可见点发送系统按下/释放，要求 Avalonia 真正收到两种指针事件，随后源仍为前台且 B/Esc/F12 继续送达源。注入前用 WindowFromPoint/GetAncestor 核对实际命中当前自有输出，没有按住左键；保存并恢复测试 cursor 位置。`NativeOutputClickChecks=3` 是独立的门，不能只靠样式位或合成 Avalonia 事件判通过。该测试证明输出点击不抢键盘焦点，不证明点击已经映射到源控件；后者仍缺。本轮追加实现及点击检查需对应目标 CI，不能套用前一提交的结果。Avalonia 接入使用 [公开 Win32Properties API](https://docs.avaloniaui.net/api/avalonia/controls/win32properties)。
 
+`b34e68ea` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40628594500/job/122619391301) 已实际通过首次显示/两次恢复的原生键盘阶段，产物四条路径均 `InitialForegroundPreserved=true`、`NativeKeyboardChecks=3`、`SourceExitedCleanly=true`，WGC 没有跳过。该提交没有输出真实点击阶段，不能用它证明后续 `1d0ea02e` 的 `NativeOutputClickChecks` 已通过。
+
+`1d0ea02e` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40629095223/job/122620992981) 新增点击门实际失败：GDI 普通窗口首次点击/键盘通过，但最小化恢复后的可见命中检查拒绝注入；源仍是前台且正常退出。未把这次失败算成鼠标激活已通过。对照原版创建缩放窗口时传入源 HWND 所有者，移植版补入 native owned-window 关系，并在 Avalonia Show 重置 owner 后按已显示帧重新建立；建立前复核当前 capture epoch、HWND/PID，不修改外部窗口。仅当前台确为源时以 NOACTIVATE 恢复输出层级，不设全局置顶。不靠重试、改测试位置或放宽命中断言掩盖失败。见 [Win32 owned windows](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#owned-windows)。该修复仍需后续目标运行证明。
+
 该 runner 的 token elevation=true，使用标准临时 HKLM ICD 登记后软件 Vulkan 正常运行，最后 registry_value_restored=true。未更改 shader、Vulkan API 版本或数值断言来绕过失败。原生 GDI/WGC/标题栏 fixture、Windows SDK/AOT/模型/单文件检查也继续通过；该次四平台 CI 已全部完成并成功，包括 Linux 软件 Vulkan 回归及两个 macOS 架构。汇总为 `artifacts/desktop/windows-production-target-summary.json`，下载产物保留在 `artifacts/desktop/windows-production-target-351`。已查看实际输出 PNG，图像为独立源绘制的颜色。鼠标/键盘送达、软件光标、游戏模式和完整三平台目标继续未完成。

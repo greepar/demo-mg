@@ -59,6 +59,6 @@ internal sealed partial class ScalingSession
     }
     private void CommitPresentedSource(CaptureSource source,ulong sequence=0)
     {
-        _lastSourceInfo=source;_lastSourceSequence=sequence;ResumeSourceOutput();ConfigureMacInput();
+        _lastSourceInfo=source;_lastSourceSequence=sequence;ResumeSourceOutput();UpdateWindowsOutputOwner();ConfigureMacInput();
     }
 }
