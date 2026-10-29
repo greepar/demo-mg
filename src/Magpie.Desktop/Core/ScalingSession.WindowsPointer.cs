@@ -43,6 +43,7 @@ internal sealed partial class ScalingSession
     private PixelPoint? _windowsHitPoint;
     private string _windowsPointerStatus="not started";
     private uint _windowsCursorBeforeHide,_windowsCursorAfterHide;
+    private readonly CursorAutoHide _windowsCursorAutoHide=new();
 
     private static NativePointerRect WindowsRect(Visual visual,double width,double height)
     {
@@ -104,6 +105,7 @@ internal sealed partial class ScalingSession
     private void EndWindowsPointer(bool mapBack=true)
     {
         if(!OperatingSystem.IsWindows())return;
+        _windowsCursorAutoHide.Reset();
         bool captured=_windowsPointerCaptured;_windowsPointerCaptured=false;
         bool ownsState=captured||_windowsSystemCursorHidden||_windowsPointerPassthrough||_windowsAppliedClip is not null||_windowsCursorOverlay is {IsVisible:true};
         ++_windowsHitGeneration;_windowsHitPoint=null;_windowsHitArea=0;
@@ -234,8 +236,22 @@ internal sealed partial class ScalingSession
         if(_bitmap is null||_output?.Content is not Grid grid||_image is null)return false;
         var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
         if(!ReadWindowsCursor(ref cursor)) {_windowsPointerStatus="GetCursorInfo failed";return false;}
-        if(!WindowsCursorVisibility.Draw(cursor.Flags,_windowsSystemCursorHidden,_windowsCursorBeforeHide,_windowsCursorAfterHide))
-        {_windowsPointerStatus="source cursor not visible: flags="+cursor.Flags;if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
+        bool visible=WindowsCursorVisibility.Draw(cursor.Flags,_windowsSystemCursorHidden,_windowsCursorBeforeHide,_windowsCursorAfterHide);
+        bool moving=false;
+        if(_settings.AutoHideCursorEnabled)
+        {
+            var sourceGui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
+            var outputGui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
+            uint sourceThread=OutputWindowProcess(unchecked((nint)_lastSourceInfo.WindowId),out _);
+            uint outputThread=OutputWindowProcess(_output.TryGetPlatformHandle()!.Handle,out _);
+            const uint guiInMoveSize=2;
+            moving=(sourceThread!=0&&ReadWindowsGui(sourceThread,ref sourceGui)&&(sourceGui.Flags&guiInMoveSize)!=0)||
+                (outputThread!=0&&ReadWindowsGui(outputThread,ref outputGui)&&(outputGui.Flags&guiInMoveSize)!=0);
+        }
+        bool idleVisible=_windowsCursorAutoHide.Visible(System.Diagnostics.Stopwatch.GetElapsedTime(0),x,y,visible?cursor.Cursor:0,
+            _windowsPointerCaptured,moving,_settings.AutoHideCursorEnabled,_settings.AutoHideCursorDelay);
+        if(!visible||!idleVisible)
+        {_windowsPointerStatus=visible?"cursor idle timeout":"source cursor not visible: flags="+cursor.Flags;if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
         if(NativeCore.WindowsCursorCopy((ulong)cursor.Cursor,out var shape,24)!=1) {_windowsPointerStatus="native cursor copy: "+NativeCore.Error().Message;return false;}
         try
         {

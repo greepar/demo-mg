@@ -145,6 +145,26 @@ public partial class ProfilePage : UserControl
             ScreenshotTemplateError.Text=error.Message;ScreenshotTemplateError.IsVisible=true;
         }
     }
+    private void CursorAutoHide_Changed(object? sender,RoutedEventArgs args) { if(_initialized)SaveCursorAutoHide(); }
+    private void CursorAutoHideDelay_Changed(object? sender,Avalonia.AvaloniaPropertyChangedEventArgs args)
+    { if(_initialized&&args.Property==Slider.ValueProperty)SaveCursorAutoHide(); }
+    private void SaveCursorAutoHide()
+    {
+        var settings=Settings;var previous=(settings.AutoHideCursorEnabled,settings.AutoHideCursorDelay);
+        try
+        {
+            settings.AutoHideCursorEnabled=CursorAutoHideToggle.IsChecked==true;
+            settings.AutoHideCursorDelay=CursorAutoHideDelay.Value;
+            Core.RuntimeSettings.Current.Save();
+            CursorAutoHideExpander.IsExpanded=settings.AutoHideCursorEnabled;
+            CursorAutoHideDelayText.Text=settings.AutoHideCursorDelay.ToString("0.0",System.Globalization.CultureInfo.CurrentCulture);
+        }
+        catch(Exception error)
+        {
+            (settings.AutoHideCursorEnabled,settings.AutoHideCursorDelay)=previous;RefreshSettings();
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(LocExtension.Get("Profile_Cursor_AutoHide.Header"),error.Message);
+        }
+    }
     private void SaveFrameLimiter()
     {
         var settings=Settings;
@@ -179,6 +199,11 @@ public partial class ProfilePage : UserControl
         _initialized=false;
         RefreshDeviceChoices();
         var settings=Settings;
+        CursorAutoHideExpander.IsEnabled=OperatingSystem.IsWindows();
+        CursorAutoHideExpander.IsExpanded=settings.AutoHideCursorEnabled;
+        CursorAutoHideToggle.IsChecked=settings.AutoHideCursorEnabled;
+        CursorAutoHideDelay.Value=settings.AutoHideCursorDelay;
+        CursorAutoHideDelayText.Text=settings.AutoHideCursorDelay.ToString("0.0",System.Globalization.CultureInfo.CurrentCulture);
         WindowScale.SelectedIndex=settings.InitialWindowedScaleFactor;
         WindowCustomScale.Minimum=Math.Min(1.1m,(decimal)settings.CustomInitialWindowedScaleFactor);
         WindowCustomScale.Value=(decimal)settings.CustomInitialWindowedScaleFactor;

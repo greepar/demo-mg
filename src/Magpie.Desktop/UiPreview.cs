@@ -219,6 +219,7 @@ internal static class UiPreview
                 await First<ProfilePage>().VerifyCaptureInteractionAsync(window,scenario=="ProfileCaptureWarning");break;
             case "ProfileCapture": await OpenCombo(First<ProfilePage>().FindControl<ComboBox>("CaptureMethod")!); break;
             case "ProfileTitleBar":await First<ProfilePage>().VerifyTitleBarInteractionAsync();break;
+            case "ProfileCursorAutoHide":await First<ProfilePage>().VerifyCursorAutoHidePreferencesAsync();break;
             case "ProfileMode": await OpenCombo(First<ComboBox>()); break;
             case "ProfileLimiter":
                 var limiter = First<ProfilePage>().FindControl<SettingsExpander>("FrameLimiterExpander")!;

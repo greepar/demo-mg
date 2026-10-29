@@ -83,6 +83,7 @@ internal sealed partial class ScalingSession
             await WaitHosted(()=>ReadHostedScreenPixel(movedVisual)==inverse,run,failure,"native software cursor follows actual source drag",5);
             if(FixtureForeground()!=sourceWindow||(FixtureKeyState(1)&0x8000)!=0||(long)FixtureProperty(sourceWindow,"MagpieFixtureWheelDelta")!=120)
                 throw new InvalidOperationException("Scaled native source mouse lost foreground or input state.");
+            await VerifyHostedCursorAutoHide(source,sourceWindow,run,failure,evidence,origin,client,moved,movedVisual);
             await VerifyHostedMonitorAndToolbar(source,sourceWindow,run,failure,evidence,origin,client,moved);
             evidence.ScaledNativeMousePassed=true;
         }
@@ -103,5 +104,35 @@ internal sealed partial class ScalingSession
             throw new InvalidOperationException("Stopping virtual pointer left system cursor, clip, overlay or passthrough state behind.");
         await VerifyHostedOutputClick(source,sourceWindow,run,failure);
         CheckHostedPixels();evidence.NativePointerCleanupPassed=true;
+    }
+    private async Task VerifyHostedCursorAutoHide(Process source,nint window,Task run,Func<string?> failure,HostedLifecycleCase evidence,
+        FixturePoint origin,FixtureRect client,FixturePoint current,FixturePoint currentVisual)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,window);
+        var previous=(_settings.AutoHideCursorEnabled,_settings.AutoHideCursorDelay);
+        const uint background=23u|(67u<<8)|(109u<<16),inverse=232u|(188u<<8)|(146u<<16);
+        try
+        {
+            _settings.AutoHideCursorEnabled=true;_settings.AutoHideCursorDelay=.5;_windowsCursorAutoHide.Reset();
+            await WaitHosted(()=>_windowsPointerCaptured&&_windowsSystemCursorHidden&&_windowsCursorOverlay is {IsVisible:false}&&
+                ReadHostedScreenPixel(currentVisual)==background,run,failure,"idle software cursor actually disappears from screen",5);
+            var moved=new FixturePoint {X=current.X+3,Y=current.Y+2};
+            var dest=_image!.PointToScreen(default);
+            var visual=new FixturePoint {
+                X=dest.X+(int)Math.Round((double)(moved.X-origin.X)/(client.Right-1)*(_bitmap!.PixelSize.Width-1),MidpointRounding.AwayFromZero),
+                Y=dest.Y+(int)Math.Round((double)(moved.Y-origin.Y)/(client.Bottom-1)*(_bitmap!.PixelSize.Height-1),MidpointRounding.AwayFromZero)};
+            if(!FixtureMoveCursor(moved.X,moved.Y))throw new InvalidOperationException("Cannot move owned source cursor to wake it.");
+            await WaitHosted(()=>_windowsCursorOverlay is {IsVisible:true}&&ReadHostedScreenPixel(visual)==inverse,
+                run,failure,"native source movement redraws the actual XOR cursor",5);
+            await WaitHosted(()=>_windowsPointerCaptured&&_windowsCursorOverlay is {IsVisible:false}&&ReadHostedScreenPixel(visual)==background,
+                run,failure,"software cursor hides again after movement",5);
+            if(FixtureForeground()!=window)throw new InvalidOperationException("Idle cursor changed source activation.");
+            evidence.NativeCursorAutoHidePassed=true;
+        }
+        finally
+        {
+            (_settings.AutoHideCursorEnabled,_settings.AutoHideCursorDelay)=previous;_windowsCursorAutoHide.Reset();
+            FixtureMoveCursor(current.X,current.Y);
+        }
     }
 }

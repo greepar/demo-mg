@@ -17,7 +17,7 @@ internal static class OriginalConfiguration
     {
         "name","packaged","pathRule","classNameRule","launcherPath","launchParameters","scalingMode","captureMethod","captureMode",
         "initialWindowedScaleFactor","customInitialWindowedScaleFactor","fullscreenInitialToolbarState","windowedInitialToolbarState",
-        "screenshotsDir","screenshotFilenameTemplate","frameRateLimiterEnabled","maxFrameRate","croppingEnabled","cropping","outputAlignment","captureTitleBar","reserveTitleBar"
+        "screenshotsDir","screenshotFilenameTemplate","frameRateLimiterEnabled","maxFrameRate","croppingEnabled","cropping","outputAlignment","captureTitleBar","reserveTitleBar","autoHideCursorEnabled","autoHideCursorDelay"
     };
     private static JsonElement? Find(JsonElement owner,string key,string? legacy=null)
         =>owner.TryGetProperty(key,out var value)?value:legacy is not null&&owner.TryGetProperty(legacy,out value)?value:null;
@@ -101,6 +101,8 @@ internal static class OriginalConfiguration
             if(Find(source,"outputAlignment") is {} alignment)target.OutputAlignment=Integer(alignment,0,8);
             if(Find(source,"fullscreenInitialToolbarState") is {} fullscreen)target.FullscreenInitialToolbarState=(ToolbarState)Integer(fullscreen,0,2);
             if(Find(source,"windowedInitialToolbarState") is {} windowed)target.WindowedInitialToolbarState=(ToolbarState)Integer(windowed,0,2);
+            if(Find(source,"autoHideCursorEnabled") is {} autoHide)target.AutoHideCursorEnabled=Boolean(autoHide);
+            if(Find(source,"autoHideCursorDelay") is {} hideDelay)target.AutoHideCursorDelay=Number(hideDelay);
             if(Find(source,"frameRateLimiterEnabled") is {} limiter)target.FrameRateLimiterEnabled=Boolean(limiter);
             if(Find(source,"maxFrameRate") is {} maximum)target.MaximumFrameRate=Number(maximum);
             if(Find(source,"croppingEnabled") is {} cropEnabled)target.IsCroppingEnabled=Boolean(cropEnabled);

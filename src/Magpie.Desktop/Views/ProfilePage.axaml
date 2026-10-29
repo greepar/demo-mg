@@ -153,11 +153,11 @@
 </c:SettingsExpander>
 
 <!-- Profile_Cursor_AutoHide -->
-<c:SettingsExpander Header="{c:Loc Profile_Cursor_AutoHide.Header}" Icon="Cursor">
-<c:SettingsExpander.Action><ToggleSwitch IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource AncestorType=c:SettingsExpander}, Mode=TwoWay}" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsExpander.Action>
+<c:SettingsExpander Name="CursorAutoHideExpander" Header="{c:Loc Profile_Cursor_AutoHide.Header}" Icon="Cursor">
+<c:SettingsExpander.Action><ToggleSwitch Name="CursorAutoHideToggle" IsCheckedChanged="CursorAutoHide_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsExpander.Action>
 <StackPanel Spacing="2"><!-- Profile_Cursor_AutoHide_Delay -->
 <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_AutoHide_Delay.Header}" Icon="">
-<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><Slider Width="140" Minimum="1" Maximum="5" Value="3" /></StackPanel>
+<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><Slider Name="CursorAutoHideDelay" Width="140" Minimum="0.1" Maximum="5" TickFrequency="0.1" IsSnapToTickEnabled="True" Value="3" PropertyChanged="CursorAutoHideDelay_Changed" /><TextBlock Name="CursorAutoHideDelayText" VerticalAlignment="Center" /></StackPanel>
 </c:SettingsCard>
 </StackPanel>
 </c:SettingsExpander>
