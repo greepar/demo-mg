@@ -82,6 +82,12 @@ public:
         lastCenter_=packed;
     }
     void consumer(const char* step) {consumerThread_=GetCurrentThreadId();consumerStep_=step;}
+    void publication(const char* phase,std::chrono::steady_clock::duration interval,uint32_t candidates) {
+        if(!enabled_)return;
+        std::fprintf(stderr,"WGC RESTART PUBLICATION: phase=%s intervalUs=%lld candidates=%u\n",phase,
+            static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(interval).count()),candidates);
+        std::fflush(stderr);
+    }
     struct ConsumerScope {
         WindowsCaptureDiagnostics& owner;
         ConsumerScope(WindowsCaptureDiagnostics& value,const char* step):owner(value){owner.consumer(step);}

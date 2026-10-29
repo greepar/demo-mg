@@ -5,6 +5,7 @@
 #endif
 #include "windows_graphics_capture.h"
 #include "capture_mailbox.h"
+#include "fresh_frame_gate.h"
 #include "windows_capture_region.h"
 #include "windows_capture_diagnostics.h"
 #include "error.h"
@@ -20,6 +21,7 @@
 #include <winrt/Windows.Foundation.Metadata.h>
 #include <winrt/Windows.Graphics.Capture.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -33,6 +35,22 @@ using namespace winrt::Windows::Graphics::DirectX;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 using winrt::Windows::Foundation::Metadata::ApiInformation;
 using winrt::Windows::Foundation::Metadata::IApiInformationStatics;
+FreshFrameGate::Clock::duration restartPublicationInterval() {
+    DWM_TIMING_INFO info{};info.cbSize=sizeof(info);double period=0;
+    if(SUCCEEDED(DwmGetCompositionTimingInfo(nullptr,&info))) {
+        auto include=[&](double seconds) {if(seconds>0&&seconds<1)period=std::max(period,seconds);};
+        LARGE_INTEGER frequency{};
+        if(info.qpcRefreshPeriod&&QueryPerformanceFrequency(&frequency)&&frequency.QuadPart>0)
+            include(double(info.qpcRefreshPeriod)/double(frequency.QuadPart));
+        if(info.rateCompose.uiNumerator)include(double(info.rateCompose.uiDenominator)/info.rateCompose.uiNumerator);
+        if(info.rateRefresh.uiNumerator)include(double(info.rateRefresh.uiDenominator)/info.rateRefresh.uiNumerator);
+    }
+    if(period==0)period=1./60.;
+    // The free-threaded pool has two buffers. Prime only restart delivery for
+    // two compositor periods, capped at 100ms, without blocking the producer.
+    return std::chrono::duration_cast<FreshFrameGate::Clock::duration>(
+        std::chrono::duration<double,std::milli>(std::clamp(period*2000.,2.,100.)));
+}
 // These apartments are shorter-lived than the process. Use uncached factory
 // references: C++/WinRT's convenience static calls keep process-wide factories
 // that can point into unloaded COM modules after the last RoUninitialize.
@@ -145,6 +163,9 @@ struct WindowsGraphicsCapture::State {
     std::mutex mutex;
     std::condition_variable started;
     CaptureMailbox mailbox;
+    FreshFrameGate publication;
+    uint32_t primingCandidates{};
+    FreshFrameGate::Clock::duration primingInterval{};
     Geometry pendingGeometry{},deliveredGeometry{};
     bool haveDeliveredGeometry{};
     std::string failure;
@@ -220,6 +241,9 @@ struct WindowsGraphicsCapture::State {
         auto startBefore=WindowsCaptureDiagnostics::compositorClock();session.StartCapture();
         auto startAfter=WindowsCaptureDiagnostics::compositorClock();
         auto restart=[&](winrt::Windows::Graphics::SizeInt32 replacement) {
+            auto interval=restartPublicationInterval();
+            {std::lock_guard lock(mutex);publication.begin(interval);primingInterval=interval;primingCandidates=0;
+                diagnostics.publication("begin",interval,0);}
             arrived.revoke();
             setOperation("close capture session for resize/resume");
             session.Close();
@@ -327,6 +351,8 @@ struct WindowsGraphicsCapture::State {
             std::lock_guard lock(mutex);
             if(suspension||IsIconic(window)||!IsWindowVisible(window)||!(before==after)) {pause();continue;}
             diagnostics.pixels(static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch,revision,frame.SystemRelativeTime().count(),titleBar,startBefore,startAfter);
+            publication.observe(FreshFrameGate::Clock::now());
+            if(primingInterval!=FreshFrameGate::Clock::duration::zero())++primingCandidates;
             mailbox.publish(mailbox.generation(),static_cast<const uint8_t*>(mapped.pData),width,height,mapped.RowPitch);
             pendingGeometry=after;
             waiting="Waiting for the next Graphics Capture frame";
@@ -355,7 +381,13 @@ int WindowsGraphicsCapture::frame(const uint8_t** rgba,uint32_t* width,uint32_t*
     if(!state_->failure.empty())throw std::runtime_error(state_->failure);
     state_->checkSource();*revision=state_->revision;
     if(state_->suspension) {error="Waiting for the Graphics Capture source to resume";return 0;}
+    if(!state_->publication.ready(FreshFrameGate::Clock::now())) {error="Waiting for the restarted compositor scene to settle";return 0;}
     if(state_->mailbox.deliver(rgba,width,height)) {
+        if(state_->primingInterval!=FreshFrameGate::Clock::duration::zero()) {
+            state_->diagnostics.publication("deliver",state_->primingInterval,state_->primingCandidates);
+            state_->primingInterval={};
+        }
+        state_->publication.finish();
         state_->deliveredGeometry=state_->pendingGeometry;state_->haveDeliveredGeometry=true;return 1;
     }
     error=state_->waiting;return 0;

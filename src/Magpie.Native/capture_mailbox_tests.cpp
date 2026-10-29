@@ -1,4 +1,5 @@
 #include "capture_mailbox.h"
+#include "fresh_frame_gate.h"
 #include <array>
 #include <iostream>
 #include <string>
@@ -6,6 +7,31 @@
 static void require(bool value,const char* message) {if(!value)throw std::runtime_error(message);}
 int main() {
     try {
+        using namespace std::chrono_literals;
+        magpie::FreshFrameGate gate;auto now=magpie::FreshFrameGate::Clock::time_point{};
+        require(gate.ready(now),"Normal frame delivery unexpectedly delayed");
+        gate.begin(32ms);require(!gate.ready(now+1h),"No candidate fabricated a restored frame");
+        gate.observe(now);require(!gate.ready(now+31ms)&&gate.ready(now+32ms),"Fresh publication boundary differs");
+        gate.observe(now+20ms);require(gate.ready(now+32ms),"Continued source updates postponed restoration indefinitely");
+        gate.finish();require(gate.ready(now),"Steady-state frames retained startup latency");
+        gate.begin(32ms);require(!gate.ready(now+1h),"Another restart retained the previous candidate");
+        magpie::CaptureMailbox primed;auto source=magpie::emptySource();source.kind=1;source.window_id=7;source.process_id=8;source.flags=MP_SOURCE_WINDOW|MP_SOURCE_PID;
+        auto epoch=primed.begin(source);std::array<uint8_t,4> transparent{},opaque{109,67,23,255};
+        const uint8_t* held=nullptr;uint32_t heldWidth{},heldHeight{};
+        primed.publish(epoch,transparent.data(),1,1,4);gate.observe(now);
+        require(!gate.ready(now+15ms)&&primed.sequence()==0&&!primed.permitsInput(7,8,1),"Held first candidate advanced pixels/input epoch");
+        primed.publish(epoch,opaque.data(),1,1,4);gate.observe(now+16ms);
+        require(gate.ready(now+32ms)&&primed.deliver(&held,&heldWidth,&heldHeight)&&held[0]==23&&held[1]==67&&held[2]==109&&held[3]==255,"Latest real candidate did not replace transient restore content");
+        gate.finish();gate.begin(32ms);primed.pauseInput();auto previousSequence=primed.sequence();
+        primed.publish(epoch,transparent.data(),1,1,4);gate.observe(now+1s);
+        require(!gate.ready(now+1s+31ms)&&held[0]==23&&primed.sequence()==previousSequence,"Pending transparent frame changed the returned buffer");
+        require(gate.ready(now+1s+32ms)&&primed.deliver(&held,&heldWidth,&heldHeight)&&held[0]==0&&held[1]==0&&held[2]==0,"Legitimate static transparent source was rejected or required another frame");
+        bool invalidGate=false;try {gate.begin(101ms);}catch(const std::invalid_argument&){invalidGate=true;}
+        require(invalidGate,"Unbounded compositor priming interval accepted");
+        invalidGate=false;try {gate.begin(-1ms);}catch(const std::invalid_argument&){invalidGate=true;}
+        require(invalidGate,"Negative compositor priming interval accepted");
+        gate.begin(0ms);require(!gate.ready(now),"Zero interval fabricated a candidate");
+        gate.observe(now);require(gate.ready(now),"Zero interval delayed a real candidate");
         magpie::CaptureMailbox box;const uint8_t* pixels=nullptr;uint32_t width=0,height=0;
         require(!box.deliver(&pixels,&width,&height) && box.source().flags==0,"Unselected mailbox fabricated a frame/source");
         auto first=magpie::emptySource();first.kind=1;first.window_id=1;first.process_id=11;first.flags=MP_SOURCE_WINDOW|MP_SOURCE_PID|MP_SOURCE_TITLE;magpie::sourceText(first.title,"first");

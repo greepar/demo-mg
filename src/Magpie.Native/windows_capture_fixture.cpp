@@ -287,7 +287,7 @@ int main(int argc,char** argv) {
         require(mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,restored,&info,sizeof(info))==0,"Pre-hide frame became valid before a fresh shown frame");
         const auto hiddenSequence=restored;restored=frame("shown after hidden frame");
         require(restored>hiddenSequence&&mp_capture_snapshot_title(capture.get(),window,process.info.dwProcessId,hiddenSequence,&info,sizeof(info))==0,"Show did not require a fresh source epoch");
-        for(int cycle=0;cycle<4;++cycle) {
+        for(int cycle=0;cycle<16;++cycle) {
             const auto previous=restored;
             ShowWindow(process.window,SW_HIDE);Sleep(50);
             require(mp_capture_source_state(capture.get())==2&&mp_capture_frame(capture.get(),&pixels,&width,&height)==0,
@@ -300,6 +300,7 @@ int main(int argc,char** argv) {
             restored=frame("repeated hide/show fresh frame");
             require(restored>previous,"Repeated show did not produce a new delivered epoch");
         }
+        std::cout<<"WINDOWS CAPTURE RECOVERY: backend="<<(wgc?"WGC":"GDI")<<" title="<<int(titleBar)<<" cycles=16 passed\n";
         DWORD liveProcess{};DWORD liveThread=GetWindowThreadProcessId(process.window,&liveProcess);
         require(liveThread&&liveProcess==process.info.dwProcessId,"Disposable source identity changed unexpectedly");
         require(SendMessageTimeoutW(process.window,NotifyDestroy,0,0,SMTO_ABORTIFHUNG,2000,&result)!=0,"Cannot emit fixture lifetime event");

@@ -20,15 +20,15 @@
 
 同一 committed-source 的 Linux AOT/静态单文件/模型门、AMD 实际 Vulkan core 和两项私有 Wayland 源生命周期 UI 通过，未显示用户桌面；已原子安装的文件 SHA256=c7ac91bb1859c0cfc868352b996f51c9d1d985331e23fab42dba81c7563ed975，汇总 `artifacts/desktop/windows-pointer-device-local-summary.json`。本机 UI 的源与指针为注入，不能当作 Linux 原生输入已完成。同一 run 40679326639 的 Linux 托管全套软件 Vulkan 回归随后成功，四个 job 均为 success；这不代替三平台实际应用输入与硬件 GPU 验收。
 
-## 历史基础阶段
-
-## 四方向显示器边界与虚拟工具栏（实现待目标验收）
+## 四方向显示器边界与虚拟工具栏（8a27e697 目标结果）
 
 移植原版 `_ClipCursorForMonitors`：用实际显示器的物理矩形，在虚拟指针所在横/纵切片查询 renderer 四侧是否还有屏幕；有相邻屏允许退出，外侧屏边按源/输出坐标与黑边规则计算裁剪。左/上边向源映射取 ceil，右/下取 floor；保留原版前台/后台不对称规则和显示器间隙的独立退出命中判断。CPU 用例覆盖四侧相邻屏、负原点、错位屏、间隙、半开切片边界、前后台黑边、部分出屏与定向舍入。运行时读取 Avalonia Windows 后端的屏幕物理边界，分别缓存请求矩形与 OS 实际矩形，避免无界请求被 OS 裁短后每帧重复 ClipCursor 产生伪移动；退出只释放仍归自己所有的裁剪。
 
 源鼠标绕过 Avalonia 消息时，将真实映射的虚拟位置送入已有工具栏显隐模型；工具栏随实际图像左/上边定位，保留窗口内响应式最小宽度，淡出使用真实上边，不再固定 y=0。否则大黑边时 source clip 会让工具栏不可达。共享布局的两项源生命周期、工具栏 pin/关闭/策略/移动路由共五项私有 Wayland UI 与 AOT core/model 已通过，未打开用户桌面；这里的指针/捕获仍为注入。
 
-新增 Windows 验收用真正的宽源生成大上下黑边，要求 GetClientRect/ClientToScreen 与 GetMonitorInfo 对齐，单屏实际 GetClipCursor 等于独立源矩形，尝试越过右/下边必须由 OS 夹住；窗口模式原生拖动结束后恢复自由移动。虚拟光标须能揭示并进入工具栏，解除穿透/源裁剪，随后真实 pin 按下/释放只能改变本地状态，不能泄漏给源。目标结果尚待该提交 CI，不能先声称多屏硬件/DPI、原生移动稳定性或软件光标与 UI 交叠合成已完成；光标配置、3D/IME、Linux 输入、macOS 实际输入及既有稳定性问题仍继续缺失。
+新增 Windows 验收用真正的宽源生成大上下黑边，要求 GetClientRect/ClientToScreen 与 GetMonitorInfo 对齐，单屏实际 GetClipCursor 等于独立源矩形，尝试越过右/下边必须由 OS 夹住；窗口模式原生拖动结束后恢复自由移动。虚拟光标须能揭示并进入工具栏，解除穿透/源裁剪，随后真实 pin 按下/释放只能改变本地状态，不能泄漏给源。`8a27e697` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/40686246257/job/122809222319) 已通过 GDI/WGC × 窗口/全屏四场景的上述生产 UI 检查：原生全屏客户区等于显示器矩形且无标题栏样式，单屏全屏两例各有一次真实 OS 越界裁剪检查，四例均通过虚拟工具栏进入及真实 pin 点击。WGC 未跳过。但该 job 仍失败：独立 WGC 标题栏恢复 fixture 再次交付全零客户区。Linux 与两个 macOS 架构构建门成功，不表示真实三平台输入通过。不能声称多屏硬件/DPI、原生移动稳定性或软件光标与 UI 交叠合成已完成；光标配置、3D/IME、Linux 输入、macOS 实际输入及既有稳定性问题仍继续缺失。
+
+## 历史基础阶段
 
 本阶段为真实输入路径补基础和边界保护，不表示 Windows/Linux 输入转发已完成。
 
