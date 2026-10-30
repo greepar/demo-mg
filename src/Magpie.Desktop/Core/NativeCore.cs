@@ -92,6 +92,7 @@ internal static class NativeCore
         WindowsPointerMappingTests.Verify();
         CursorAutoHideTests.Verify();
         CursorPresentationTests.Verify();
+        WindowsCursorSpeedTests.Verify();
         Console.WriteLine("INTERACTION MODEL PASS: native source ABI and non-GPU settings/shortcut/countdown/toolbar/configuration tests; no UI, capture picker or permission dialog.");
     }
 

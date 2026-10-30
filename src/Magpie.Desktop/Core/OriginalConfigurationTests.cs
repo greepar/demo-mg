@@ -16,7 +16,7 @@ internal static class OriginalConfigurationTests
       "profiles":[
         {"scalingMode":1,"captureMethod":2,"captureTitleBar":true,"initialWindowedScaleFactor":6,"customInitialWindowedScaleFactor":2.25,
          "fullscreenInitialToolbarState":0,"windowedInitialToolbarState":1,"screenshotsDir":"C:\\Pictures\\Magpie",
-         "screenshotFilenameTemplate":"%WT%_%PN%_%MS%","frameRateLimiterEnabled":true,"maxFrameRate":144,"autoHideCursorEnabled":true,"autoHideCursorDelay":0.7,
+         "screenshotFilenameTemplate":"%WT%_%PN%_%MS%","frameRateLimiterEnabled":true,"maxFrameRate":144,"autoHideCursorEnabled":true,"autoHideCursorDelay":0.7,"adjustCursorSpeed":false,
          "croppingEnabled":true,"cropping":{"left":1.5,"top":2,"right":3,"bottom":4},"outputAlignment":8,
          "graphicsCardId":{"idx":1,"vendorId":4098,"deviceId":123},"3DGameMode":true},
         {"name":"游戏测试","packaged":false,"pathRule":"C:\\Games\\example.exe","classNameRule":"Game*",
@@ -43,6 +43,7 @@ internal static class OriginalConfigurationTests
         Require(ReferenceEquals(current,RuntimeSettings.Current)&&RuntimeSettings.ChangeSequence==revision&&currentJson==JsonSerializer.Serialize(current,SettingsJson.Default.RuntimeSettings),"Parsing modified live preferences.");
         Require(root.Profiles.Count==2&&root.Modes.Count==3&&root.SelectedModeId==root.Modes[1].Id,"Default or mode-index references were lost.");
         var application=root.Profiles[0];
+        Require(!root.AdjustCursorSpeed&&application.Settings.AdjustCursorSpeed,"Original pointer speed preference was lost or inherited across profiles.");
         Require(application.Settings.CursorScaling==7&&application.Settings.CustomCursorScaleFactor==1.7f&&root.CursorScaling==2&&root.CursorInterpolation==0,"Original cursor scale choice or custom factor was lost or inherited.");
         Require(root.AutoHideCursorEnabled&&root.AutoHideCursorDelay==.7f&&!application.Settings.AutoHideCursorEnabled&&application.Settings.AutoHideCursorDelay==3,"Cursor idle preferences were lost or inherited across profiles.");
         Require(application.Settings.SelectedModeId==root.Modes[0].Id&&root.Profiles[1].Settings.SelectedModeId==root.Modes[2].Id,"Application index references were renumbered.");

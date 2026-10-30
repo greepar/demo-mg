@@ -145,6 +145,17 @@ public partial class ProfilePage : UserControl
             ScreenshotTemplateError.Text=error.Message;ScreenshotTemplateError.IsVisible=true;
         }
     }
+    private void CursorSpeed_Changed(object? sender,RoutedEventArgs args)
+    {
+        if(!_initialized)return;
+        var settings=Settings;bool previous=settings.AdjustCursorSpeed;
+        try {settings.AdjustCursorSpeed=CursorSpeedToggle.IsChecked==true;Core.RuntimeSettings.Current.Save();}
+        catch(Exception error)
+        {
+            settings.AdjustCursorSpeed=previous;RefreshSettings();
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(LocExtension.Get("Profile_Cursor_DrawCursor_AdjustCursorSpeed.Header"),error.Message);
+        }
+    }
     private void CursorCustomScale_Changed(object? sender,NumericUpDownValueChangedEventArgs args) {if(_initialized)SaveCursorPresentation();}
     private void CursorInterpolation_Changed(object? sender,SelectionChangedEventArgs args) {if(_initialized)SaveCursorPresentation();}
     private void SaveCursorPresentation()
@@ -217,6 +228,8 @@ public partial class ProfilePage : UserControl
         _initialized=false;
         RefreshDeviceChoices();
         var settings=Settings;
+        CursorSpeedCard.IsEnabled=OperatingSystem.IsWindows();
+        CursorSpeedToggle.IsChecked=settings.AdjustCursorSpeed;
         CursorScaleExpander.IsEnabled=OperatingSystem.IsWindows();
         CursorScale.SelectedIndex=settings.CursorScaling;
         CursorCustomScale.Value=(decimal)settings.CustomCursorScaleFactor;

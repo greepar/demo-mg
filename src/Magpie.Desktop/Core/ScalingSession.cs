@@ -208,7 +208,7 @@ internal sealed partial class ScalingSession
                 await Dispatcher.UIThread.InvokeAsync(()=>
                 {
                     _windowsFocusPoll?.Dispose();_windowsFocusPoll=null;
-                    try {EndWindowsPointer();}catch(Exception cleanup) {failure??=cleanup.Message;}
+                    try {EndWindowsPointer();}catch(Exception cleanup) {failure??=cleanup.Message;WindowsCursorSpeedCleanup.Schedule(_windowsCursorSpeed);}
                 });
                 _powerUpdateStop?.Cancel();
                 try { await _powerUpdate; }catch(Exception cleanup) { failure??=cleanup.Message; }

@@ -109,6 +109,7 @@ try:
             if not case['LayeredRepaintPassed'] or case['LayeredScreenPixel']!=(211|(47<<8)|(173<<16)):raise RuntimeError('Layered native output lost compositor pixels or stopped repainting.')
             if not all(case[key] for key in ('ScaledNativeMousePassed','NativeInvertCursorPassed','NativeCursorAutoHidePassed','NativePointerCleanupPassed')):raise RuntimeError('Scaled native pointer/cursor/idle-hide/cleanup acceptance is missing.')
             if case.get('NativeCursorScaleChecks')!=4:raise RuntimeError('Actual cursor preset/custom/source-scale/interpolation checks are missing.')
+            if case.get('NativeCursorSpeedChecks')!=4 or case.get('NativeOriginalPointerSpeed',0)<1 or case['NativeOriginalPointerSpeed']!=case.get('NativeRestoredPointerSpeed'):raise RuntimeError('Native pointer speed compensation/disable/reenable/restore acceptance is missing.')
             if case['NativeInvertCursorPixel']!=(232|(188<<8)|(146<<16)):raise RuntimeError('Actual XOR cursor compositor pixel is missing.')
             if not all(case[key] for key in ('NativeMonitorClipPassed','NativeToolbarExitPassed','NativeFullscreenBoundsPassed')):raise RuntimeError('Native monitor/toolbar/fullscreen coverage is missing.')
             if case['NativeMonitorCount']<1 or (case['Fullscreen'] and case['NativeMonitorCount']==1 and case['NativeBoundaryClampChecks']!=1):raise RuntimeError('Single-monitor native boundary clamp was not exercised.')

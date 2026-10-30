@@ -13,7 +13,7 @@ from source_lifecycle_capture import verify_source_lifecycle
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = [
-    "ProfileTitleBar", "NarrowProfileTitleBar", "ProfileCursorAutoHide", "NarrowProfileCursorAutoHide", "ProfileCursorPresentation", "NarrowProfileCursorPresentation",
+    "ProfileTitleBar", "NarrowProfileTitleBar", "ProfileCursorAutoHide", "NarrowProfileCursorAutoHide", "ProfileCursorPresentation", "NarrowProfileCursorPresentation", "ProfileCursorSpeed", "NarrowProfileCursorSpeed",
     "GpuTimelineOutput", "NarrowGpuTimelineOutput",
     "StageExportOutput", "NarrowStageExportOutput", "PassExportOutput", "NarrowPassExportOutput",
     "ScreenshotShortcutEdit", "NarrowScreenshotShortcutEdit", "ScreenshotShortcutOutput",

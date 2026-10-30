@@ -120,6 +120,7 @@ internal sealed class RuntimeSettings
     public int CursorScaling { get; set; }=2;
     public float CustomCursorScaleFactor { get; set; }=1;
     public int CursorInterpolation { get; set; }
+    public bool AdjustCursorSpeed { get; set; }=true;
     public double AutoHideCursorDelay { get; set; }=3;
     private bool _frameRateLimiterEnabled;
     private double _maximumFrameRate=60;

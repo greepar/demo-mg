@@ -44,6 +44,20 @@ internal sealed partial class ScalingSession
     private string _windowsPointerStatus="not started";
     private uint _windowsCursorBeforeHide,_windowsCursorAfterHide;
     private readonly CursorAutoHide _windowsCursorAutoHide=new();
+    private readonly WindowsCursorSpeed _windowsCursorSpeed=new(new NativeWindowsCursorSpeed());
+
+    private bool WindowsPointerMoving()
+    {
+        var sourceGui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
+        var outputGui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
+        uint sourceThread=OutputWindowProcess(unchecked((nint)_lastSourceInfo.WindowId),out _);
+        uint outputThread=_output?.TryGetPlatformHandle() is {} handle?OutputWindowProcess(handle.Handle,out _):0;
+        const uint guiInMoveSize=2;
+        return (sourceThread!=0&&ReadWindowsGui(sourceThread,ref sourceGui)&&(sourceGui.Flags&guiInMoveSize)!=0)||
+            (outputThread!=0&&ReadWindowsGui(outputThread,ref outputGui)&&(outputGui.Flags&guiInMoveSize)!=0);
+    }
+    private double WindowsPointerScale()=>((double)_windowsPointerMapping.Destination.Width/_windowsPointerMapping.Source.Width+
+        (double)_windowsPointerMapping.Destination.Height/_windowsPointerMapping.Source.Height)/2;
 
     private static NativePointerRect WindowsRect(Visual visual,double width,double height)
     {
@@ -109,9 +123,9 @@ internal sealed partial class ScalingSession
         bool captured=_windowsPointerCaptured;_windowsPointerCaptured=false;
         bool ownsState=captured||_windowsSystemCursorHidden||_windowsPointerPassthrough||_windowsAppliedClip is not null||_windowsCursorOverlay is {IsVisible:true};
         ++_windowsHitGeneration;_windowsHitPoint=null;_windowsHitArea=0;
-        ClipWindowsSource(false);
         try
         {
+            ClipWindowsSource(false);
             if(ownsState)SetWindowsPassthrough(false);
             if(mapBack&&captured&&ReadWindowsPointer(out var point))
             {
@@ -121,12 +135,24 @@ internal sealed partial class ScalingSession
         }
         finally
         {
-            if(_windowsSystemCursorHidden)
+            try {_windowsCursorSpeed.Restore();}
+            catch(Exception error)
             {
-                if(NativeCore.WindowsSystemCursor(1)!=1)throw new InvalidOperationException("Cannot restore the native system cursor.");
-                _windowsSystemCursorHidden=false;
+                Console.Error.WriteLine("Pointer speed restoration: "+error.Message);
+                WindowsCursorSpeedCleanup.Schedule(_windowsCursorSpeed);
             }
-            if(_windowsCursorOverlay is {} overlay)overlay.IsVisible=false;
+            finally
+            {
+                try
+                {
+                    if(_windowsSystemCursorHidden)
+                    {
+                        if(NativeCore.WindowsSystemCursor(1)!=1)throw new InvalidOperationException("Cannot restore the native system cursor.");
+                        _windowsSystemCursorHidden=false;
+                    }
+                }
+                finally {if(_windowsCursorOverlay is {} overlay)overlay.IsVisible=false;}
+            }
         }
     }
     private void CheckWindowsPointerEdge(nint source,PixelPoint point)
@@ -172,6 +198,8 @@ internal sealed partial class ScalingSession
         _toolbarPointer=new Point((visual.Item1-origin.X)/dpi,(visual.Item2-origin.Y)/dpi);UpdateToolbarVisibility();
         var gui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
         bool nativeDrag=ReadWindowsGui(0,ref gui)&&gui.Capture!=0&&(gui.Flags&0x1c)==0;
+        bool moving=_settings.AdjustCursorSpeed&&WindowsPointerMoving();
+        if(_windowsPointerCaptured)_windowsCursorSpeed.Update(_settings.AdjustCursorSpeed,WindowsPointerScale(),moving);
         if(nativeDrag&&WindowsPointerRoot(gui.Capture,2)!=owner) {_windowsPointerStatus="another application's native capture";EndWindowsPointer(false);return;}
         if(nativeDrag&&_windowsPointerCaptured)
         {
@@ -208,6 +236,7 @@ internal sealed partial class ScalingSession
         if(!_windowsPointerCaptured)
         {
             if(!source.Contains(mapped.Item1,mapped.Item2)||!DrawWindowsCursor(visual.Item1,visual.Item2))return;
+            _windowsCursorSpeed.Update(_settings.AdjustCursorSpeed,WindowsPointerScale(),moving);
             SetWindowsPassthrough(true);
             MoveWindowsPointerReliably(mapped.Item1,mapped.Item2);
             _windowsCursorBeforeHide=0;_windowsCursorAfterHide=0;
@@ -237,17 +266,7 @@ internal sealed partial class ScalingSession
         var cursor=new WindowsCursorInfo {Size=(uint)Marshal.SizeOf<WindowsCursorInfo>()};
         if(!ReadWindowsCursor(ref cursor)) {_windowsPointerStatus="GetCursorInfo failed";return false;}
         bool visible=WindowsCursorVisibility.Draw(cursor.Flags,_windowsSystemCursorHidden,_windowsCursorBeforeHide,_windowsCursorAfterHide);
-        bool moving=false;
-        if(_settings.AutoHideCursorEnabled)
-        {
-            var sourceGui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
-            var outputGui=new WindowsGuiInfo {Size=(uint)Marshal.SizeOf<WindowsGuiInfo>()};
-            uint sourceThread=OutputWindowProcess(unchecked((nint)_lastSourceInfo.WindowId),out _);
-            uint outputThread=OutputWindowProcess(_output.TryGetPlatformHandle()!.Handle,out _);
-            const uint guiInMoveSize=2;
-            moving=(sourceThread!=0&&ReadWindowsGui(sourceThread,ref sourceGui)&&(sourceGui.Flags&guiInMoveSize)!=0)||
-                (outputThread!=0&&ReadWindowsGui(outputThread,ref outputGui)&&(outputGui.Flags&guiInMoveSize)!=0);
-        }
+        bool moving=_settings.AutoHideCursorEnabled&&WindowsPointerMoving();
         bool idleVisible=_windowsCursorAutoHide.Visible(System.Diagnostics.Stopwatch.GetElapsedTime(0),x,y,visible?cursor.Cursor:0,
             _windowsPointerCaptured,moving,_settings.AutoHideCursorEnabled,_settings.AutoHideCursorDelay);
         if(!visible||!idleVisible)

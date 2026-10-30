@@ -26,6 +26,8 @@ internal sealed partial class ScalingSession
     private async Task VerifyHostedScaledPointer(Process source,nint sourceWindow,Task run,Func<string?> failure,HostedLifecycleCase evidence)
     {
         HostedWindowsLifecycle.Require();RequireOwnedSource(source,sourceWindow);
+        var speedApi=new NativeWindowsCursorSpeed();int originalSpeed=speedApi.ReadSpeed();bool? originalAcceleration=speedApi.ReadAcceleration();
+        evidence.NativeOriginalPointerSpeed=originalSpeed;
         if(_image is null||_bitmap is null||!FixtureClient(sourceWindow,out var client)||!FixtureCursor(out var original))
             throw new InvalidOperationException("Missing actual source/image for native scaled pointer acceptance.");
         if((FixtureKeyState(1)&0x8000)!=0)throw new InvalidOperationException("Held runner button prevents scaled native pointer acceptance.");
@@ -85,6 +87,7 @@ internal sealed partial class ScalingSession
                 throw new InvalidOperationException("Scaled native source mouse lost foreground or input state.");
             await VerifyHostedCursorAutoHide(source,sourceWindow,run,failure,evidence,origin,client,moved,movedVisual);
             await VerifyHostedCursorScaling(source,sourceWindow,run,failure,evidence,client,movedVisual);
+            await VerifyHostedCursorSpeed(run,failure,evidence,speedApi,originalSpeed,originalAcceleration,client);
             await VerifyHostedMonitorAndToolbar(source,sourceWindow,run,failure,evidence,origin,client,moved);
             evidence.ScaledNativeMousePassed=true;
         }
@@ -101,8 +104,12 @@ internal sealed partial class ScalingSession
             FixtureMoveCursor(original.X,original.Y);
         }
         if(_windowsPointerCaptured||_windowsPointerPassthrough||_windowsSystemCursorHidden||_windowsCursorOverlay is {IsVisible:true}||
-            _windowsAppliedClip is not null||(OutputWindowStyle(HostedOutputHandle(),-20)&0x20)!=0)
+            _windowsAppliedClip is not null||_windowsCursorSpeed.OwnsChange||(OutputWindowStyle(HostedOutputHandle(),-20)&0x20)!=0)
             throw new InvalidOperationException("Stopping virtual pointer left system cursor, clip, overlay or passthrough state behind.");
+        evidence.NativeRestoredPointerSpeed=speedApi.ReadSpeed();
+        if(evidence.NativeRestoredPointerSpeed!=originalSpeed||speedApi.ReadAcceleration()!=originalAcceleration)
+            throw new InvalidOperationException("Stopping virtual pointer changed original system speed/acceleration preferences.");
+        evidence.NativeCursorSpeedChecks++;
         await VerifyHostedOutputClick(source,sourceWindow,run,failure);
         CheckHostedPixels();evidence.NativePointerCleanupPassed=true;
     }
@@ -180,5 +187,29 @@ internal sealed partial class ScalingSession
             (_settings.CursorScaling,_settings.CustomCursorScaleFactor,_settings.CursorInterpolation,_settings.AutoHideCursorEnabled)=previous;
             _windowsCursorAutoHide.Reset();
         }
+    }
+    private async Task VerifyHostedCursorSpeed(Task run,Func<string?> failure,HostedLifecycleCase evidence,NativeWindowsCursorSpeed api,
+        int original,bool? acceleration,FixtureRect client)
+    {
+        HostedWindowsLifecycle.Require();
+        double scale=((double)_bitmap!.PixelSize.Width/client.Right+(double)_bitmap.PixelSize.Height/client.Bottom)/2;
+        double[] sensitivity=[.03125,.0625,.125,.25,.375,.5,.625,.75,.875,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5];
+        // Independent full table search rather than the production lower_bound.
+        int expected=(acceleration??true)?(int)Math.Clamp(Math.Floor(original/scale+.5),1,20):
+            Enumerable.Range(1,20).OrderBy(i=>Math.Abs(sensitivity[i-1]-sensitivity[original-1]/scale)).ThenByDescending(i=>i).First();
+        bool previous=_settings.AdjustCursorSpeed;
+        try
+        {
+            _settings.AdjustCursorSpeed=true;
+            await WaitHosted(()=>_windowsPointerCaptured&&api.ReadSpeed()==expected,run,failure,"actual native pointer speed compensation",5);
+            evidence.NativeCursorSpeedChecks++;
+            _settings.AdjustCursorSpeed=false;
+            await WaitHosted(()=>_windowsPointerCaptured&&!_windowsCursorSpeed.OwnsChange&&api.ReadSpeed()==original,run,failure,"disabling compensation restores original system speed",5);
+            evidence.NativeCursorSpeedChecks++;
+            _settings.AdjustCursorSpeed=true;
+            await WaitHosted(()=>_windowsPointerCaptured&&api.ReadSpeed()==expected,run,failure,"reenabling compensation recomputes from original system speed",5);
+            evidence.NativeCursorSpeedChecks++;
+        }
+        finally {_settings.AdjustCursorSpeed=previous;}
     }
 }

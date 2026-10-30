@@ -163,9 +163,9 @@
 </c:SettingsExpander>
 
 <!-- Profile_Cursor_DrawCursor_AdjustCursorSpeed -->
-<c:SettingsCard Header="{c:Loc Profile_Cursor_DrawCursor_AdjustCursorSpeed.Header}" Icon="Cursor">
+<c:SettingsCard Name="CursorSpeedCard" Header="{c:Loc Profile_Cursor_DrawCursor_AdjustCursorSpeed.Header}" Icon="Cursor">
 
-<ToggleSwitch OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
+<ToggleSwitch Name="CursorSpeedToggle" IsCheckedChanged="CursorSpeed_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" />
 </c:SettingsCard>
 
 </c:SettingsGroup>
