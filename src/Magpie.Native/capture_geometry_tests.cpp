@@ -1,6 +1,7 @@
 #include "capture_geometry.h"
 #include "capture_mailbox.h"
 #include "windows_capture_region.h"
+#include "maximized_policy.h"
 #include <array>
 #include <iostream>
 #include <memory>
@@ -11,6 +12,12 @@ int main(int argc,char** argv) {
     (void)argc;(void)argv;
     try {
         using namespace magpie;
+        for(bool windowed:{false,true})for(bool allow:{false,true}) {
+            require(maximizedPolicy(false,windowed,allow)==MaximizedPolicy::Allowed,"Normal source rejected by maximized policy");
+            require(maximizedPolicy(true,windowed,allow)==(windowed?MaximizedPolicy::Windowed:allow?MaximizedPolicy::Allowed:MaximizedPolicy::Disabled),"Original maximized/windowed precedence differs");
+        }
+        for(bool nativeFrame:{false,true})for(bool matches:{false,true})for(bool allow:{false,true})
+            require(fullscreenPolicy(nativeFrame,matches,allow)==(!nativeFrame&&matches&&!allow?MaximizedPolicy::Fullscreen:MaximizedPolicy::Allowed),"Original frameless source/renderer equality policy differs");
         WindowRegionGeometry framed;
         framed.window={100,100,400,340};framed.frame={107,100,393,333};framed.client={108,132,392,332};
         framed.nativeFrame=true;framed.caption=true;framed.thickFrame=true;framed.monitor={0,0,1920,1080};

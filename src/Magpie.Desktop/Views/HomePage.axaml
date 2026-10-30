@@ -43,7 +43,7 @@
         <c:InfoBar Severity="Warning" Title="{c:Loc Home_TouchSupport_Warn.Title}" IsClosable="False" IsOpen="{Binding #TouchToggle.IsChecked}" />
       </c:SettingsGroup>
       <c:SettingsGroup Header="{c:Loc Home_Advanced.Header}">
-        <c:SettingsCard Header="{c:Loc Home_Advanced_AllowScalingMaximized.Header}" Description="{c:Loc Home_Advanced_AllowScalingMaximized.Description}" Icon="Scale"><ToggleSwitch /></c:SettingsCard>
+        <c:SettingsCard Name="AllowMaximizedCard" IsWrapEnabled="True" Header="{c:Loc Home_Advanced_AllowScalingMaximized.Header}" Description="{c:Loc Home_Advanced_AllowScalingMaximized.Description}" Icon="Scale"><ToggleSwitch Name="AllowMaximizedToggle" IsCheckedChanged="AllowMaximized_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsCard>
         <c:SettingsCard Header="{c:Loc Home_Advanced_KeepScreenOn.Header}" Icon="Monitor"><ToggleSwitch Name="KeepScreenOnToggle" IsCheckedChanged="DynamicStatistics_Changed" OffContent="{c:Loc ToggleSwitch.OffContent}" OnContent="{c:Loc ToggleSwitch.OnContent}" /></c:SettingsCard>
         <c:SettingsCard Name="ExclusiveCard" Header="{c:Loc Home_Advanced_SimulateExclusiveFullscreen.Header}" Description="{c:Loc Home_Advanced_SimulateExclusiveFullscreen.Description}" Icon="Window"><ToggleSwitch Name="ExclusiveToggle" IsChecked="False" /></c:SettingsCard>
         <c:InfoBar Severity="Warning" Title="{c:Loc Home_Advanced_SimulateExclusiveFullscreen_InfoBar.Title}" IsClosable="False" IsOpen="{Binding #ExclusiveToggle.IsChecked}" />

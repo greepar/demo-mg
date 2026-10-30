@@ -47,11 +47,12 @@ internal static class CaptureBackendTests
             string path=Path.Combine(directory,"settings.json");
             foreach(var backend in Enum.GetValues<CaptureBackend>())
             {
-                var settings=new RuntimeSettings { CaptureBackend=backend,CaptureTitleBar=true };
+                var settings=new RuntimeSettings { CaptureBackend=backend,CaptureTitleBar=true,AllowScalingMaximized=true };
                 var profile=settings.AddProfile("Capture fixture",Path.GetFullPath(Path.Combine(directory,"source")));
                 settings.WriteFile(path);var restored=RuntimeSettings.ReadFile(path);
                 if(restored.CaptureBackend!=backend||restored.Profiles.Single().Settings.CaptureBackend!=backend)throw new InvalidOperationException("Capture selection lost during profile copy or AOT persistence.");
                 if(!restored.CaptureTitleBar||!restored.Profiles.Single().Settings.CaptureTitleBar)throw new InvalidOperationException("Title bar preference lost during persistence or profile copy.");
+                if(!restored.AllowScalingMaximized)throw new InvalidOperationException("Global maximized preference lost during AOT persistence.");
                 profile.Settings.CaptureTitleBar=false;
                 if(!settings.CaptureTitleBar)throw new InvalidOperationException("Application title bar preference modified defaults.");
                 profile.Settings.CaptureBackend=CaptureBackend.Native;

@@ -46,7 +46,7 @@ Linux 本机 AOT/静态单文件和 CPU 模型已通过，覆盖严格截止、�
 
 新增 hosted Windows 门：真实 CreateIconIndirect 的 alpha 位图经原生读回后分别匹配独立最近邻/双线性 RGBA 期望；四条生产路径再验证真实屏幕 AND/XOR 光标的 2 倍两种插值、自定义 1.5 倍和跟随源窗口，包含热点、裁剪尺寸及 31 点屏幕横截面。`b95b22ab` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/41035013677/job/123993607257) 已成功：三种原生捕获 fixture 均通过实际 alpha 位图最近邻/双线性检查；四条 GDI/WGC × 窗口/全屏生产路径均 `NativeCursorScaleChecks=4`，既有自动隐藏、输入、裁剪和工具栏门继续通过。两个 macOS 架构也编译/AOT 成功，Linux 软件 GPU 全套随后通过，该 run 四个 job 均成功。这些测试不会在用户桌面运行。软件采样虽按原版算法实现，尚无所有真实彩色应用/动态光标、GPU sampler 极限舍入或多屏 DPI 的完整一致性证据。
 
-## Windows 鼠标速度补偿（实现待目标验收）
+## Windows 鼠标速度补偿（80083e53 目标结果）
 
 按原版 `_AdjustCursorSpeed` 接入源/目标横纵倍率均值补偿：读取当前 1–20 级速度和加速状态，加速开启时按原速度/倍率取整；关闭时用原版 20 项非线性灵敏度表取最近档，等距选择上档。加速查询失败沿用原版“开启”默认。结果限制为 Windows API 接受的 1–20 档；不重写加速或阈值参数。使用 [SystemParametersInfoW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-systemparametersinfow) 且 flags=0，不写用户配置文件或广播变更。
 
@@ -54,7 +54,7 @@ Linux 本机 AOT/静态单文件和 CPU 模型已通过，覆盖严格截止、�
 
 独立默认/应用设置 `AdjustCursorSpeed` 默认开启，接原版 `adjustCursorSpeed` 导入、真实开关处理器、保存失败回退和重开。Linux/macOS 保留偏好但禁用该控件，没有修改本机 Linux 系统速度。
 
-Linux AOT/静态单文件、独立设置/迁移/速度事务模型已通过；普通/窄窗口的速度控件、倍率控件及两项源生命周期共六项私有 Wayland UI 通过。模型覆盖线性/非线性与上档平局、边界、移动/进出/倍率变化、外部修改、失败恢复和迟到旧代次；没有调用本机系统鼠标参数。新增 Windows 四场景通过实际 SPI 读取检查捕获中的补偿、禁用恢复、再次启用与退出后的原速度/加速状态；检查每例四次，不改变 runner 的加速设置。目标验收尚未完成，不能据此声称物理鼠标手感、Raw Input/游戏、真实移动窗口和其他三平台速度路径已完成。
+Linux AOT/静态单文件、独立设置/迁移/速度事务模型已通过；普通/窄窗口的速度控件、倍率控件及两项源生命周期共六项私有 Wayland UI 通过。模型覆盖线性/非线性与上档平局、边界、移动/进出/倍率变化、外部修改、失败恢复和迟到旧代次；没有调用本机系统鼠标参数。新增 Windows 四场景通过实际 SPI 读取检查捕获中的补偿、禁用恢复、再次启用与退出后的原速度/加速状态；检查每例四次，不改变 runner 的加速设置。`80083e53` 的 [Windows job](https://github.com/greepar/demo-mg/actions/runs/41037644142/job/124002325216) 已实际成功：GDI/WGC × 窗口/全屏四例均 `NativeCursorSpeedChecks=4`，原速度与恢复速度均为 10，既有光标倍率、自动隐藏、源输入与清理门继续通过。该 Desktop run 的 Linux 和两个 macOS 架构也成功。不能据此声称物理鼠标手感、Raw Input/游戏、真实移动窗口和其他三平台速度路径已完成。
 
 ## 历史基础阶段
 

@@ -1,10 +1,12 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <dwmapi.h>
 #include "magpie.h"
 #include "error.h"
 #include "source_info.h"
 #include "capture_epoch.h"
+#include "maximized_policy.h"
 #include "windows_source_watch.h"
 #include "windows_graphics_capture.h"
 #include "windows_output_layer.h"
@@ -18,6 +20,8 @@ namespace {
 struct Capture {
     uint32_t backend=3;
     bool titleBar{};
+    bool maximizedPolicyConfigured{},windowed{},allowMaximized{};
+    std::atomic<HWND> policyRenderer{nullptr};
     std::atomic<bool> cancelled{false};
     HWND window{};
     DWORD sourceProcess{};
@@ -44,6 +48,36 @@ struct Capture {
         throw std::runtime_error("The selected source window was closed or its process/thread identity changed");
     }
     bool suspended() const { return window && (IsIconic(window)||!IsWindowVisible(window)); }
+    magpie::MaximizedPolicy sourcePolicy() const {
+        if(!maximizedPolicyConfigured)return magpie::MaximizedPolicy::Allowed;
+        auto policy=magpie::maximizedPolicy(IsZoomed(window)!=FALSE,windowed,allowMaximized);
+        if(policy!=magpie::MaximizedPolicy::Allowed||allowMaximized)return policy;
+        HWND renderer=policyRenderer.load();if(!renderer)return policy;
+        BOOL native{};bool nativeFrame=SUCCEEDED(DwmGetWindowAttribute(window,DWMWA_NCRENDERING_ENABLED,&native,sizeof(native)))&&native;
+        if(nativeFrame)return policy;
+        DWORD process{};
+        if(!GetWindowThreadProcessId(renderer,&process)||process!=GetCurrentProcessId()||GetAncestor(renderer,GA_ROOT)!=renderer)
+            throw std::runtime_error("The owned scaling renderer is no longer available");
+        RECT sourceRect{},rendererRect{};POINT origin{};
+        if(!GetWindowRect(window,&sourceRect)||!GetClientRect(renderer,&rendererRect)||!ClientToScreen(renderer,&origin))
+            throw std::runtime_error("Cannot compare source and renderer bounds");
+        OffsetRect(&rendererRect,origin.x,origin.y);
+        return magpie::fullscreenPolicy(nativeFrame,EqualRect(&sourceRect,&rendererRect)!=FALSE,allowMaximized);
+    }
+    void requireSourcePolicy() {
+        if(suspended())return;
+        try {
+            auto policy=sourcePolicy();
+            if(policy==magpie::MaximizedPolicy::Allowed)return;
+            throw std::runtime_error(magpie::maximizedPolicyMessage(policy));
+        }catch(...) {
+            // This is a fatal presentation-policy error, not a hidden-source
+            // wait. Invalidate input without restarting the still-visible WGC
+            // session just before its consumer tears capture down.
+            {std::lock_guard lock(epochMutex);epoch.pause();}
+            throw;
+        }
+    }
     void pause() {
         if(graphics)graphics->suspend();
         std::lock_guard lock(epochMutex);epoch.pause();
@@ -57,8 +91,9 @@ struct Capture {
     }
     bool snapshotMatches(uint64_t sequence) {
         std::lock_guard lock(epochMutex);RECT rect{};
+        try {
         if(graphics&&suspended())graphics->suspend();
-        if(cancelled||!sameSource()||suspended()||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
+        if(cancelled||!sameSource()||suspended()||sourcePolicy()!=magpie::MaximizedPolicy::Allowed||(graphics&&(graphics->paused()||graphics->revision()!=graphicsRevision))||!GetClientRect(window,&rect)) { epoch.pause();return false; }
         if(graphics) {
             if(!graphics->sizeMatches(width,height)) {epoch.pause();return false;}
             return epoch.accepts(sequence)&&sameSource();
@@ -66,6 +101,7 @@ struct Capture {
         const auto w=uint32_t(rect.right-rect.left),h=uint32_t(rect.bottom-rect.top);
         if(!epoch.accepts(epoch.sequence(),w,h)) { epoch.pause();return false; }
         return epoch.accepts(sequence,w,h)&&sameSource();
+        }catch(...) {epoch.pause();throw;}
     }
     ~Capture() { cancelled=true;graphics.reset();lifetimeWatch.reset();reset(); if (memory) DeleteDC(memory); }
     void reset() {
@@ -83,6 +119,7 @@ struct Capture {
         if (process==GetCurrentProcessId()) throw std::runtime_error("Select another application's source window during the start delay.");
         sourceProcess=process;identity={uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread};
         requireSource();
+        requireSourcePolicy();
         lifetimeWatch=std::make_unique<magpie::WindowsSourceWatch>(identity,cancelled);lifetimeWatch->start();
         requireSource();
         if(backend==4) {graphics=std::make_unique<magpie::WindowsGraphicsCapture>(window,titleBar,cancelled,[this]{return sameSource();});return;}
@@ -93,10 +130,12 @@ struct Capture {
         if (cancelled) throw std::runtime_error("Capture was stopped");
         requireSource();
         if(suspended()) {pause();return 0;}
+        requireSourcePolicy();
         if(graphics) {
             const uint8_t* captured{};uint32_t capturedWidth{},capturedHeight{};
             uint64_t revision{};int result=graphics->frame(&captured,&capturedWidth,&capturedHeight,&revision);requireSource();
             if(suspended()) {pause();return 0;}
+            requireSourcePolicy();
             std::lock_guard lock(epochMutex);
             if(revision!=graphics->revision()) {epoch.pause();return 0;}
             if(graphics->paused()||revision!=graphicsRevision)epoch.pause();
@@ -138,6 +177,7 @@ struct Capture {
         for(size_t i=0;i<pending.size();i+=4) {pending[i]=bgra[i+2];pending[i+1]=bgra[i+1];pending[i+2]=bgra[i];pending[i+3]=255;}
         requireSource();
         RECT current{};
+        requireSourcePolicy();
         if(suspended()||!GetClientRect(window,&current)||current.right-current.left!=LONG(nw)||current.bottom-current.top!=LONG(nh)) {pause();return 0;}
         {std::lock_guard lock(epochMutex);epoch.deliver(nw,nh);pixels.swap(pending);width=nw;height=nh;}
         *rgba=pixels.data();*w=width;*h=height;
@@ -248,6 +288,29 @@ extern "C" int mp_capture_set_title_bar(void* capture,int enabled) {
         if(c.window)throw std::runtime_error("Title bar capture must be configured before starting a fresh session");
         if(enabled&&c.backend!=4) {magpie::error="This backend cannot toggle title bar capture";return 0;}
         c.titleBar=enabled!=0;return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
+extern "C" int mp_capture_set_maximized_policy(void* capture,int windowed,int allow) {
+    try {
+        if(!capture||(windowed!=0&&windowed!=1)||(allow!=0&&allow!=1))throw std::runtime_error("Invalid maximized source policy arguments");
+        auto& c=*static_cast<Capture*>(capture);
+        if(c.window)throw std::runtime_error("Maximized source policy must be configured before starting a fresh session");
+        c.windowed=windowed!=0;c.allowMaximized=allow!=0;c.maximizedPolicyConfigured=true;return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
+extern "C" int mp_capture_attach_renderer_policy(void* capture,void* output) {
+    try {
+        if(!capture||!output)throw std::runtime_error("Invalid scaling renderer policy arguments");
+        auto& c=*static_cast<Capture*>(capture);HWND renderer=static_cast<HWND>(output);DWORD process{};
+        if(!c.maximizedPolicyConfigured)throw std::runtime_error("Scaling source policy is not configured");
+        if(!c.window||!c.sameSource())return 0;
+        HWND owner=GetWindow(renderer,GW_OWNER);
+        // Owner reconstruction can still be pending after Show/restore. The
+        // read-only geometry guard must already protect this process's output.
+        if(!GetWindowThreadProcessId(renderer,&process)||process!=GetCurrentProcessId()||GetAncestor(renderer,GA_ROOT)!=renderer||(owner&&owner!=c.window))
+            throw std::runtime_error("Scaling policy requires this process's renderer owned by the selected source");
+        c.policyRenderer=renderer;if(c.suspended())return 0;
+        c.requireSourcePolicy();return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
 }
 extern "C" void* mp_capture_create_backend(uint32_t backend) {

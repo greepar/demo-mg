@@ -21,7 +21,7 @@
 // Opt-in only: creates a disposable source process/window on the hosted runner.
 // Never registered with the default CTest suite or run on the user's desktop.
 namespace {
-constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2;
+constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2,SetFrameMode=WM_APP+3;
 void verifyNativeColorCursor() {
     // Real Win32 alpha cursor bitmaps, independent of the portable sampler's
     // classifier/tests. No source window or desktop pointer is changed here.
@@ -53,6 +53,13 @@ void verifyNativeColorCursor() {
     std::cout<<"WINDOWS CURSOR INTERPOLATION PASS: actual CreateIconIndirect/GetIconInfo/GetDIBits alpha pixels, premultiplication, nearest and bilinear.\n";
 }
 LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
+    if(message==SetFrameMode) {
+        DWMNCRENDERINGPOLICY policy=w?DWMNCRP_DISABLED:DWMNCRP_USEWINDOWSTYLE;
+        if(FAILED(DwmSetWindowAttribute(window,DWMWA_NCRENDERING_POLICY,&policy,sizeof(policy))))return 0;
+        SetLastError(0);auto style=w?(GetWindowLongPtrW(window,GWL_STYLE)&~LONG_PTR(WS_OVERLAPPEDWINDOW))|WS_POPUP:LONG_PTR(l);
+        if(!SetWindowLongPtrW(window,GWL_STYLE,style)&&GetLastError())return 0;
+        return SetWindowPos(window,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOZORDER|SWP_FRAMECHANGED)?1:0;
+    }
     if(message==WM_SETCURSOR) {
         auto count=reinterpret_cast<uintptr_t>(GetPropW(window,L"MagpieFixtureCursorUpdates"));
         SetPropW(window,L"MagpieFixtureCursorUpdates",reinterpret_cast<HANDLE>(count+1));
@@ -100,6 +107,120 @@ void native(bool ok,const char* operation) {
         std::cerr<<"CAPTURE FIXTURE CALL FAIL: "<<message<<std::endl;
         throw std::runtime_error(message);
     }
+}
+void verifyMaximizedSourcePolicy(HWND source,uint32_t backend,bool titleBar) {
+    using Capture=std::unique_ptr<void,decltype(&mp_capture_destroy)>;
+    auto create=[&](int windowed,int allow) {
+        Capture c(mp_capture_create_backend(backend),mp_capture_destroy);native(bool(c),"Create policy capture");
+        require(mp_capture_set_maximized_policy(c.get(),2,allow)==-1,"Invalid maximized policy accepted");
+        native(mp_capture_set_maximized_policy(c.get(),windowed,allow)==1,"Configure maximized policy");
+        native(mp_capture_set_title_bar(c.get(),titleBar?1:0)==1,"Configure policy caption");return c;
+    };
+    auto show=[&](int command,bool maximized) {
+        ShowWindow(source,command);SetForegroundWindow(source);UpdateWindow(source);
+        for(int i=0;i<100&&(IsZoomed(source)!=FALSE)!=maximized;++i)Sleep(10);
+        require((IsZoomed(source)!=FALSE)==maximized&&GetForegroundWindow()==source,"Cannot establish actual maximized source state");
+    };
+    auto pixels=[&](void* c) {
+        const uint8_t* data{};uint32_t w{},h{};int state=0;
+        for(int i=0;i<500&&state==0;++i) {state=mp_capture_frame(c,&data,&w,&h);if(state==0)Sleep(10);}
+        native(state==1,"Read actual policy source pixels");
+        require(w&&h&&data,"Policy source has no real frame");size_t center=(size_t(h/2)*w+w/2)*4;
+        require(data[center]==23&&data[center+1]==67&&data[center+2]==109&&data[center+3]==255,"Maximized policy allowed wrong actual pixels");
+        return std::make_pair(data,std::vector<uint8_t>(data,data+size_t(w)*h*4));
+    };
+    show(SW_MAXIMIZE,true);
+    for(auto option:{std::pair{0,0},std::pair{1,0},std::pair{1,1}}) {
+        auto c=create(option.first,option.second);
+        require(mp_capture_start(c.get())==0,"Forbidden maximized source started capture");
+        const std::string message=mp_last_error();
+        require(message.find(option.first?"Windowed scaling":"disabled")!=std::string::npos,"Maximized source rejection lost policy reason");
+    }
+    {auto c=create(0,1);native(mp_capture_start(c.get())==1,"Start allowed fullscreen maximized source");pixels(c.get());}
+    show(SW_RESTORE,false);
+    {
+        auto c=create(0,0);native(mp_capture_start(c.get())==1,"Start normal policy source");auto retained=pixels(c.get());
+        uint64_t sequence=mp_capture_frame_sequence(c.get());
+        require(mp_capture_set_maximized_policy(c.get(),0,1)==-1,"Active capture changed its maximized policy");
+        show(SW_MAXIMIZE,true);
+        const uint8_t* data{};uint32_t w{},h{};
+        require(mp_capture_frame(c.get(),&data,&w,&h)==-1,"Running capture ignored forbidden maximize transition");
+        require(std::string(mp_last_error()).find("disabled")!=std::string::npos,"Running maximize rejection lost policy reason");
+        require(mp_capture_frame_sequence(c.get())==sequence&&std::memcmp(retained.first,retained.second.data(),retained.second.size())==0,"Policy rejection changed the delivered sequence/buffer");
+        DWORD process{};GetWindowThreadProcessId(source,&process);mp_capture_source_info info{};
+        require(mp_capture_snapshot_title(c.get(),uint64_t(reinterpret_cast<uintptr_t>(source)),process,sequence,&info,sizeof(info))==0,"Forbidden maximize kept the old presented epoch valid");
+    }
+    show(SW_RESTORE,false);
+    std::cout<<"WINDOWS MAXIMIZED POLICY PASS: checks=5, actual maximize/restore, forbidden startup, allowed fullscreen pixels, windowed precedence, live transition and stale epoch rejection.\n";
+}
+void verifyBorderlessSourcePolicy(HWND source,uint32_t backend) {
+    using Capture=std::unique_ptr<void,decltype(&mp_capture_destroy)>;
+    RECT bounds{};require(GetWindowRect(source,&bounds)!=FALSE,"Cannot read owned source frame");
+    LONG_PTR style=GetWindowLongPtrW(source,GWL_STYLE);
+    BOOL originalNative=FALSE;require(SUCCEEDED(DwmGetWindowAttribute(source,DWMWA_NCRENDERING_ENABLED,&originalNative,sizeof(originalNative))),"Cannot read original owned frame mode");
+    struct Restore {
+        HWND source;LONG_PTR style;RECT bounds;bool active=true;
+        bool apply(){DWORD_PTR result{};if(SendMessageTimeoutW(source,SetFrameMode,0,style,SMTO_ABORTIFHUNG,2000,&result)&&result==1&&
+            SetWindowPos(source,nullptr,bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top,SWP_NOACTIVATE|SWP_NOZORDER|SWP_FRAMECHANGED)){active=false;return true;}return false;}
+        ~Restore(){if(active)apply();}
+    } restore{source,style,bounds};
+    DWORD_PTR result{};
+    require(SendMessageTimeoutW(source,SetFrameMode,1,0,SMTO_ABORTIFHUNG,2000,&result)&&result==1,"Owned source could not enter real frameless mode");
+    BOOL nativeFrame=TRUE;
+    require(SUCCEEDED(DwmGetWindowAttribute(source,DWMWA_NCRENDERING_ENABLED,&nativeFrame,sizeof(nativeFrame)))&&!nativeFrame,"Source still has a native frame");
+    MONITORINFO monitor{};monitor.cbSize=sizeof(monitor);
+    require(GetMonitorInfoW(MonitorFromWindow(source,MONITOR_DEFAULTTONEAREST),&monitor)&&
+        SetWindowPos(source,nullptr,monitor.rcMonitor.left,monitor.rcMonitor.top,monitor.rcMonitor.right-monitor.rcMonitor.left,
+            monitor.rcMonitor.bottom-monitor.rcMonitor.top,SWP_NOACTIVATE|SWP_NOZORDER|SWP_FRAMECHANGED),"Cannot establish actual borderless fullscreen source");
+    UpdateWindow(source);require(GetWindowRect(source,&bounds)!=FALSE,"Cannot read frameless source bounds");
+    require(EqualRect(&bounds,&monitor.rcMonitor)&&!IsZoomed(source),"Frameless source is not the intended non-maximized fullscreen window");
+    struct Renderer {HWND value{};~Renderer(){if(value)DestroyWindow(value);}} renderer{
+        CreateWindowExW(WS_EX_NOACTIVATE,L"STATIC",L"Magpie private policy renderer",WS_POPUP,
+            bounds.left+1,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top,source,nullptr,GetModuleHandleW(nullptr),nullptr)};
+    require(renderer.value!=nullptr,"Cannot create actual owned hidden renderer");
+    AttachThreadInput(GetCurrentThreadId(),GetWindowThreadProcessId(source,nullptr),FALSE);
+    auto create=[&](int allow) {
+        SetForegroundWindow(source);require(GetForegroundWindow()==source,"Cannot activate owned frameless source");
+        Capture c(mp_capture_create_backend(backend),mp_capture_destroy);native(bool(c),"Create borderless policy capture");
+        native(mp_capture_set_maximized_policy(c.get(),0,allow)==1,"Configure borderless source policy");
+        native(mp_capture_start(c.get())==1,"Start borderless source capture");
+        mp_capture_source_info info{};native(mp_capture_source(c.get(),&info,sizeof(info))==1,"Read selected borderless identity");
+        require(info.window_id==uint64_t(reinterpret_cast<uintptr_t>(source)),"Policy capture selected a different source");return c;
+    };
+    auto frame=[&](void* c) {
+        const uint8_t* data{};uint32_t width{},height{};int state=0;
+        for(int i=0;i<500&&state==0;++i){state=mp_capture_frame(c,&data,&width,&height);if(state==0)Sleep(10);}
+        native(state==1,"Read real borderless source frame");
+        require(width==uint32_t(bounds.right-bounds.left)&&height==uint32_t(bounds.bottom-bounds.top),"Frameless source pixels do not match real bounds");
+        size_t center=(size_t(height/2)*width+width/2)*4;
+        require(data&&data[center]==23&&data[center+1]==67&&data[center+2]==109&&data[center+3]==255,"Allowed frameless source has incorrect actual pixels");
+    };
+    {
+        auto c=create(0);native(mp_capture_attach_renderer_policy(c.get(),renderer.value)==1,"Allow different renderer rectangle");frame(c.get());
+        auto sequence=mp_capture_frame_sequence(c.get());
+        require(SetWindowPos(renderer.value,nullptr,bounds.left,bounds.top,0,0,SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOZORDER)!=FALSE,"Cannot align owned renderer with source");
+        const uint8_t* data{};uint32_t width{},height{};
+        require(mp_capture_frame(c.get(),&data,&width,&height)==-1&&std::string(mp_last_error()).find("borderless fullscreen")!=std::string::npos,"Live renderer/source equality was not rejected");
+        DWORD process{};GetWindowThreadProcessId(source,&process);mp_capture_source_info info{};
+        require(mp_capture_snapshot_title(c.get(),uint64_t(reinterpret_cast<uintptr_t>(source)),process,sequence,&info,sizeof(info))==0,"Forbidden frameless source retained an input epoch");
+    }
+    {auto c=create(0);require(mp_capture_attach_renderer_policy(c.get(),renderer.value)==-1,"Initial equal frameless renderer was accepted");}
+    {auto c=create(1);native(mp_capture_attach_renderer_policy(c.get(),renderer.value)==1,"Allow explicitly enabled equal frameless source");frame(c.get());}
+    {
+        require(SetWindowPos(renderer.value,nullptr,bounds.left+1,bounds.top,0,0,SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOZORDER)!=FALSE,"Cannot prepare hidden-source renderer policy");
+        auto c=create(0);frame(c.get());ShowWindow(source,SW_HIDE);
+        require(mp_capture_source_state(c.get())==2&&mp_capture_attach_renderer_policy(c.get(),renderer.value)==0,"Hidden source did not retain a waiting renderer registration");
+        require(SetWindowPos(renderer.value,nullptr,bounds.left,bounds.top,0,0,SWP_NOSIZE|SWP_NOACTIVATE|SWP_NOZORDER)!=FALSE,"Cannot align waiting renderer");
+        ShowWindow(source,SW_SHOW);SetForegroundWindow(source);UpdateWindow(source);
+        const uint8_t* data{};uint32_t width{},height{};
+        require(mp_capture_frame(c.get(),&data,&width,&height)==-1&&std::string(mp_last_error()).find("borderless fullscreen")!=std::string::npos,"Hidden-source registration was lost when source returned");
+    }
+    require(restore.apply(),"Owned source could not restore its original frame mode");
+    BOOL restoredNative=FALSE;
+    RECT restoredBounds{};
+    require(GetWindowLongPtrW(source,GWL_STYLE)==style&&SUCCEEDED(DwmGetWindowAttribute(source,DWMWA_NCRENDERING_ENABLED,&restoredNative,sizeof(restoredNative)))&&restoredNative==originalNative,"Policy fixture changed the original source frame style");
+    require(GetWindowRect(source,&restoredBounds)&&EqualRect(&restoredBounds,&restore.bounds),"Policy fixture changed original source bounds");
+    std::cout<<"WINDOWS BORDERLESS POLICY PASS: checks=4, actual source-owned renderer rectangles, changed equality, old epoch rejection, explicitly enabled pixels and registration while hidden.\n";
 }
 LONG WINAPI crash(EXCEPTION_POINTERS* exception) {
     auto address=exception->ExceptionRecord->ExceptionAddress;HMODULE module{};wchar_t path[32768]{};
@@ -213,6 +334,11 @@ int main(int argc,char** argv) {
         for(int i=0;i<100&&GetForegroundWindow()!=process.window;i++)Sleep(20);
         require(GetForegroundWindow()==process.window,"Runner cannot activate disposable source; capture evidence is unavailable");
         require(RedrawWindow(process.window,nullptr,nullptr,RDW_INVALIDATE|RDW_UPDATENOW)!=0,"Cannot paint disposable source");Sleep(100);
+        verifyMaximizedSourcePolicy(process.window,backend,titleBar);
+        verifyBorderlessSourcePolicy(process.window,backend);
+        SetForegroundWindow(process.window);
+        for(int i=0;i<100&&GetForegroundWindow()!=process.window;++i)Sleep(10);
+        require(GetForegroundWindow()==process.window,"Cannot restore owned source foreground after policy fixtures");
         std::cerr<<"CAPTURE FIXTURE: create selected backend"<<std::endl;
         std::unique_ptr<void,decltype(&mp_capture_destroy)> capture(mp_capture_create_backend(backend),mp_capture_destroy);
         require(mp_capture_instance_backend(capture.get())==backend,"Requested backend was silently replaced");

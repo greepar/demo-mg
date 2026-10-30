@@ -59,6 +59,7 @@ internal static class UiPreview
             case "SourceFrameIdentityOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceFrameIdentityAsync(window);break;
             case "ToolbarMoveOutput":await Core.ScalingSession.VerifyToolbarMoveAsync(window);break;
             case "ToolbarActionsOutput":await Core.ScalingSession.VerifyToolbarActionsAsync(window);break;
+            case "HomeMaximizedPolicy":await First<HomePage>().VerifyMaximizedPreferenceAsync();break;
             case "CountdownLifecycle":await window.VerifyCountdownAsync();break;
             case "SourceMetadataOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceScreenshotAsync(window);break;
             case "ProfileImportedConfiguration":

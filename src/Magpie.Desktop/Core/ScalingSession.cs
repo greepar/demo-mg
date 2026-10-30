@@ -92,6 +92,12 @@ internal sealed partial class ScalingSession
                 capture = NativeCore.CaptureCreateBackend((uint)selectedBackend);
                 if (capture.IsInvalid) throw NativeCore.Error();
                 if(NativeCore.CaptureSetTitleBar(capture,_settings.CaptureTitleBar&&selectedBackend==CaptureBackend.GraphicsCapture?1:0)!=1)throw NativeCore.Error();
+                if(OperatingSystem.IsWindows())
+                {
+                    // Serialize with preference save/rollback on the UI thread.
+                    bool allowMaximized=await Dispatcher.UIThread.InvokeAsync(()=>RuntimeSettings.Current.AllowScalingMaximized);
+                    if(NativeCore.CaptureSetMaximizedPolicy(capture,fullscreen?0:1,allowMaximized?1:0)!=1)throw NativeCore.Error();
+                }
                 lock (_captureLock) _capture = capture;
                 _stop.Token.ThrowIfCancellationRequested();
                 Status?.Invoke(OperatingSystem.IsWindows()
@@ -209,6 +215,11 @@ internal sealed partial class ScalingSession
                 {
                     _windowsFocusPoll?.Dispose();_windowsFocusPoll=null;
                     try {EndWindowsPointer();}catch(Exception cleanup) {failure??=cleanup.Message;WindowsCursorSpeedCleanup.Schedule(_windowsCursorSpeed);}
+                    try {Stop();}catch(Exception cleanup) {failure??=cleanup.Message;}
+                    // A failed/forbidden source must not leave an output over
+                    // the desktop while a native WGC shutdown is still pending.
+                    try {if(OperatingSystem.IsWindows()&&_output is {IsVisible:true} visible)visible.Hide();}
+                    catch(Exception cleanup) {failure??=cleanup.Message;}
                 });
                 _powerUpdateStop?.Cancel();
                 try { await _powerUpdate; }catch(Exception cleanup) { failure??=cleanup.Message; }
@@ -376,6 +387,8 @@ internal sealed partial class ScalingSession
         StartMacInputPolling();
         if(!fullscreen && sourceWidth>0 && sourceHeight>0)ApplyInitialWindowSize(owner,true);
         UpdateSize();
+        if(OperatingSystem.IsWindows()&&_capture is {IsClosed:false,IsInvalid:false} policyCapture&&
+            _output.TryGetPlatformHandle() is {} policyOutput&&NativeCore.CaptureAttachRendererPolicy(policyCapture,policyOutput.Handle)<0)throw NativeCore.Error();
     }
     private bool PresentProcessedFrame(ScalingFrameProcessor processor,EngineHandle engine,NativeEffectStep[] plan,CaptureSource source,ulong sequence)
     {

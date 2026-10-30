@@ -10,7 +10,7 @@ internal static class OriginalConfiguration
     private static readonly HashSet<string> GlobalFields=new(StringComparer.Ordinal)
     {
         "version","language","theme","developerMode","countdownSeconds","downCount","showNotifyIcon","showTrayIcon","keepScreenOn",
-        "disableFP16","disableTopmost","duplicateFrameDetectionMode","enableStatisticsForDynamicDetection","minFrameRate",
+        "disableFP16","disableTopmost","duplicateFrameDetectionMode","enableStatisticsForDynamicDetection","minFrameRate","allowScalingMaximized",
         "scalingModes","profiles","scalingProfiles","shortcuts","hotkeys","overlay"
     };
     private static readonly HashSet<string> ProfileFields=new(StringComparer.Ordinal)
@@ -62,6 +62,7 @@ internal static class OriginalConfiguration
         if(Find(root,"keepScreenOn") is {} awake)settings.KeepScreenOn=Boolean(awake);
         if(Find(root,"disableFP16") is {} fp16)settings.DisableFP16=Boolean(fp16);
         if(Find(root,"disableTopmost") is {} topmost)settings.DisableTopmost=Boolean(topmost);
+        if(Find(root,"allowScalingMaximized") is {} maximized)settings.AllowScalingMaximized=Boolean(maximized);
         if(Find(root,"duplicateFrameDetectionMode") is {} duplicate)settings.DuplicateFrameDetection=(DuplicateFrameMode)Integer(duplicate,0,2);
         if(Find(root,"enableStatisticsForDynamicDetection") is {} statistics)settings.StatisticsForDynamicDetection=Boolean(statistics);
         if(Find(root,"minFrameRate") is {} minimum)settings.MinimumFrameRate=Number(minimum);

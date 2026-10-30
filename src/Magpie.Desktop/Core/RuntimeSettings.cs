@@ -117,6 +117,7 @@ internal sealed class RuntimeSettings
         if(SelectedModeId is {} id)Modes.Single(m=>m.Id==id).EnsureAvailable();
     }
     public bool AutoHideCursorEnabled { get; set; }
+    public bool AllowScalingMaximized { get; set; }
     public int CursorScaling { get; set; }=2;
     public float CustomCursorScaleFactor { get; set; }=1;
     public int CursorInterpolation { get; set; }
@@ -164,7 +165,17 @@ internal sealed class RuntimeSettings
     }
     internal static RuntimeSettings ReadFile(string path)
     {
-        var settings=JsonSerializer.Deserialize(File.ReadAllText(path),SettingsJson.Default.RuntimeSettings)??throw new InvalidDataException("Empty settings file.");
+        string json=File.ReadAllText(path);
+        var settings=JsonSerializer.Deserialize(json,SettingsJson.Default.RuntimeSettings)??throw new InvalidDataException("Empty settings file.");
+        // Older ports retained this original flag without applying it. Recover
+        // it only when the typed preference is absent; an explicit user choice
+        // always wins. Loading does not rewrite the existing configuration.
+        if(settings.OriginalConfiguration is {ValueKind:JsonValueKind.Object} original&&
+            original.TryGetProperty("allowScalingMaximized",out var maximized)&&maximized.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            using var document=JsonDocument.Parse(json);
+            if(!document.RootElement.TryGetProperty(nameof(AllowScalingMaximized),out _))settings.AllowScalingMaximized=maximized.GetBoolean();
+        }
         ScalingModeInterchange.PromoteAvailable(settings);settings.Validate();return settings;
     }
     public void Validate()

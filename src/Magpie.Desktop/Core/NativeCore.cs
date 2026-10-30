@@ -43,6 +43,8 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_get_gpu_profile_v2")] internal static extern int GetGpuProfile(EngineHandle engine,out NativeGpuProfile profile);
     [DllImport(Library, EntryPoint = "mp_capture_create")] internal static extern CaptureHandle CaptureCreate();
     [DllImport(Library, EntryPoint = "mp_capture_source_state")] internal static extern uint CaptureSourceState(CaptureHandle capture);
+    [DllImport(Library, EntryPoint = "mp_capture_set_maximized_policy")] internal static extern int CaptureSetMaximizedPolicy(CaptureHandle capture,int windowed,int allow);
+    [DllImport(Library, EntryPoint = "mp_capture_attach_renderer_policy")] internal static extern int CaptureAttachRendererPolicy(CaptureHandle capture,nint output);
     [DllImport(Library, EntryPoint = "mp_capture_restore_output_layer")] internal static extern int CaptureRestoreOutputLayer(CaptureHandle capture,nint output,ulong window,uint process);
     [DllImport(Library, EntryPoint = "mp_capture_mark_output_fullscreen")] internal static extern int CaptureMarkOutputFullscreen(CaptureHandle capture,nint output,ulong window,uint process,int fullscreen);
     [DllImport(Library, EntryPoint = "mp_capture_frame_sequence")] internal static extern ulong CaptureFrameSequence(CaptureHandle capture);

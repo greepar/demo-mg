@@ -15,6 +15,8 @@
 
 namespace magpie { thread_local std::string error; }
 #ifndef _WIN32
+extern "C" int mp_capture_set_maximized_policy(void*,int,int) {return 0;}
+extern "C" int mp_capture_attach_renderer_policy(void*,void*) {return 0;}
 extern "C" int mp_capture_windows_pointer_rect(void*,uint64_t,uint32_t,uint64_t,mp_pointer_rect*,uint32_t) {return 0;}
 extern "C" int mp_windows_cursor_copy(uint64_t,mp_cursor_shape*,uint32_t) {return 0;}
 extern "C" void mp_windows_cursor_destroy(uint64_t) {}

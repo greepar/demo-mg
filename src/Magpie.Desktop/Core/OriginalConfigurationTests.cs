@@ -6,7 +6,7 @@ internal static class OriginalConfigurationTests
     internal const string Example="""
     {
       "version":5,"language":"zh-Hans","theme":2,"countdownSeconds":5,"showNotifyIcon":false,
-      "developerMode":true,"keepScreenOn":true,"disableFP16":true,"disableTopmost":true,"duplicateFrameDetectionMode":2,"minFrameRate":12,
+      "developerMode":true,"keepScreenOn":true,"disableFP16":true,"disableTopmost":true,"allowScalingMaximized":true,"duplicateFrameDetectionMode":2,"minFrameRate":12,
       "enableStatisticsForDynamicDetection":true,"futureSetting":{"nested":[1,"keep"]},
       "shortcuts":{"scale":3394,"windowedModeScale":3153,"toolbar":3140,"takeScreenshot":3155},
       "scalingModes":[
@@ -43,6 +43,7 @@ internal static class OriginalConfigurationTests
         Require(ReferenceEquals(current,RuntimeSettings.Current)&&RuntimeSettings.ChangeSequence==revision&&currentJson==JsonSerializer.Serialize(current,SettingsJson.Default.RuntimeSettings),"Parsing modified live preferences.");
         Require(root.Profiles.Count==2&&root.Modes.Count==3&&root.SelectedModeId==root.Modes[1].Id,"Default or mode-index references were lost.");
         var application=root.Profiles[0];
+        Require(root.AllowScalingMaximized,"Original global maximized preference was lost.");
         Require(!root.AdjustCursorSpeed&&application.Settings.AdjustCursorSpeed,"Original pointer speed preference was lost or inherited across profiles.");
         Require(application.Settings.CursorScaling==7&&application.Settings.CustomCursorScaleFactor==1.7f&&root.CursorScaling==2&&root.CursorInterpolation==0,"Original cursor scale choice or custom factor was lost or inherited.");
         Require(root.AutoHideCursorEnabled&&root.AutoHideCursorDelay==.7f&&!application.Settings.AutoHideCursorEnabled&&application.Settings.AutoHideCursorDelay==3,"Cursor idle preferences were lost or inherited across profiles.");
@@ -85,6 +86,20 @@ internal static class OriginalConfigurationTests
             var restored=RuntimeSettings.ReadFile(destination);restored.Validate();
             Require(restored.DisableTopmost&&restored.Profiles[0].Settings.DisableTopmost,"Topmost preference did not survive AOT migration persistence.");
             Require(JsonElement.DeepEquals(restored.OriginalConfiguration!.Value,root.OriginalConfiguration!.Value)&&JsonElement.DeepEquals(restored.Profiles[0].OriginalProfile!.Value,application.OriginalProfile!.Value)&&restored.Profiles[0].Settings.SelectedModeId==restored.Modes[0].Id,"NativeAOT persistence lost original data or references.");
+            using(var document=JsonDocument.Parse(File.ReadAllText(destination)))
+            {
+                using var bytes=new MemoryStream();
+                using(var writer=new Utf8JsonWriter(bytes))
+                {
+                    writer.WriteStartObject();foreach(var property in document.RootElement.EnumerateObject())
+                        if(property.Name!=nameof(RuntimeSettings.AllowScalingMaximized))property.WriteTo(writer);
+                    writer.WriteEndObject();
+                }
+                string legacyPath=Path.Combine(directory,"legacy-maximized.json");var legacyBytes=bytes.ToArray();File.WriteAllBytes(legacyPath,legacyBytes);
+                Require(RuntimeSettings.ReadFile(legacyPath).AllowScalingMaximized&&File.ReadAllBytes(legacyPath).AsSpan().SequenceEqual(legacyBytes),"Archived maximized preference was lost or loading rewrote the old file.");
+                restored.AllowScalingMaximized=false;string explicitPath=Path.Combine(directory,"explicit-maximized.json");restored.WriteFile(explicitPath);
+                Require(!RuntimeSettings.ReadFile(explicitPath).AllowScalingMaximized,"Archived preference overwrote an explicit typed choice.");
+            }
             string saved=File.ReadAllText(destination);
             string active=Path.Combine(directory,"active.json");File.WriteAllText(active,"exact previous settings bytes\n");
             try { ConfigurationImport.Install(root,active,()=>throw new IOException("restart unavailable"));throw new InvalidOperationException("Restart failure was accepted."); }

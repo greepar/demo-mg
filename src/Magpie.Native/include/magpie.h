@@ -106,6 +106,15 @@ void* mp_capture_create_backend(uint32_t backend);
 uint32_t mp_capture_instance_backend(void* capture);
 // Before Start only. 1=accepted, 0=unsupported enable, -1=invalid arguments/state.
 int mp_capture_set_title_bar(void* capture,int enabled);
+// Windows scaling policy, before Start only: windowed forbids maximized sources
+// even when allow=1. Unconfigured generic capture keeps its prior behavior.
+// 1=accepted, 0=unsupported on this platform, -1=invalid arguments/state.
+int mp_capture_set_maximized_policy(void* capture,int windowed,int allow);
+// Register our renderer after native creation, before presentation. Its source
+// ownership may still be pending during Show/restore; other owners are rejected.
+// Applies the original frameless source == actual renderer rectangle guard.
+// 1=accepted, 0=unsupported/waiting, -1=invalid or forbidden source geometry.
+int mp_capture_attach_renderer_policy(void* capture,void* output);
 // Delivered-frame sequence on all capture backends; 0 before delivery.
 uint64_t mp_capture_frame_sequence(void* capture);
 // Live window availability, not permission or input capability. Currently
