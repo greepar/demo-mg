@@ -43,6 +43,7 @@ internal static class OriginalConfigurationTests
         Require(ReferenceEquals(current,RuntimeSettings.Current)&&RuntimeSettings.ChangeSequence==revision&&currentJson==JsonSerializer.Serialize(current,SettingsJson.Default.RuntimeSettings),"Parsing modified live preferences.");
         Require(root.Profiles.Count==2&&root.Modes.Count==3&&root.SelectedModeId==root.Modes[1].Id,"Default or mode-index references were lost.");
         var application=root.Profiles[0];
+        Require(application.Settings.CursorScaling==7&&application.Settings.CustomCursorScaleFactor==1.7f&&root.CursorScaling==2&&root.CursorInterpolation==0,"Original cursor scale choice or custom factor was lost or inherited.");
         Require(root.AutoHideCursorEnabled&&root.AutoHideCursorDelay==.7f&&!application.Settings.AutoHideCursorEnabled&&application.Settings.AutoHideCursorDelay==3,"Cursor idle preferences were lost or inherited across profiles.");
         Require(application.Settings.SelectedModeId==root.Modes[0].Id&&root.Profiles[1].Settings.SelectedModeId==root.Modes[2].Id,"Application index references were renumbered.");
         Require(root.Modes[0].Steps[0].Effect==3&&root.Modes[0].Steps[0].Parameter1==.2f&&root.Modes[0].Steps[0].Parameter2==.7f,"Effect parameters were lost.");
@@ -60,7 +61,7 @@ internal static class OriginalConfigurationTests
         Require(application.OriginalProfile!.Value.GetProperty("launchParameters").GetString()=="--name \"two words\"","Windows argument quoting was altered.");
         if(!OperatingSystem.IsWindows())Require(root.ScreenshotDirectory=="","Foreign screenshot path became a local path.");
         Require(root.ScreenshotTemplate=="%WT%_%PN%_%MS%"&&root.OriginalConfiguration!.Value.GetProperty("futureSetting").GetProperty("nested")[1].GetString()=="keep","Original archive or screenshot format was lost.");
-        foreach(string field in new[]{"futureSetting","graphicsCardId","3DGameMode","autoScale","cursorScaling","overlay.windows"})
+        foreach(string field in new[]{"futureSetting","graphicsCardId","3DGameMode","autoScale","overlay.windows"})
             Require(result.Warnings.Any(w=>w.Contains(field,StringComparison.Ordinal)),"Missing migration review warning: "+field);
         Require(application.Settings.DisableTopmost,"Global topmost preference was lost in imported application settings.");
         Require(!OriginalConfiguration.Parse(Example.Replace("\"disableTopmost\":true,","")).Settings.DisableTopmost,"Missing topmost preference did not retain original automatic policy.");

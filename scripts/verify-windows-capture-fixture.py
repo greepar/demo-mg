@@ -21,7 +21,7 @@ try:
     result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
     output=result.stdout+result.stderr
     (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
-    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return','hide/show suspension without session failure','repeated hide/show fresh-frame guard','live source-state ABI')
+    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return','hide/show suspension without session failure','repeated hide/show fresh-frame guard','live source-state ABI','WINDOWS CURSOR INTERPOLATION PASS:')
     recovery='WINDOWS CAPTURE RECOVERY: backend=GDI title=0 cycles=16 passed'
     recovered=result.returncode==0 and recovery in result.stdout
     report.update(exit_code=result.returncode,passed=recovered and all(marker in result.stdout for marker in required),recovery_cycles_passed=16 if recovered else 0)

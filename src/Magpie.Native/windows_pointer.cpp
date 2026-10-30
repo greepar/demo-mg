@@ -4,6 +4,7 @@
 #include <dwmapi.h>
 #include "magpie.h"
 #include "error.h"
+#include "cursor_pixels.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -99,6 +100,38 @@ extern "C" int mp_windows_cursor_draw(uint64_t cursor,uint8_t* rgba,uint64_t byt
             throw std::runtime_error("Cannot composite actual native cursor");
         GdiFlush();
         for(size_t i=0;i<size_t(bytes);i+=4) {rgba[i]=bgra[i+2];rgba[i+1]=bgra[i+1];rgba[i+2]=bgra[i];rgba[i+3]=255;}
+        return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
+
+extern "C" int mp_windows_cursor_draw_ex(uint64_t cursor,uint8_t* rgba,uint64_t bytes,uint32_t width,uint32_t height,int32_t x,int32_t y,uint32_t drawWidth,uint32_t drawHeight,uint32_t interpolation) {
+    try {
+        if(!cursor||!rgba||!width||!height||uint64_t(width)*height>16777216||bytes!=uint64_t(width)*height*4||interpolation>1)
+            throw std::runtime_error("Invalid interpolated cursor composite arguments");
+        ICONINFO icon{};
+        if(!GetIconInfo(reinterpret_cast<HICON>(uintptr_t(cursor)),&icon))throw std::runtime_error("Cannot read native cursor bitmaps");
+        Bitmap color{icon.hbmColor},mask{icon.hbmMask};BITMAP geometry{};
+        if(!GetObjectW(color.handle?color.handle:mask.handle,sizeof(geometry),&geometry))throw std::runtime_error("Cannot read native cursor dimensions");
+        const LONG cursorHeight=color.handle?geometry.bmHeight:geometry.bmHeight/2;
+        if(geometry.bmWidth<=0||cursorHeight<=0||geometry.bmWidth>4096||cursorHeight>4096||(!color.handle&&geometry.bmHeight%2))
+            throw std::runtime_error("Unsupported native cursor geometry");
+        HDC dc=CreateCompatibleDC(nullptr);if(!dc)throw std::runtime_error("Cannot create native cursor readback DC");
+        struct Dc {HDC handle;~Dc(){DeleteDC(handle);}} ownedDc{dc};
+        auto read=[&](HBITMAP bitmap,LONG rows) {
+            BITMAP actual{};
+            if(!bitmap||!GetObjectW(bitmap,sizeof(actual),&actual)||actual.bmWidth!=geometry.bmWidth||actual.bmHeight!=rows)
+                throw std::runtime_error("Native cursor mask/color geometry mismatch");
+            BITMAPINFO info{};info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);info.bmiHeader.biWidth=geometry.bmWidth;
+            info.bmiHeader.biHeight=-rows;info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;info.bmiHeader.biCompression=BI_RGB;
+            std::vector<uint8_t> pixels(size_t(geometry.bmWidth)*size_t(rows)*4);
+            if(GetDIBits(dc,bitmap,0,UINT(rows),pixels.data(),&info,DIB_RGB_COLORS)!=rows)
+                throw std::runtime_error("Cannot read native cursor color/mask pixels");
+            return pixels;
+        };
+        auto colors=color.handle?read(color.handle,cursorHeight):std::vector<uint8_t>{};
+        auto masks=read(mask.handle,color.handle?cursorHeight:cursorHeight*2);
+        magpie::CursorPixels pixels(uint32_t(geometry.bmWidth),uint32_t(cursorHeight),colors,masks);
+        pixels.composite(std::span<uint8_t>(rgba,size_t(bytes)),width,height,x,y,drawWidth,drawHeight,interpolation==1);
         return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
 }

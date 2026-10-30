@@ -117,6 +117,9 @@ internal sealed class RuntimeSettings
         if(SelectedModeId is {} id)Modes.Single(m=>m.Id==id).EnsureAvailable();
     }
     public bool AutoHideCursorEnabled { get; set; }
+    public int CursorScaling { get; set; }=2;
+    public float CustomCursorScaleFactor { get; set; }=1;
+    public int CursorInterpolation { get; set; }
     public double AutoHideCursorDelay { get; set; }=3;
     private bool _frameRateLimiterEnabled;
     private double _maximumFrameRate=60;
@@ -183,6 +186,8 @@ internal sealed class RuntimeSettings
         ProfilerPlacement.Validate();
         if(CountdownSeconds is <1 or >5)throw new InvalidDataException("Invalid countdown duration.");
         ValidateCropping();
+        if(CursorScaling is <0 or >7||CursorInterpolation is <0 or >1||!float.IsFinite(CustomCursorScaleFactor)||CustomCursorScaleFactor is <0.1f or >10)
+            throw new InvalidDataException("Invalid cursor scaling or interpolation preference.");
         if(!double.IsFinite(AutoHideCursorDelay)||AutoHideCursorDelay is <0.1 or >5)throw new InvalidDataException("Cursor auto-hide delay must be between 0.1 and 5 seconds.");
         if(InitialWindowedScaleFactor is <0 or >6 || !float.IsFinite(CustomInitialWindowedScaleFactor) || CustomInitialWindowedScaleFactor is <1 or >10 || OutputAlignment is <0 or >8)throw new InvalidDataException("Invalid window scale or output alignment.");
         if(!Enum.IsDefined(DuplicateFrameDetection) || !double.IsFinite(MinimumFrameRate) || MinimumFrameRate is <0 or >1000)throw new InvalidDataException("Invalid frame detection or minimum frame rate.");

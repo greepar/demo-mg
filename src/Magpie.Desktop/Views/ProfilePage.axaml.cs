@@ -145,6 +145,24 @@ public partial class ProfilePage : UserControl
             ScreenshotTemplateError.Text=error.Message;ScreenshotTemplateError.IsVisible=true;
         }
     }
+    private void CursorCustomScale_Changed(object? sender,NumericUpDownValueChangedEventArgs args) {if(_initialized)SaveCursorPresentation();}
+    private void CursorInterpolation_Changed(object? sender,SelectionChangedEventArgs args) {if(_initialized)SaveCursorPresentation();}
+    private void SaveCursorPresentation()
+    {
+        var settings=Settings;var previous=(settings.CursorScaling,settings.CustomCursorScaleFactor,settings.CursorInterpolation);
+        try
+        {
+            settings.CursorScaling=CursorScale.SelectedIndex;
+            settings.CustomCursorScaleFactor=(float)(CursorCustomScale.Value??1);
+            settings.CursorInterpolation=CursorInterpolation.SelectedIndex;
+            Core.RuntimeSettings.Current.Save();
+        }
+        catch(Exception error)
+        {
+            (settings.CursorScaling,settings.CustomCursorScaleFactor,settings.CursorInterpolation)=previous;RefreshSettings();
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(LocExtension.Get("Profile_Cursor_DrawCursor_ScaleFactor.Header"),error.Message);
+        }
+    }
     private void CursorAutoHide_Changed(object? sender,RoutedEventArgs args) { if(_initialized)SaveCursorAutoHide(); }
     private void CursorAutoHideDelay_Changed(object? sender,Avalonia.AvaloniaPropertyChangedEventArgs args)
     { if(_initialized&&args.Property==Slider.ValueProperty)SaveCursorAutoHide(); }
@@ -199,6 +217,11 @@ public partial class ProfilePage : UserControl
         _initialized=false;
         RefreshDeviceChoices();
         var settings=Settings;
+        CursorScaleExpander.IsEnabled=OperatingSystem.IsWindows();
+        CursorScale.SelectedIndex=settings.CursorScaling;
+        CursorCustomScale.Value=(decimal)settings.CustomCursorScaleFactor;
+        CursorCustomScale.IsVisible=settings.CursorScaling==7;
+        CursorInterpolation.SelectedIndex=settings.CursorInterpolation;
         CursorAutoHideExpander.IsEnabled=OperatingSystem.IsWindows();
         CursorAutoHideExpander.IsExpanded=settings.AutoHideCursorEnabled;
         CursorAutoHideToggle.IsChecked=settings.AutoHideCursorEnabled;
@@ -301,5 +324,6 @@ public partial class ProfilePage : UserControl
         var custom = this.FindControl<NumericUpDown>(combo.Name == "WindowScale" ? "WindowCustomScale" : "CursorCustomScale");
         if (custom is not null) custom.IsVisible = combo.SelectedIndex == combo.ItemCount - 1;
         if(combo.Name=="WindowScale")SaveWindowPresentationSettings();
+        else if(combo.Name=="CursorScale")SaveCursorPresentation();
     }
 }

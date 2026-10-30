@@ -143,11 +143,11 @@
 <!-- Profile_Cursor -->
 <c:SettingsGroup Header="{c:Loc Profile_Cursor.Header}">
 <!-- Profile_Cursor_DrawCursor_ScaleFactor -->
-<c:SettingsExpander IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_DrawCursor_ScaleFactor.Header}" Icon="Cursor">
-<c:SettingsExpander.Action><StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><ComboBox Name="CursorScale" SelectedIndex="2" SelectionChanged="Scale_SelectionChanged"><ComboBoxItem Content="0.5x" /><ComboBoxItem Content="0.75x" /><ComboBoxItem Content="No scaling" /><ComboBoxItem Content="1.25x" /><ComboBoxItem Content="1.5x" /><ComboBoxItem Content="2x" /><ComboBoxItem Content="Same as source window" /><ComboBoxItem Content="Custom" /></ComboBox><NumericUpDown Name="CursorCustomScale" IsVisible="False" Width="80" Minimum="0.1" Maximum="10" Value="1" Increment="0.1" /></StackPanel></c:SettingsExpander.Action>
+<c:SettingsExpander Name="CursorScaleExpander" IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_DrawCursor_ScaleFactor.Header}" Icon="Cursor">
+<c:SettingsExpander.Action><StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"><ComboBox Name="CursorScale" SelectedIndex="2" SelectionChanged="Scale_SelectionChanged"><ComboBoxItem Content="0.5x" /><ComboBoxItem Content="0.75x" /><ComboBoxItem Content="No scaling" /><ComboBoxItem Content="1.25x" /><ComboBoxItem Content="1.5x" /><ComboBoxItem Content="2x" /><ComboBoxItem Content="Same as source window" /><ComboBoxItem Content="Custom" /></ComboBox><NumericUpDown Name="CursorCustomScale" ValueChanged="CursorCustomScale_Changed" IsVisible="False" Width="130" Minimum="0.1" Maximum="10" Value="1" Increment="0.1" /></StackPanel></c:SettingsExpander.Action>
 <StackPanel Spacing="2"><!-- Profile_Cursor_DrawCursor_Interpolation -->
 <c:SettingsCard IsWrapEnabled="True" Header="{c:Loc Profile_Cursor_DrawCursor_Interpolation.Header}" Icon="">
-<ComboBox SelectedIndex="0"><ComboBoxItem Content="Nearest-neighbor" /><ComboBoxItem Content="Bilinear" /></ComboBox>
+<ComboBox Name="CursorInterpolation" SelectedIndex="0" SelectionChanged="CursorInterpolation_Changed"><ComboBoxItem Content="Nearest-neighbor" /><ComboBoxItem Content="Bilinear" /></ComboBox>
 </c:SettingsCard>
 </StackPanel>
 </c:SettingsExpander>

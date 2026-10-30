@@ -17,7 +17,7 @@ internal static class OriginalConfiguration
     {
         "name","packaged","pathRule","classNameRule","launcherPath","launchParameters","scalingMode","captureMethod","captureMode",
         "initialWindowedScaleFactor","customInitialWindowedScaleFactor","fullscreenInitialToolbarState","windowedInitialToolbarState",
-        "screenshotsDir","screenshotFilenameTemplate","frameRateLimiterEnabled","maxFrameRate","croppingEnabled","cropping","outputAlignment","captureTitleBar","reserveTitleBar","autoHideCursorEnabled","autoHideCursorDelay"
+        "screenshotsDir","screenshotFilenameTemplate","frameRateLimiterEnabled","maxFrameRate","croppingEnabled","cropping","outputAlignment","captureTitleBar","reserveTitleBar","autoHideCursorEnabled","autoHideCursorDelay","cursorScaling","customCursorScaling","cursorInterpolationMode"
     };
     private static JsonElement? Find(JsonElement owner,string key,string? legacy=null)
         =>owner.TryGetProperty(key,out var value)?value:legacy is not null&&owner.TryGetProperty(legacy,out value)?value:null;
@@ -102,6 +102,9 @@ internal static class OriginalConfiguration
             if(Find(source,"fullscreenInitialToolbarState") is {} fullscreen)target.FullscreenInitialToolbarState=(ToolbarState)Integer(fullscreen,0,2);
             if(Find(source,"windowedInitialToolbarState") is {} windowed)target.WindowedInitialToolbarState=(ToolbarState)Integer(windowed,0,2);
             if(Find(source,"autoHideCursorEnabled") is {} autoHide)target.AutoHideCursorEnabled=Boolean(autoHide);
+            if(Find(source,"cursorScaling") is {} cursorScaling)target.CursorScaling=Integer(cursorScaling,0,7);
+            if(Find(source,"customCursorScaling") is {} customCursor)target.CustomCursorScaleFactor=Number(customCursor);
+            if(Find(source,"cursorInterpolationMode") is {} interpolation)target.CursorInterpolation=Integer(interpolation,0,1);
             if(Find(source,"autoHideCursorDelay") is {} hideDelay)target.AutoHideCursorDelay=Number(hideDelay);
             if(Find(source,"frameRateLimiterEnabled") is {} limiter)target.FrameRateLimiterEnabled=Boolean(limiter);
             if(Find(source,"maxFrameRate") is {} maximum)target.MaximumFrameRate=Number(maximum);

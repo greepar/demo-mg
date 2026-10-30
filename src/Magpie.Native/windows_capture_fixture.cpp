@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdio>
 #include <atomic>
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <iterator>
@@ -21,6 +22,36 @@
 // Never registered with the default CTest suite or run on the user's desktop.
 namespace {
 constexpr UINT Rename=WM_APP+1,NotifyDestroy=WM_APP+2;
+void verifyNativeColorCursor() {
+    // Real Win32 alpha cursor bitmaps, independent of the portable sampler's
+    // classifier/tests. No source window or desktop pointer is changed here.
+    BITMAPINFO info{};info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);info.bmiHeader.biWidth=2;info.bmiHeader.biHeight=-2;
+    info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;info.bmiHeader.biCompression=BI_RGB;
+    struct Bitmap {HBITMAP value{};~Bitmap(){if(value)DeleteObject(value);}} color,mask;
+    void* bits{};color.value=CreateDIBSection(nullptr,&info,DIB_RGB_COLORS,&bits,nullptr,0);
+    const uint8_t colors[]{0,0,255,128,0,255,0,255,255,0,0,255,255,255,255,255};
+    if(!color.value||!bits)throw std::runtime_error("Cannot create actual alpha cursor bitmap");
+    std::memcpy(bits,colors,sizeof(colors));
+    const uint8_t masks[4]{};mask.value=CreateBitmap(2,2,1,1,masks);
+    if(!mask.value)throw std::runtime_error("Cannot create actual alpha cursor mask");
+    ICONINFO icon{};icon.hbmColor=color.value;icon.hbmMask=mask.value;
+    struct Cursor {HICON value{};~Cursor(){if(value)DestroyIcon(value);}} cursor{CreateIconIndirect(&icon)};
+    if(!cursor.value)throw std::runtime_error("Cannot create actual native color cursor");
+    const std::vector<uint8_t> nearestRow{128,0,127,255,128,0,127,255,0,255,0,255,0,255,0,255};
+    const std::vector<uint8_t> linearRow{128,0,127,255,96,64,95,255,32,191,32,255,0,255,0,255};
+    const std::vector<uint8_t> nearestBottom{0,0,255,255,0,0,255,255,255,255,255,255,255,255,255,255};
+    const std::vector<uint8_t> linearBottom{0,0,255,255,64,64,255,255,191,191,255,255,255,255,255,255};
+    for(uint32_t interpolation=0;interpolation<2;++interpolation) {
+        std::vector<uint8_t> output(32);for(size_t i=0;i<output.size();i+=4){output[i+2]=255;output[i+3]=255;}
+        if(mp_windows_cursor_draw_ex(uint64_t(reinterpret_cast<uintptr_t>(cursor.value)),output.data(),output.size(),4,2,0,0,4,2,interpolation)!=1)
+            throw std::runtime_error(std::string("Actual alpha cursor readback/composite failed: ")+mp_last_error());
+        const auto& row=interpolation?linearRow:nearestRow;
+        const auto& bottom=interpolation?linearBottom:nearestBottom;
+        if(!std::equal(row.begin(),row.end(),output.begin())||!std::equal(bottom.begin(),bottom.end(),output.begin()+16))
+            throw std::runtime_error("Actual Win32 alpha cursor pixels differ from independent nearest/bilinear expectations");
+    }
+    std::cout<<"WINDOWS CURSOR INTERPOLATION PASS: actual CreateIconIndirect/GetIconInfo/GetDIBits alpha pixels, premultiplication, nearest and bilinear.\n";
+}
 LRESULT CALLBACK sourceProc(HWND window,UINT message,WPARAM w,LPARAM l) {
     if(message==WM_SETCURSOR) {
         auto count=reinterpret_cast<uintptr_t>(GetPropW(window,L"MagpieFixtureCursorUpdates"));
@@ -161,6 +192,7 @@ int main(int argc,char** argv) {
         bool titleBar=argc==2&&std::string(argv[1])=="--wgc-title-bar";
         bool wgc=titleBar||(argc==2&&std::string(argv[1])=="--wgc");
         require(argc==1||wgc,"Unknown capture fixture arguments");
+        verifyNativeColorCursor();
         const auto mask=mp_capture_backend_mask();
         require(mp_capture_backend()==((mask&(1u<<4))?4u:3u),"Default Windows capture backend does not prefer available WGC");
         uint32_t backend=wgc?4u:3u;

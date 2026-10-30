@@ -24,7 +24,7 @@ output=args.output.resolve() if args.output else ROOT/'artifacts/desktop'/args.r
 build=ROOT/'artifacts/native'/args.rid/'Release'
 report_dir=ROOT/'artifacts/platform-build-checks'/args.rid;report_dir.mkdir(parents=True,exist_ok=True)
 name='Magpie.Desktop.exe' if host=='win' else 'Magpie.Desktop'
-native_tests={'capture_resize_geometry','capture_frame_mailbox','capture_source_metadata'}
+native_tests={'capture_resize_geometry','capture_frame_mailbox','capture_source_metadata','cursor_pixels'}
 if host=='linux':native_tests.update({'capture_wayland_frames','capture_portal_pipewire'})
 native_test_pattern='^('+'|'.join(sorted(native_tests))+')$'
 commands=[

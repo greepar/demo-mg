@@ -182,6 +182,8 @@ int mp_capture_windows_pointer_rect(void* capture,uint64_t window,uint32_t proce
 int mp_windows_cursor_copy(uint64_t cursor,mp_cursor_shape* shape,uint32_t size);
 void mp_windows_cursor_destroy(uint64_t cursor);
 int mp_windows_cursor_draw(uint64_t cursor,uint8_t* rgba,uint64_t bytes,uint32_t width,uint32_t height,int32_t x,int32_t y,uint32_t draw_width,uint32_t draw_height);
+// 0=nearest, 1=bilinear for alpha/convertible cursors; XOR masks stay nearest.
+int mp_windows_cursor_draw_ex(uint64_t cursor,uint8_t* rgba,uint64_t bytes,uint32_t width,uint32_t height,int32_t x,int32_t y,uint32_t draw_width,uint32_t draw_height,uint32_t interpolation);
 int mp_windows_system_cursor(int show);
 uint64_t mp_windows_pointer_window(void* output,int32_t x,int32_t y,int skip_output);
 // 1=new frame, 0=waiting for frame, -1=error. No X11 window identifiers.

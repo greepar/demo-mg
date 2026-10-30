@@ -67,6 +67,7 @@ internal static class NativeCore
     [DllImport(Library,EntryPoint="mp_windows_cursor_copy")] internal static extern int WindowsCursorCopy(ulong cursor,out NativeCursorShape shape,uint size);
     [DllImport(Library,EntryPoint="mp_windows_cursor_destroy")] internal static extern void WindowsCursorDestroy(ulong cursor);
     [DllImport(Library,EntryPoint="mp_windows_cursor_draw")] internal static extern unsafe int WindowsCursorDraw(ulong cursor,byte* rgba,ulong bytes,uint width,uint height,int x,int y,uint drawWidth,uint drawHeight);
+    [DllImport(Library,EntryPoint="mp_windows_cursor_draw_ex")] internal static extern unsafe int WindowsCursorDrawEx(ulong cursor,byte* rgba,ulong bytes,uint width,uint height,int x,int y,uint drawWidth,uint drawHeight,uint interpolation);
     [DllImport(Library,EntryPoint="mp_windows_system_cursor")] internal static extern int WindowsSystemCursor(int show);
 
     internal static void VerifyInteractionModels()
@@ -90,6 +91,7 @@ internal static class NativeCore
         ProfilerSessionInfoTests.Verify();
         WindowsPointerMappingTests.Verify();
         CursorAutoHideTests.Verify();
+        CursorPresentationTests.Verify();
         Console.WriteLine("INTERACTION MODEL PASS: native source ABI and non-GPU settings/shortcut/countdown/toolbar/configuration tests; no UI, capture picker or permission dialog.");
     }
 

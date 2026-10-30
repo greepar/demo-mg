@@ -50,6 +50,7 @@ internal sealed class HostedLifecycleCase
     public bool ScaledNativeMousePassed {get;set;}
     public bool NativeInvertCursorPassed {get;set;}
     public bool NativeCursorAutoHidePassed {get;set;}
+    public int NativeCursorScaleChecks {get;set;}
     public uint NativeInvertCursorPixel {get;set;}
     public bool NativePointerCleanupPassed {get;set;}
     public bool NativeMonitorClipPassed {get;set;}

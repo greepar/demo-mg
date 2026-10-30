@@ -256,14 +256,16 @@ internal sealed partial class ScalingSession
         try
         {
             var dest=_windowsPointerMapping.Destination;
-            int left=Math.Max(dest.Left,checked(x-(int)shape.HotX)),top=Math.Max(dest.Top,checked(y-(int)shape.HotY));
-            int right=Math.Min(dest.Right,checked(x-(int)shape.HotX+(int)shape.Width)),bottom=Math.Min(dest.Bottom,checked(y-(int)shape.HotY+(int)shape.Height));
+            var cursorBounds=CursorPresentation.Bounds(_settings,shape,_windowsPointerMapping,x,y);
+            int left=Math.Max(dest.Left,cursorBounds.Left),top=Math.Max(dest.Top,cursorBounds.Top);
+            int right=Math.Min(dest.Right,cursorBounds.Right),bottom=Math.Min(dest.Bottom,cursorBounds.Bottom);
             if(right<=left||bottom<=top) {if(_windowsCursorOverlay is {} hidden)hidden.IsVisible=false;return true;}
             int width=right-left,height=bottom-top;var pixels=new byte[checked(width*height*4)];
             using(var background=_bitmap.Lock())
                 for(int row=0;row<height;row++)new ReadOnlySpan<byte>((byte*)background.Address+(top-dest.Top+row)*background.RowBytes+(left-dest.Left)*4,width*4).CopyTo(pixels.AsSpan(row*width*4,width*4));
             fixed(byte* data=pixels)
-                if(NativeCore.WindowsCursorDraw(shape.Handle,data,(ulong)pixels.Length,(uint)width,(uint)height,x-(int)shape.HotX-left,y-(int)shape.HotY-top,shape.Width,shape.Height)!=1) {_windowsPointerStatus="native cursor draw: "+NativeCore.Error().Message;return false;}
+                if(NativeCore.WindowsCursorDrawEx(shape.Handle,data,(ulong)pixels.Length,(uint)width,(uint)height,cursorBounds.Left-left,cursorBounds.Top-top,
+                    (uint)cursorBounds.Width,(uint)cursorBounds.Height,(uint)_settings.CursorInterpolation)!=1) {_windowsPointerStatus="native cursor draw: "+NativeCore.Error().Message;return false;}
             if(_windowsCursorOverlay is null)
             {
                 _windowsCursorOverlay=new Image {IsHitTestVisible=false,Stretch=Avalonia.Media.Stretch.Fill,HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top};

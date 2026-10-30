@@ -84,6 +84,7 @@ internal sealed partial class ScalingSession
             if(FixtureForeground()!=sourceWindow||(FixtureKeyState(1)&0x8000)!=0||(long)FixtureProperty(sourceWindow,"MagpieFixtureWheelDelta")!=120)
                 throw new InvalidOperationException("Scaled native source mouse lost foreground or input state.");
             await VerifyHostedCursorAutoHide(source,sourceWindow,run,failure,evidence,origin,client,moved,movedVisual);
+            await VerifyHostedCursorScaling(source,sourceWindow,run,failure,evidence,client,movedVisual);
             await VerifyHostedMonitorAndToolbar(source,sourceWindow,run,failure,evidence,origin,client,moved);
             evidence.ScaledNativeMousePassed=true;
         }
@@ -133,6 +134,51 @@ internal sealed partial class ScalingSession
         {
             (_settings.AutoHideCursorEnabled,_settings.AutoHideCursorDelay)=previous;_windowsCursorAutoHide.Reset();
             FixtureMoveCursor(current.X,current.Y);
+        }
+    }
+    private async Task VerifyHostedCursorScaling(Process source,nint window,Task run,Func<string?> failure,HostedLifecycleCase evidence,
+        FixtureRect client,FixturePoint visual)
+    {
+        HostedWindowsLifecycle.Require();RequireOwnedSource(source,window);
+        var previous=(_settings.CursorScaling,_settings.CustomCursorScaleFactor,_settings.CursorInterpolation,_settings.AutoHideCursorEnabled);
+        const uint background=23u|(67u<<8)|(109u<<16),inverse=232u|(188u<<8)|(146u<<16);
+        try
+        {
+            _settings.AutoHideCursorEnabled=false;
+            var origin=_output!.PointToScreen(default);var dest=_image!.PointToScreen(default);
+            int imageWidth=_bitmap!.PixelSize.Width,imageHeight=_bitmap.PixelSize.Height;
+            foreach(var option in new[]{(5,1f,0,2f),(5,1f,1,2f),(7,1.5f,1,1.5f),
+                (6,1f,1,((float)imageWidth/client.Right+(float)imageHeight/client.Bottom)/2)})
+            {
+                (_settings.CursorScaling,_settings.CustomCursorScaleFactor,_settings.CursorInterpolation)=(option.Item1,option.Item2,option.Item3);
+                static int Round(float value)=>(int)MathF.Round(value,MidpointRounding.AwayFromZero);
+                int width=Round(32*option.Item4),height=Round(32*option.Item4);
+                int left=origin.X+Round((visual.X-origin.X)-3*option.Item4),top=origin.Y+Round((visual.Y-origin.Y)-3*option.Item4);
+                int clippedWidth=Math.Min(left+width,dest.X+imageWidth)-Math.Max(left,dest.X);
+                int clippedHeight=Math.Min(top+height,dest.Y+imageHeight)-Math.Max(top,dest.Y);
+                bool PixelsMatch()
+                {
+                    if(!_windowsPointerCaptured||_windowsCursorBitmap?.PixelSize!=new PixelSize(clippedWidth,clippedHeight))return false;
+                    // Independent native fixture mask is a 10x10 inversion
+                    // cross at (3,3). Probe the real screen, not the bitmap.
+                    for(int offset=-8;offset<=22;++offset)
+                    {
+                        var point=new FixturePoint {X=visual.X+offset,Y=visual.Y};
+                        if(point.X<dest.X||point.X>=dest.X+imageWidth)return false;
+                        int sx=(int)Math.Floor(((double)point.X-left+.5)*32/width),sy=(int)Math.Floor(((double)point.Y-top+.5)*32/height);
+                        bool invert=(sx==3&&sy>=0&&sy<10)||(sy==3&&sx>=0&&sx<10);
+                        if(ReadHostedScreenPixel(point)!=(invert?inverse:background))return false;
+                    }
+                    return true;
+                }
+                await WaitHosted(PixelsMatch,run,failure,"actual scaled cursor bounds/hotspot/XOR pixels for choice "+option.Item1+" interpolation "+option.Item3,5);
+                evidence.NativeCursorScaleChecks++;
+            }
+        }
+        finally
+        {
+            (_settings.CursorScaling,_settings.CustomCursorScaleFactor,_settings.CursorInterpolation,_settings.AutoHideCursorEnabled)=previous;
+            _windowsCursorAutoHide.Reset();
         }
     }
 }
