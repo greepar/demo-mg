@@ -121,3 +121,5 @@ Avalonia 12.1.1 的 SetFullScreen 在模式改变时调用 Shell MarkFullscreen�
 新增一次性 Windows 原生测试每后端检查五项最大化规则：实际最大化/恢复、默认禁止、窗口模式优先、允许全屏时真实 RGBA 和运行中最大化后的旧序号/缓冲/输入代次拒绝。另四项检查让受控源真实变为非最大化的无边框全屏：渲染客户区错开/对齐、初始与动态相等拒绝、显式允许后的真实像素、源隐藏时登记在恢复后仍有效。源自己处理测试模式消息，测试结束核对其样式、DWM 状态和位置恢复；渲染测试窗保持隐藏。本机只做私有 headless Wayland，不在用户桌面打开源窗口/选择器；Windows 原有超时、像素和生命周期断言不放宽。
 
 本机 Linux NativeAOT 单文件与平台验证、非 GPU 交互/迁移模型、四项私有 Wayland UI（含窄主页与窗口/全屏生命周期预览）已通过，窄布局截图已检查；Windows 两个 C++ 文件的严格 MinGW 语法与 Python 验证脚本语法也通过。这些不证明 Windows 实际窗口策略。该提交的 Windows SDK/真实场景结果仍待 CI。真实 UWP/弹窗/游戏、不同 DPI/多屏/热插拔、其余捕获方式，以及既有 WGC 间歇黑帧/挂起和 NNEDI3 零输出继续未解决，不能记作完整三平台交互完成。
+
+`74aa4c75` 的 [Desktop 四 job CI](https://github.com/greepar/demo-mg/actions/runs/41047751747) 已完成且均成功；[Windows job 124035925782](https://github.com/greepar/demo-mg/actions/runs/41047751747/job/124035925782) 的原始 JSON 已逐项核对：GDI、WGC、带标题栏 WGC 每例 maximized_policy_checks=5、borderless_policy_checks=4、recovery_cycles_passed=16；四条生产路径 State=passed 且 Error=null。限定汇总为 `artifacts/desktop/maximized-policy-target-summary.json`，不是实际应用/多屏 DPI 验收，也未把既有 WGC/NNEDI3 间歇问题改为 resolved。

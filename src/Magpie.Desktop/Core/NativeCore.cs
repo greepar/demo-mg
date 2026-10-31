@@ -57,6 +57,7 @@ internal static class NativeCore
     [DllImport(Library, EntryPoint = "mp_capture_source")] internal static extern int CaptureSourceInfo(CaptureHandle capture,out NativeCaptureSource source,uint size);
     [DllImport(Library, EntryPoint = "mp_capture_destroy")] internal static extern void CaptureDestroy(nint capture);
     [DllImport(Library, EntryPoint = "mp_capture_start")] internal static extern int CaptureStart(CaptureHandle capture);
+    [DllImport(Library, EntryPoint = "mp_capture_start_window")] internal static extern int CaptureStartWindow(CaptureHandle capture,ulong window,uint process,uint thread);
     [DllImport(Library, EntryPoint = "mp_capture_cancel")] internal static extern void CaptureCancel(CaptureHandle capture);
     [DllImport(Library, EntryPoint = "mp_capture_frame")] internal static extern int CaptureFrame(CaptureHandle capture, out nint rgba, out uint width, out uint height);
     [DllImport(Library, EntryPoint = "mp_capture_configure_input")] internal static extern int CaptureConfigureInput(CaptureHandle capture,nint window,
@@ -83,6 +84,7 @@ internal static class NativeCore
         ToolbarTests.Verify();
         ConfigurationLocationTests.Verify();
         OriginalConfigurationTests.Verify();
+        WindowsProfileMatchingTests.Verify();
         CaptureSourceTests.Verify();
         CaptureBackendTests.Verify();
         ScalingCountdownTests.Verify();

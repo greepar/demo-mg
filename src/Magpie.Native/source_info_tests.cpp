@@ -10,6 +10,14 @@ void require(bool value,const char* message) { if(!value)throw std::runtime_erro
 int main() {
     try {
         static_assert(sizeof(mp_pointer_rect)==16&&sizeof(mp_cursor_shape)==24);
+        mp_capture_source_info foreground=magpie::emptySource();char windowClass[1024]={'k'};uint32_t foregroundThread=123;
+#ifdef _WIN32
+        require(mp_windows_foreground_source(nullptr,sizeof(foreground),windowClass,sizeof(windowClass),&foregroundThread)==-1,"Invalid foreground query reached window lookup");
+#else
+        require(mp_windows_foreground_source(&foreground,sizeof(foreground),windowClass,sizeof(windowClass),&foregroundThread)==0,"Unsupported host fabricated a Windows window identity");
+#endif
+        require(windowClass[0]=='k'&&foregroundThread==123,"Rejected foreground query changed caller outputs");
+        require(mp_capture_start_window(nullptr,1,1,1)==0,"Uninitialized selected-source capture started");
         mp_pointer_rect pointerRect{1,2,3,4};mp_cursor_shape cursorShape{99,2,3,1,1};
 #ifdef _WIN32
         require(mp_capture_windows_pointer_rect(nullptr,1,1,1,&pointerRect,sizeof(pointerRect))==-1,"Null native pointer capture accepted");

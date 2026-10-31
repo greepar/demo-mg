@@ -15,6 +15,8 @@
 
 namespace magpie { thread_local std::string error; }
 #ifndef _WIN32
+extern "C" int mp_windows_foreground_source(mp_capture_source_info*,uint32_t,char*,uint32_t,uint32_t*) {return 0;}
+extern "C" int mp_capture_start_window(void*,uint64_t,uint32_t,uint32_t) {return 0;}
 extern "C" int mp_capture_set_maximized_policy(void*,int,int) {return 0;}
 extern "C" int mp_capture_attach_renderer_policy(void*,void*) {return 0;}
 extern "C" int mp_capture_windows_pointer_rect(void*,uint64_t,uint32_t,uint64_t,mp_pointer_rect*,uint32_t) {return 0;}

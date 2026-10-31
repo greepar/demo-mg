@@ -10,7 +10,21 @@ public partial class MainWindow
     private Func<RuntimeSettings,ScalingSession>? _previewSessionFactory;
     private ScalingSession CreateScalingSession()
     {
-        if(_previewSessionFactory is not {} factory)return new ScalingSession(RuntimeSettings.Current.ActiveSettings);
+        if(_previewSessionFactory is not {} factory)
+        {
+            var root=RuntimeSettings.Current;
+            if(OperatingSystem.IsWindows()&&root.Profiles.Any(p=>p.OriginalProfile.HasValue))
+            {
+                try
+                {
+                    var selected=WindowsCaptureSelection.Read();
+                    return new ScalingSession(WindowsProfileMatching.ResolveManual(root,selected?.Identity),selectedSource:selected);
+                }
+                catch(Exception error) {Console.Error.WriteLine("Application identity: "+error.Message);}
+                return new ScalingSession(root);
+            }
+            return new ScalingSession(root.ActiveSettings);
+        }
         if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Countdown fixtures require isolated preview mode.");
         return factory(RuntimeSettings.Current.ActiveSettings);
     }

@@ -80,6 +80,7 @@ internal static class OriginalConfiguration
         void ReadProfile(JsonElement source,RuntimeSettings target,string prefix)
         {
             Object(source);Preserved(source,ProfileFields,prefix,warnings);
+            target.AutoScale=WindowsProfileMatching.ReadAutoScale(source);
             int index=Find(source,"scalingMode") is {} selection?Integer(selection,int.MinValue,int.MaxValue):-1;
             if(index<0||index>=originalModes.Length)
             {
@@ -140,7 +141,7 @@ internal static class OriginalConfiguration
                 StatisticsForDynamicDetection=globals.StatisticsForDynamicDetection,MinimumFrameRate=globals.MinimumFrameRate,
                 ShowTrayIcon=globals.ShowTrayIcon,CountdownSeconds=globals.CountdownSeconds,DeveloperMode=globals.DeveloperMode };
             ReadProfile(source,profile.Settings,$"profiles[{i}].");settings.Profiles.Add(profile);
-            warnings.Add($"profiles[{i}]: Windows application rules and raw launch parameters preserved; select and review a local executable and arguments before launching. Automatic matching is not migrated.");
+            warnings.Add($"profiles[{i}]: Windows application rules and raw launch parameters preserved; select and review a local executable and arguments before launching. Windows desktop window rules are used for manual scaling on Windows; automatic start, packaged-window resolution and matching on other platforms remain unavailable.");
         }
         if(Find(root,"overlay") is {} overlay)
         {

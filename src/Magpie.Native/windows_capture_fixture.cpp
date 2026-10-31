@@ -108,6 +108,42 @@ void native(bool ok,const char* operation) {
         throw std::runtime_error(message);
     }
 }
+void verifyProfileSelection(HWND source,uint32_t backend,bool titleBar) {
+    mp_capture_source_info selected{};char className[1024]{};uint32_t thread{};
+    native(mp_windows_foreground_source(&selected,sizeof(selected),className,sizeof(className),&thread)==1,"Read actual foreground profile identity");
+    DWORD process{};DWORD actualThread=GetWindowThreadProcessId(source,&process);
+    require(selected.kind==1&&selected.window_id==uint64_t(reinterpret_cast<uintptr_t>(source))&&
+        selected.process_id==process&&thread==actualThread,"Profile query selected a different window/process/thread");
+    require(std::string(className)=="MagpieGdiDisposableSource"&&(selected.flags&MP_SOURCE_EXECUTABLE),"Profile query lost actual window class/executable");
+    wchar_t expectedPath[32768]{},actualPath[4096]{};
+    require(GetModuleFileNameW(nullptr,expectedPath,DWORD(std::size(expectedPath)))&&
+        MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,selected.executable_path,-1,actualPath,int(std::size(actualPath)))&&
+        _wcsicmp(expectedPath,actualPath)==0,"Profile executable differs from the independently launched child binary");
+    using Capture=std::unique_ptr<void,decltype(&mp_capture_destroy)>;
+    auto create=[&] {Capture c(mp_capture_create_backend(backend),mp_capture_destroy);native(bool(c),"Create selected-source fixture");return c;};
+    {auto c=create();require(mp_capture_start_window(c.get(),selected.window_id,process+1,thread)==0,"Matched source accepted a wrong process identity");}
+    {auto c=create();require(mp_capture_start_window(c.get(),selected.window_id,process,thread+1)==0,"Matched source accepted a wrong thread identity");}
+    {
+        auto c=create();native(mp_capture_set_title_bar(c.get(),titleBar?1:0)==1,"Set selected-source caption");
+        native(mp_capture_start_window(c.get(),selected.window_id,process,thread)==1,"Start exact matched source");
+        const uint8_t* data{};uint32_t width{},height{};int state=0;
+        for(int i=0;i<500&&state==0;++i){state=mp_capture_frame(c.get(),&data,&width,&height);if(state==0)Sleep(10);}
+        native(state==1,"Read matched source pixels");require(data&&width&&height,"Matched source has no actual pixels");
+        size_t center=(size_t(height/2)*width+width/2)*4;
+        if(data[center]!=23||data[center+1]!=67||data[center+2]!=109||data[center+3]!=255) {
+            std::cerr<<"PROFILE PIXEL MISMATCH: backend="<<backend<<" title="<<titleBar<<" size="<<width<<'x'<<height
+                <<" sequence="<<mp_capture_frame_sequence(c.get())<<" centerRGBA="<<unsigned(data[center])<<','<<unsigned(data[center+1])<<','<<unsigned(data[center+2])<<','<<unsigned(data[center+3])<<std::endl;
+            auto file=std::filesystem::path("artifacts/platform-build-checks/win-x64")/
+                (std::string("windows-profile-mismatch-")+std::to_string(backend)+(titleBar?"-title":"")+".rgba");
+            std::filesystem::create_directories(file.parent_path());std::ofstream saved(file,std::ios::binary);
+            saved.write(reinterpret_cast<const char*>(data),std::streamsize(size_t(width)*height*4));require(bool(saved),"Cannot preserve selected source mismatch");
+        }
+        require(data[center]==23&&data[center+1]==67&&data[center+2]==109&&data[center+3]==255,"Matched source actual pixel mismatch");
+        mp_capture_source_info actual{};native(mp_capture_source(c.get(),&actual,sizeof(actual))==1,"Read pinned capture identity");
+        require(actual.window_id==selected.window_id&&actual.process_id==process,"Capture changed its selected profile source");
+    }
+    std::cout<<"WINDOWS PROFILE SELECTION PASS: checks=4, actual foreground class/path/PID/TID, wrong process/thread rejection and selected-source capture pixels.\n";
+}
 void verifyMaximizedSourcePolicy(HWND source,uint32_t backend,bool titleBar) {
     using Capture=std::unique_ptr<void,decltype(&mp_capture_destroy)>;
     auto create=[&](int windowed,int allow) {
@@ -334,6 +370,7 @@ int main(int argc,char** argv) {
         for(int i=0;i<100&&GetForegroundWindow()!=process.window;i++)Sleep(20);
         require(GetForegroundWindow()==process.window,"Runner cannot activate disposable source; capture evidence is unavailable");
         require(RedrawWindow(process.window,nullptr,nullptr,RDW_INVALIDATE|RDW_UPDATENOW)!=0,"Cannot paint disposable source");Sleep(100);
+        verifyProfileSelection(process.window,backend,titleBar);
         verifyMaximizedSourcePolicy(process.window,backend,titleBar);
         verifyBorderlessSourcePolicy(process.window,backend);
         SetForegroundWindow(process.window);

@@ -118,6 +118,7 @@ internal sealed class RuntimeSettings
     }
     public bool AutoHideCursorEnabled { get; set; }
     public bool AllowScalingMaximized { get; set; }
+    public AutoScaleMode AutoScale { get; set; }
     public int CursorScaling { get; set; }=2;
     public float CustomCursorScaleFactor { get; set; }=1;
     public int CursorInterpolation { get; set; }
@@ -176,6 +177,18 @@ internal sealed class RuntimeSettings
             using var document=JsonDocument.Parse(json);
             if(!document.RootElement.TryGetProperty(nameof(AllowScalingMaximized),out _))settings.AllowScalingMaximized=maximized.GetBoolean();
         }
+        if(settings.Profiles.Any(p=>p.OriginalProfile is {ValueKind:JsonValueKind.Object}))
+        {
+            using var document=JsonDocument.Parse(json);
+            if(document.RootElement.TryGetProperty(nameof(Profiles),out var profiles)&&profiles.ValueKind==JsonValueKind.Array)
+                for(int i=0;i<settings.Profiles.Count&&i<profiles.GetArrayLength();i++)
+                {
+                    var profile=settings.Profiles[i];
+                    if(profile.Settings is not null&&profile.OriginalProfile is {ValueKind:JsonValueKind.Object} archived&&
+                        profiles[i].TryGetProperty(nameof(ApplicationProfile.Settings),out var typed)&&typed.ValueKind==JsonValueKind.Object&&
+                        !typed.TryGetProperty(nameof(AutoScale),out _))profile.Settings.AutoScale=WindowsProfileMatching.ReadAutoScale(archived);
+                }
+        }
         ScalingModeInterchange.PromoteAvailable(settings);settings.Validate();return settings;
     }
     public void Validate()
@@ -196,6 +209,7 @@ internal sealed class RuntimeSettings
         GlobalShortcutSettings.Validate(this);
         if(ProfilerPlacement is null)throw new InvalidDataException("Profiler placement is missing.");
         ProfilerPlacement.Validate();
+        if(!Enum.IsDefined(AutoScale))throw new InvalidDataException("Invalid automatic scaling mode.");
         if(CountdownSeconds is <1 or >5)throw new InvalidDataException("Invalid countdown duration.");
         ValidateCropping();
         if(CursorScaling is <0 or >7||CursorInterpolation is <0 or >1||!float.IsFinite(CustomCursorScaleFactor)||CustomCursorScaleFactor is <0.1f or >10)

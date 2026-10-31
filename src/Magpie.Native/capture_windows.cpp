@@ -2,6 +2,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <dwmapi.h>
+#include <appmodel.h>
 #include "magpie.h"
 #include "error.h"
 #include "source_info.h"
@@ -11,6 +12,8 @@
 #include "windows_graphics_capture.h"
 #include "windows_output_layer.h"
 #include <atomic>
+#include <cstring>
+#include <string_view>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -109,13 +112,14 @@ struct Capture {
         if (bitmap) DeleteObject(bitmap);
         previous=nullptr; bitmap=nullptr; bits=nullptr; bitmapWidth=bitmapHeight=0;
     }
-    void start() {
+    void start(HWND selected=nullptr,DWORD expectedProcess=0,DWORD expectedThread=0) {
         if (cancelled) throw std::runtime_error("Capture was cancelled");
         if(window||memory||lifetimeWatch)throw std::runtime_error("Capture was already started; create a fresh capture for a new source");
-        window=GetForegroundWindow();
+        window=selected?selected:GetForegroundWindow();
         DWORD process{};
         DWORD thread=window?GetWindowThreadProcessId(window,&process):0;
         if (!window || !thread) throw std::runtime_error("No foreground window is available");
+        if(selected&&(process!=expectedProcess||thread!=expectedThread))throw std::runtime_error("The matched source window identity changed before capture started");
         if (process==GetCurrentProcessId()) throw std::runtime_error("Select another application's source window during the start delay.");
         sourceProcess=process;identity={uint64_t(reinterpret_cast<uintptr_t>(window)),process,thread};
         requireSource();
@@ -214,6 +218,29 @@ extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint
         if(!c.sameSource())throw std::runtime_error("The selected source identity changed during metadata query");
         return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return 0;}
+}
+extern "C" int mp_windows_foreground_source(mp_capture_source_info* info,uint32_t size,char* windowClass,uint32_t capacity,uint32_t* threadId) {
+    try {
+        if(!info||size!=sizeof(*info)||!windowClass||capacity!=1024||!threadId)throw std::runtime_error("Invalid foreground source arguments");
+        // A short-lived metadata query, not a capture session or permission request.
+        Capture selected;selected.window=GetForegroundWindow();DWORD process{};
+        DWORD thread=selected.window?GetWindowThreadProcessId(selected.window,&process):0;
+        if(!thread||process==GetCurrentProcessId())return 0;
+        wchar_t name[256]{};int length=GetClassNameW(selected.window,name,int(std::size(name)));
+        if(!length)return 0;
+        // ApplicationFrameHost requires original AppX child-window resolution.
+        // Never confuse its own executable with the packaged application's ID.
+        if(std::wstring_view(name,size_t(length))==L"ApplicationFrameWindow")return 0;
+        HANDLE handle=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,process);if(!handle)return 0;
+        UINT32 packageLength=0;LONG package=GetPackageFullName(handle,&packageLength,nullptr);CloseHandle(handle);
+        if(package!=APPMODEL_ERROR_NO_PACKAGE)return 0;
+        selected.sourceProcess=process;selected.identity={uint64_t(reinterpret_cast<uintptr_t>(selected.window)),process,thread};
+        mp_capture_source_info result{};
+        if(mp_capture_source(&selected,&result,sizeof(result))!=1)return -1;
+        if(!(result.flags&MP_SOURCE_EXECUTABLE)||GetForegroundWindow()!=selected.window||!selected.sameSource())return 0;
+        auto text=utf8(name,size_t(length));if(text.empty()||text.size()>=capacity)return 0;
+        *info=result;std::memcpy(windowClass,text.c_str(),text.size()+1);*threadId=thread;return 1;
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
 }
 extern "C" int mp_capture_snapshot_title(void* capture,uint64_t expectedWindow,uint32_t expectedProcess,uint64_t expectedSequence,mp_capture_source_info* info,uint32_t size) {
     try {
@@ -328,4 +355,8 @@ extern "C" uint64_t mp_capture_frame_sequence(void* capture) {
 }
 extern "C" void mp_capture_cancel(void* c){if(c)static_cast<Capture*>(c)->cancelled=true;}
 extern "C" int mp_capture_start(void* c){try {if(!c)throw std::runtime_error("Capture is not initialized");static_cast<Capture*>(c)->start();return 1;}catch(const std::exception& ex){magpie::error=ex.what();return 0;}}
+extern "C" int mp_capture_start_window(void* c,uint64_t window,uint32_t process,uint32_t thread){try {
+    if(!c||!window||!process||!thread)throw std::runtime_error("Invalid matched capture source identity");
+    static_cast<Capture*>(c)->start(reinterpret_cast<HWND>(uintptr_t(window)),process,thread);return 1;
+}catch(const std::exception& ex){magpie::error=ex.what();return 0;}}
 extern "C" int mp_capture_frame(void* c,const uint8_t** rgba,uint32_t* w,uint32_t* h){try{if(!c||!rgba||!w||!h)throw std::runtime_error("Invalid capture arguments");return static_cast<Capture*>(c)->frame(rgba,w,h);}catch(const std::exception& ex){magpie::error=ex.what();return -1;}}

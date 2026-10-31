@@ -15,10 +15,11 @@ namespace Magpie.Desktop.Core;
 internal sealed partial class ScalingSession
 {
     private readonly RuntimeSettings _settings;
-    public ScalingSession(RuntimeSettings? settings=null,Func<CancellationToken,Task<IScreenAwakeLease>>? powerFactory=null)
+    public ScalingSession(RuntimeSettings? settings=null,Func<CancellationToken,Task<IScreenAwakeLease>>? powerFactory=null,WindowsCaptureSelection? selectedSource=null)
     {
-        _settings=settings ?? RuntimeSettings.Current;_awake=new(powerFactory??ScreenAwake.AcquireAsync);_awake.Changed+=ReportAwake;
+        _settings=settings ?? RuntimeSettings.Current;_selectedWindowsSource=selectedSource;_awake=new(powerFactory??ScreenAwake.AcquireAsync);_awake.Changed+=ReportAwake;
     }
+    private readonly WindowsCaptureSelection? _selectedWindowsSource;
     private readonly ScreenAwakeController _awake;
     private Task _powerUpdate=Task.CompletedTask;
     private CancellationTokenSource? _powerUpdateStop;
@@ -103,7 +104,9 @@ internal sealed partial class ScalingSession
                 Status?.Invoke(OperatingSystem.IsWindows()
                     ? $"Capturing the foreground window with {CaptureBackendPolicy.Name(selectedBackend)}. Select the source during the start delay."
                     : "Select a window or screen in the system sharing dialog.");
-                if (NativeCore.CaptureStart(capture) == 0) throw NativeCore.Error();
+                int started=_selectedWindowsSource is {} selected?
+                    NativeCore.CaptureStartWindow(capture,selected.Source.WindowId,selected.Source.ProcessId,selected.ThreadId):NativeCore.CaptureStart(capture);
+                if(started==0)throw NativeCore.Error();
                 _stop.Token.ThrowIfCancellationRequested();
                 long start=Stopwatch.GetTimestamp();
                 var processor=new ScalingFrameProcessor(start);

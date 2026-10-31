@@ -18,7 +18,8 @@ def policy_evidence(result=None):
     valid=result is not None and result.returncode==0
     maximized=valid and 'WINDOWS MAXIMIZED POLICY PASS: checks=5' in result.stdout
     borderless=valid and 'WINDOWS BORDERLESS POLICY PASS: checks=4' in result.stdout
-    return {'maximized_policy_checks':5 if maximized else 0,'borderless_policy_checks':4 if borderless else 0}
+    selected=valid and 'WINDOWS PROFILE SELECTION PASS: checks=4' in result.stdout
+    return {'maximized_policy_checks':5 if maximized else 0,'borderless_policy_checks':4 if borderless else 0,'profile_selection_checks':4 if selected else 0}
 report={'passed':False,'commit':os.environ.get('GITHUB_SHA'),'run_id':os.environ.get('GITHUB_RUN_ID'),'disposable_hosted_runner':True,'capture_tested':'independent synthetic Win32 source process via actual GDI',
         'gpu_tested':False,'input_injected':False,'lifetime_event_injected':True,'real_application_compatibility_tested':False,'full_interaction_parity':False,
         'fixture_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),**policy_evidence()}
@@ -26,7 +27,7 @@ try:
     result=subprocess.run([str(binary)],cwd=ROOT,env=env,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=45)
     output=result.stdout+result.stderr
     (folder/'windows-capture-fixture.log').write_text(output,encoding='utf-8')
-    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return','hide/show suspension without session failure','repeated hide/show fresh-frame guard','live source-state ABI','WINDOWS CURSOR INTERPOLATION PASS:','WINDOWS MAXIMIZED POLICY PASS: checks=5','WINDOWS BORDERLESS POLICY PASS: checks=4')
+    required=('WINDOWS GDI FIXTURE PASS:','actual out-of-context lifetime WinEvent','matching-tuple permanent rejection','independent recapture','waiting-buffer preservation','continuous grow/shrink/return','hide/show suspension without session failure','repeated hide/show fresh-frame guard','live source-state ABI','WINDOWS CURSOR INTERPOLATION PASS:','WINDOWS MAXIMIZED POLICY PASS: checks=5','WINDOWS BORDERLESS POLICY PASS: checks=4','WINDOWS PROFILE SELECTION PASS: checks=4')
     recovery='WINDOWS CAPTURE RECOVERY: backend=GDI title=0 cycles=16 passed'
     recovered=result.returncode==0 and recovery in result.stdout
     report.update(exit_code=result.returncode,passed=recovered and all(marker in result.stdout for marker in required),recovery_cycles_passed=16 if recovered else 0,**policy_evidence(result))
