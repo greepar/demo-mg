@@ -153,6 +153,16 @@ internal static class UiPreview
             case "Shortcut": window.ShowShortcutDialog(First<ShortcutControl>()); break;
             case "Delayed": First<SettingsExpander>().IsExpanded = true; break;
             case "ToolbarMenu": await OpenCombo(First<ComboBox>()); break;
+            case "NewProfileWindowPicker":case "NewProfileWindowMenu":
+            {
+                var button=window.FindControl<Button>("NewProfileNav")!;
+                var windowCandidateForm=(NewProfileFlyoutContent)((Flyout)button.Flyout!).Content!;
+                windowCandidateForm.SetCandidateFixture(()=>Task.FromResult<IReadOnlyList<Core.WindowsProfileCandidate>>([]));
+                await OpenFlyout(button);
+                page="Profile:"+await windowCandidateForm.VerifyWindowsPickerAsync(async ()=> {((Flyout)button.Flyout!).ShowAt(button);await Task.Delay(100);});
+                if(scenario=="NewProfileWindowMenu")await OpenCombo(windowCandidateForm.FindControl<ComboBox>("CandidateWindows")!);
+                break;
+            }
             case "NewProfile": case "NewProfileForm":
                 var profileButton = window.FindControl<Button>("NewProfileNav")!;
                 if (scenario == "NewProfileForm") ((NewProfileFlyoutContent)((Flyout)profileButton.Flyout!).Content!).ShowFormForPreview();

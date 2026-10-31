@@ -10,10 +10,17 @@ internal sealed record WindowsWindowIdentity(bool Packaged,string PathOrAumid,st
 internal static class WindowsProfileMatching
 {
     internal static bool SupportsDesktopRule(ApplicationProfile profile)
-        =>profile.OriginalProfile is {ValueKind:JsonValueKind.Object} rule&&
-            rule.TryGetProperty("packaged",out var packaged)&&packaged.ValueKind==JsonValueKind.False&&
-            rule.TryGetProperty("pathRule",out var path)&&path.ValueKind==JsonValueKind.String&&!string.IsNullOrEmpty(path.GetString())&&
-            rule.TryGetProperty("classNameRule",out var name)&&name.ValueKind==JsonValueKind.String;
+        =>Rule(profile) is {Packaged:false};
+    internal static bool HasRule(ApplicationProfile profile)=>Rule(profile) is not null;
+    internal static WindowsWindowIdentity? Rule(ApplicationProfile profile)
+    {
+        if(profile.WindowsRule is {} typed)return typed.Identity;
+        if(profile.OriginalProfile is not {ValueKind:JsonValueKind.Object} rule||
+            !rule.TryGetProperty("packaged",out var packaged)||packaged.ValueKind is not (JsonValueKind.True or JsonValueKind.False)||
+            !rule.TryGetProperty("pathRule",out var path)||path.ValueKind!=JsonValueKind.String||string.IsNullOrEmpty(path.GetString())||
+            !rule.TryGetProperty("classNameRule",out var name)||name.ValueKind!=JsonValueKind.String)return null;
+        return new(packaged.GetBoolean(),path.GetString()!,name.GetString()!);
+    }
     internal static string NormalizeClass(string value)
     {
         const string wpf="HwndWrapper[";
@@ -51,10 +58,7 @@ internal static class WindowsProfileMatching
         foreach(var profile in profiles)
         {
             if(automatic&&profile.Settings.AutoScale==AutoScaleMode.Disabled)continue;
-            if(profile.OriginalProfile is not {ValueKind:JsonValueKind.Object} rule)continue;
-            if(!rule.TryGetProperty("packaged",out var packaged)||packaged.ValueKind is not (JsonValueKind.True or JsonValueKind.False)||packaged.GetBoolean()!=source.Packaged)continue;
-            if(!rule.TryGetProperty("classNameRule",out var className)||className.ValueKind!=JsonValueKind.String||className.GetString()!=windowClass)continue;
-            if(rule.TryGetProperty("pathRule",out var path)&&path.ValueKind==JsonValueKind.String&&path.GetString()==source.PathOrAumid)return profile;
+            if(Rule(profile) is {} rule&&rule.Packaged==source.Packaged&&rule.ClassName==windowClass&&rule.PathOrAumid==source.PathOrAumid)return profile;
         }
         return null;
     }

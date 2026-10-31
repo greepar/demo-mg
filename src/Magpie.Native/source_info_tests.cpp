@@ -17,6 +17,14 @@ int main() {
         require(mp_windows_foreground_source(&foreground,sizeof(foreground),windowClass,sizeof(windowClass),&foregroundThread)==0,"Unsupported host fabricated a Windows window identity");
 #endif
         require(windowClass[0]=='k'&&foregroundThread==123,"Rejected foreground query changed caller outputs");
+        require(mp_windows_candidates_count(nullptr)==0,"Null candidate list fabricated rows");
+#ifdef _WIN32
+        require(mp_windows_candidates_get(nullptr,0,&foreground,sizeof(foreground),windowClass,sizeof(windowClass),&foregroundThread)==-1,"Null candidate snapshot accepted");
+#else
+        require(mp_windows_candidates_create()==nullptr&&mp_windows_candidates_get(nullptr,0,&foreground,sizeof(foreground),windowClass,sizeof(windowClass),&foregroundThread)==0,"Unsupported host fabricated Windows candidates");
+#endif
+        mp_windows_candidates_destroy(nullptr);
+        require(windowClass[0]=='k'&&foregroundThread==123,"Rejected candidate query modified output");
         require(mp_capture_start_window(nullptr,1,1,1)==0,"Uninitialized selected-source capture started");
         mp_pointer_rect pointerRect{1,2,3,4};mp_cursor_shape cursorShape{99,2,3,1,1};
 #ifdef _WIN32

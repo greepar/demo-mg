@@ -85,6 +85,7 @@ internal static class NativeCore
         ConfigurationLocationTests.Verify();
         OriginalConfigurationTests.Verify();
         WindowsProfileMatchingTests.Verify();
+        WindowsProfileCandidatesTests.Verify();
         CaptureSourceTests.Verify();
         CaptureBackendTests.Verify();
         ScalingCountdownTests.Verify();
@@ -373,8 +374,10 @@ internal static class NativeCore
                 throw new InvalidOperationException("Selected application configuration was ignored.");
             root.RenameProfile(first.Id,"Renamed");root.MoveProfile(second.Id,-1);
             if(root.Profiles[0]!=second || first.Name!="Renamed")throw new InvalidOperationException("Profile rename/order failed.");
-            try { root.RenameProfile(first.Id,"beta");throw new InvalidOperationException("Duplicate profile name accepted."); } catch(InvalidDataException) { }
-            if(first.Name!="Renamed")throw new InvalidOperationException("Invalid rename was not rolled back.");
+            root.RenameProfile(first.Id,"beta");
+            if(first.Name!="beta"||second.Name!="Beta"||first.Id==second.Id)throw new InvalidOperationException("Same display names lost independent profile identities.");
+            try {root.RenameProfile(first.Id,"");throw new InvalidOperationException("Empty profile name accepted.");}catch(InvalidDataException) { }
+            if(first.Name!="beta")throw new InvalidOperationException("Invalid rename was not rolled back.");
             if(!ReferenceEquals(first.Settings.Modes,root.Modes) || !ReferenceEquals(second.Settings.Modes,root.Modes))
                 throw new InvalidOperationException("Profiles do not share global effect definitions.");
             var launch=first.CreateLaunchInfo();

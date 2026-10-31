@@ -14,7 +14,11 @@ internal sealed record WindowsCaptureSelection(CaptureSource Source,uint ThreadI
         int result=ForegroundSource(out var native,5400,bytes,1024,out uint thread);
         if(result<0)throw NativeCore.Error();
         if(result==0)return null;
-        var source=CaptureSource.Decode(native);var text=new ReadOnlySpan<byte>(bytes,1024);int end=text.IndexOf((byte)0);
+        return Decode(native,new ReadOnlySpan<byte>(bytes,1024),thread);
+    }
+    internal static WindowsCaptureSelection Decode(NativeCaptureSource native,ReadOnlySpan<byte> text,uint thread)
+    {
+        var source=CaptureSource.Decode(native);int end=text.IndexOf((byte)0);
         if(source is not {Kind:1,WindowId:>0,ProcessId:>0}||source.ExecutablePath.Length==0||thread==0||end<=0)
             throw new InvalidDataException("Foreground source identity is incomplete.");
         return new(source,thread,new UTF8Encoding(false,true).GetString(text[..end]));

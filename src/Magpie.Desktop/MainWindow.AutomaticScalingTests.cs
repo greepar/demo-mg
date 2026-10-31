@@ -39,6 +39,7 @@ public partial class MainWindow
             return new() {Name=name,OriginalProfile=rule.RootElement.Clone(),Settings=new RuntimeSettings {AutoScale=mode,Modes=root.Modes}};
         }
         var a=Profile("Automatic A","C:\\Games\\A.exe","GameA",AutoScaleMode.Windowed);
+        a.WindowsRule=new() {PathOrAumid="C:\\Games\\A.exe",WindowClass="GameA"};a.OriginalProfile=null;
         var b=Profile("Automatic B","C:\\Games\\B.exe","Chrome_WidgetWin_1",AutoScaleMode.Fullscreen);
         WindowsCaptureSelection Source(ulong window,uint pid,string path,string name)=>new(new("Test","Test",path,pid,window,1),pid+1,name);
         var first=Source(11,111,"C:\\Games\\A.exe","GameA");

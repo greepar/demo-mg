@@ -150,6 +150,14 @@ int mp_capture_start(void* capture);
 // Foreground query returns 1 for an identified non-packaged external window,
 // 0 when unavailable/unsupported, -1 on error. Class capacity is exactly 1024.
 int mp_windows_foreground_source(mp_capture_source_info* info,uint32_t size,char* window_class,uint32_t capacity,uint32_t* thread_id);
+// Owned snapshot of eligible Windows desktop candidates, without capture/input.
+// Packaged/AppX windows currently omitted. Get is a cached identity copy;
+// a saved profile contains class/path only, not an active HWND. Unsupported
+// hosts: create=null, count/get=0, destroy is a no-op. Destroy accepts null.
+void* mp_windows_candidates_create(void);
+void mp_windows_candidates_destroy(void* list);
+uint32_t mp_windows_candidates_count(void* list);
+int mp_windows_candidates_get(void* list,uint32_t index,mp_capture_source_info* info,uint32_t size,char* window_class,uint32_t capacity,uint32_t* thread);
 // Starts the selected HWND only if its PID/TID still match. Windows only;
 // unsupported hosts return 0. Does not choose a newer foreground window.
 int mp_capture_start_window(void* capture,uint64_t window,uint32_t process,uint32_t thread);

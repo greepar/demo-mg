@@ -27,7 +27,7 @@ public partial class MainWindow
     {
         if(_automaticBusy||_automaticClosed)return;
         var root=RuntimeSettings.Current;
-        if(!root.Profiles.Any(p=>p.OriginalProfile.HasValue&&p.Settings.AutoScale!=AutoScaleMode.Disabled))return;
+        if(!root.Profiles.Any(p=>WindowsProfileMatching.HasRule(p)&&p.Settings.AutoScale!=AutoScaleMode.Disabled))return;
         _automaticBusy=true;
         try
         {

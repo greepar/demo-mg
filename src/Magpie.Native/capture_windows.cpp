@@ -13,6 +13,7 @@
 #include "windows_output_layer.h"
 #include <atomic>
 #include <cstring>
+#include <exception>
 #include <string_view>
 #include <memory>
 #include <mutex>
@@ -219,11 +220,10 @@ extern "C" int mp_capture_source(void* capture,mp_capture_source_info* info,uint
         return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return 0;}
 }
-extern "C" int mp_windows_foreground_source(mp_capture_source_info* info,uint32_t size,char* windowClass,uint32_t capacity,uint32_t* threadId) {
-    try {
-        if(!info||size!=sizeof(*info)||!windowClass||capacity!=1024||!threadId)throw std::runtime_error("Invalid foreground source arguments");
+namespace {
+int readWindowsSelection(HWND window,bool foreground,mp_capture_source_info* info,char* windowClass,uint32_t capacity,uint32_t* threadId) {
         // A short-lived metadata query, not a capture session or permission request.
-        Capture selected;selected.window=GetForegroundWindow();DWORD process{};
+        Capture selected;selected.window=window;DWORD process{};
         DWORD thread=selected.window?GetWindowThreadProcessId(selected.window,&process):0;
         if(!thread||process==GetCurrentProcessId())return 0;
         wchar_t name[256]{};int length=GetClassNameW(selected.window,name,int(std::size(name)));
@@ -237,9 +237,53 @@ extern "C" int mp_windows_foreground_source(mp_capture_source_info* info,uint32_
         selected.sourceProcess=process;selected.identity={uint64_t(reinterpret_cast<uintptr_t>(selected.window)),process,thread};
         mp_capture_source_info result{};
         if(mp_capture_source(&selected,&result,sizeof(result))!=1)return -1;
-        if(!(result.flags&MP_SOURCE_EXECUTABLE)||GetForegroundWindow()!=selected.window||!selected.sameSource())return 0;
+        if(!(result.flags&MP_SOURCE_EXECUTABLE)||(foreground&&GetForegroundWindow()!=selected.window)||!selected.sameSource())return 0;
         auto text=utf8(name,size_t(length));if(text.empty()||text.size()>=capacity)return 0;
         *info=result;std::memcpy(windowClass,text.c_str(),text.size()+1);*threadId=thread;return 1;
+}
+struct WindowCandidate {mp_capture_source_info source{};char windowClass[1024]{};uint32_t thread{};};
+struct WindowCandidates {std::vector<WindowCandidate> values;std::exception_ptr failure;};
+bool candidateWindow(HWND window) {
+    if(!IsWindowVisible(window)||(GetWindowLongPtrW(window,GWL_EXSTYLE)&WS_EX_TRANSPARENT))return false;
+    RECT frame{};
+    if(FAILED(DwmGetWindowAttribute(window,DWMWA_EXTENDED_FRAME_BOUNDS,&frame,sizeof(frame)))||
+        (frame.right-frame.left<50&&frame.bottom-frame.top<50)||GetWindowTextLengthW(window)==0)return false;
+    UINT cloaked{};DwmGetWindowAttribute(window,DWMWA_CLOAKED,&cloaked,sizeof(cloaked));if(cloaked)return false;
+    wchar_t name[256]{};if(!GetClassNameW(window,name,int(std::size(name))))return false;
+    return std::wstring_view(name)!=L"Progman"&&std::wstring_view(name)!=L"Xaml_WindowedPopupClass";
+}
+}
+extern "C" int mp_windows_foreground_source(mp_capture_source_info* info,uint32_t size,char* windowClass,uint32_t capacity,uint32_t* threadId) {
+    try {
+        if(!info||size!=sizeof(*info)||!windowClass||capacity!=1024||!threadId)throw std::runtime_error("Invalid foreground source arguments");
+        return readWindowsSelection(GetForegroundWindow(),true,info,windowClass,capacity,threadId);
+    }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
+}
+extern "C" void* mp_windows_candidates_create() {
+    try {
+        auto list=std::make_unique<WindowCandidates>();SetLastError(0);
+        BOOL success=EnumWindows([](HWND window,LPARAM data)->BOOL {
+            auto& candidates=*reinterpret_cast<WindowCandidates*>(data);
+            try {
+                if(!candidateWindow(window))return TRUE;
+                WindowCandidate value;
+                int result=readWindowsSelection(window,false,&value.source,value.windowClass,sizeof(value.windowClass),&value.thread);
+                if(result==1)candidates.values.push_back(value);
+                return TRUE;
+            }catch(...) {candidates.failure=std::current_exception();return FALSE;}
+        },reinterpret_cast<LPARAM>(list.get()));
+        if(list->failure)std::rethrow_exception(list->failure);
+        if(!success)throw std::runtime_error("Cannot enumerate desktop source windows");
+        return list.release();
+    }catch(const std::exception& ex){magpie::error=ex.what();return nullptr;}
+}
+extern "C" void mp_windows_candidates_destroy(void* list) {delete static_cast<WindowCandidates*>(list);}
+extern "C" uint32_t mp_windows_candidates_count(void* list) {return list?uint32_t(static_cast<WindowCandidates*>(list)->values.size()):0;}
+extern "C" int mp_windows_candidates_get(void* list,uint32_t index,mp_capture_source_info* info,uint32_t size,char* windowClass,uint32_t capacity,uint32_t* thread) {
+    try {
+        if(!list||!info||size!=sizeof(*info)||!windowClass||capacity!=1024||!thread)throw std::runtime_error("Invalid candidate snapshot arguments");
+        const auto& values=static_cast<WindowCandidates*>(list)->values;if(index>=values.size())throw std::runtime_error("Candidate index is out of range");
+        const auto& value=values[index];*info=value.source;std::memcpy(windowClass,value.windowClass,1024);*thread=value.thread;return 1;
     }catch(const std::exception& ex){magpie::error=ex.what();return -1;}
 }
 extern "C" int mp_capture_snapshot_title(void* capture,uint64_t expectedWindow,uint32_t expectedProcess,uint64_t expectedSequence,mp_capture_source_info* info,uint32_t size) {

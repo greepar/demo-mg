@@ -13,7 +13,7 @@ public partial class MainWindow
         if(_previewSessionFactory is not {} factory)
         {
             var root=RuntimeSettings.Current;
-            if(OperatingSystem.IsWindows()&&root.Profiles.Any(p=>p.OriginalProfile.HasValue))
+            if(OperatingSystem.IsWindows()&&root.Profiles.Any(WindowsProfileMatching.HasRule))
             {
                 try
                 {

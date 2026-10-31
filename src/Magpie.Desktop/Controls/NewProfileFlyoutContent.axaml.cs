@@ -1,34 +1,87 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Magpie.Desktop.Core;
 namespace Magpie.Desktop.Controls;
 public partial class NewProfileFlyoutContent : UserControl
 {
     internal event Action<ApplicationProfile>? Created;
-    public NewProfileFlyoutContent() => InitializeComponent();
-    internal void RefreshSources()
+    private Func<Task<IReadOnlyList<WindowsProfileCandidate>>>? _candidateFixture;
+    private WindowsProfileCandidate? _selectedWindow;
+    private int _refreshGeneration;
+    private bool _loading;
+    private bool WindowsPicker=>OperatingSystem.IsWindows()||_candidateFixture is not null;
+    public NewProfileFlyoutContent()
     {
-        CopySource.Items.Clear();CopySource.Items.Add(new ComboBoxItem { Content="Defaults" });
+        InitializeComponent();DetachedFromVisualTree+=(_,_)=>++_refreshGeneration;
+    }
+    internal void SetCandidateFixture(Func<Task<IReadOnlyList<WindowsProfileCandidate>>> reader)
+    {
+        if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Candidate fixtures require isolated settings.");
+        _candidateFixture=reader;
+    }
+    internal async void RefreshSources()=>await RefreshSourcesAsync();
+    internal async Task RefreshSourcesAsync()
+    {
+        int generation=++_refreshGeneration;
+        CopySource.Items.Clear();CopySource.Items.Add(new ComboBoxItem { Content=LocExtension.Get("Root_Defaults.Content") });
         foreach(var profile in RuntimeSettings.Current.Profiles)CopySource.Items.Add(new ComboBoxItem { Content=profile.Name,Tag=profile.Id });
         CopySource.SelectedIndex=0;
+        WindowsSources.IsVisible=WindowsPicker;ExecutableFields.IsVisible=!WindowsPicker;ProfileFields.IsVisible=!WindowsPicker;
+        ErrorText.IsVisible=false;
+        if(!WindowsPicker){UpdateConfirm();return;}
+        _loading=true;_selectedWindow=null;CandidateWindows.Items.Clear();NameInput.Text="";
+        CandidatesLoading.IsVisible=true;NoCandidates.IsVisible=false;UpdateConfirm();
+        try
+        {
+            // Generic visual previews never enumerate a real desktop. The
+            // hosted fixture supplies an explicitly guarded reader itself.
+            IReadOnlyList<WindowsProfileCandidate> rows=_candidateFixture is {} fixture?await fixture():
+                RuntimeSettings.PersistenceEnabled?await Task.Run(WindowsProfileCandidates.Read):[];
+            if(generation!=_refreshGeneration)return;
+            var available=WindowsProfileCandidates.Available(rows,RuntimeSettings.Current);
+            foreach(var row in available)
+                CandidateWindows.Items.Add(new ComboBoxItem {Tag=row,Content=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,
+                    Children={new SymbolIcon {Kind="Window",Width=16,Height=16},new TextBlock {Text=row.Title,MaxWidth=190,TextTrimming=TextTrimming.CharacterEllipsis}}}});
+            NoCandidates.IsVisible=available.Count==0;ProfileFields.IsVisible=available.Count>0;
+            CandidateWindows.SelectedIndex=available.Count==1?0:-1;
+        }
+        catch(Exception error)
+        {
+            if(generation==_refreshGeneration){ErrorText.Text=error.Message;ErrorText.IsVisible=true;}
+        }
+        finally {if(generation==_refreshGeneration){_loading=false;CandidatesLoading.IsVisible=false;UpdateConfirm();}}
+    }
+    private void Refresh_Click(object? sender,RoutedEventArgs args)=>RefreshSources();
+    private void Window_SelectionChanged(object? sender,SelectionChangedEventArgs args)
+    {
+        _selectedWindow=(CandidateWindows.SelectedItem as ComboBoxItem)?.Tag as WindowsProfileCandidate;
+        NameInput.Text=_selectedWindow?.DefaultName??"";UpdateConfirm();
     }
     internal void ShowFormForPreview()
     {
         ExecutableInput.Text=Path.Combine(Path.GetTempPath(),"example-app");NameInput.Text="Example";
     }
-    private void Input_Changed(object? sender,TextChangedEventArgs args)
+    private void Input_Changed(object? sender,TextChangedEventArgs args)=>UpdateConfirm();
+    private void UpdateConfirm()
     {
-        if(CreateButton is not null)CreateButton.IsEnabled=!string.IsNullOrWhiteSpace(NameInput?.Text) && Path.IsPathFullyQualified(ExecutableInput?.Text ?? "");
+        if(CreateButton is not null)CreateButton.IsEnabled=!_loading&&!string.IsNullOrWhiteSpace(NameInput?.Text)&&
+            (WindowsPicker?_selectedWindow is not null:Path.IsPathFullyQualified(ExecutableInput?.Text??""));
     }
     private void Create_Click(object? sender,RoutedEventArgs args)
     {
+        if(_loading)return;
         try
         {
-            var profile=RuntimeSettings.Current.AddProfile(NameInput.Text ?? "",ExecutableInput.Text ?? "",(CopySource.SelectedItem as ComboBoxItem)?.Tag as string);
+            string? copy=(CopySource.SelectedItem as ComboBoxItem)?.Tag as string;
+            var root=RuntimeSettings.Current;
+            var profile=WindowsPicker?root.AddWindowsProfile(NameInput.Text??"",_selectedWindow?.Window??throw new InvalidDataException("Choose an application window."),copy):
+                root.AddProfile(NameInput.Text??"",ExecutableInput.Text??"",copy);
             ErrorText.IsVisible=false;Created?.Invoke(profile);
         }
-        catch(Exception error) { ErrorText.Text=error.Message;ErrorText.IsVisible=true; }
+        catch(Exception error) {ErrorText.Text=error.Message;ErrorText.IsVisible=true;}
     }
     private async void Browse_Click(object? sender,RoutedEventArgs args)
     {
@@ -37,9 +90,9 @@ public partial class NewProfileFlyoutContent : UserControl
         {
             var files=await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title="Select executable",AllowMultiple=false });
             if(files.Count==0)return;
-            using var file=files[0];ExecutableInput.Text=file.TryGetLocalPath() ?? throw new InvalidOperationException("Choose a local executable.");
+            using var file=files[0];ExecutableInput.Text=file.TryGetLocalPath()??throw new InvalidOperationException("Choose a local executable.");
             if(string.IsNullOrWhiteSpace(NameInput.Text))NameInput.Text=Path.GetFileNameWithoutExtension(ExecutableInput.Text);
         }
-        catch(Exception error) { ErrorText.Text=error.Message;ErrorText.IsVisible=true; }
+        catch(Exception error) {ErrorText.Text=error.Message;ErrorText.IsVisible=true;}
     }
 }

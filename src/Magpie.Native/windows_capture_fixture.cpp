@@ -115,6 +115,21 @@ void verifyProfileSelection(HWND source,uint32_t backend,bool titleBar) {
     require(selected.kind==1&&selected.window_id==uint64_t(reinterpret_cast<uintptr_t>(source))&&
         selected.process_id==process&&thread==actualThread,"Profile query selected a different window/process/thread");
     require(std::string(className)=="MagpieGdiDisposableSource"&&(selected.flags&MP_SOURCE_EXECUTABLE),"Profile query lost actual window class/executable");
+    {
+        std::unique_ptr<void,decltype(&mp_windows_candidates_destroy)> candidates(mp_windows_candidates_create(),mp_windows_candidates_destroy);
+        native(bool(candidates),"Enumerate actual desktop profile candidates");bool found=false;
+        for(uint32_t i=0;i<mp_windows_candidates_count(candidates.get());++i) {
+            mp_capture_source_info row{};char rowClass[1024]{};uint32_t rowThread{};
+            native(mp_windows_candidates_get(candidates.get(),i,&row,sizeof(row),rowClass,sizeof(rowClass),&rowThread)==1,"Read cached candidate identity");
+            require(row.process_id!=GetCurrentProcessId(),"Source picker included its own application");
+            if(row.window_id==selected.window_id) {
+                require(row.process_id==process&&rowThread==thread&&std::string(rowClass)==className&&std::string(row.executable_path)==selected.executable_path,
+                    "Candidate list changed the independently selected source identity");found=true;
+            }
+        }
+        require(found,"Actual candidate enumeration omitted the eligible independently launched source");
+        std::cout<<"WINDOWS PROFILE CANDIDATES PASS: actual visible external window, PID/TID/class/path, cached list ownership and own-process exclusion.\n";
+    }
     wchar_t expectedPath[32768]{},actualPath[4096]{};
     require(GetModuleFileNameW(nullptr,expectedPath,DWORD(std::size(expectedPath)))&&
         MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,selected.executable_path,-1,actualPath,int(std::size(actualPath)))&&

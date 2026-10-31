@@ -68,6 +68,18 @@ internal sealed class RuntimeSettings
         try { Save(); } catch { Profiles.Remove(profile);throw; }
         return profile;
     }
+    internal ApplicationProfile AddWindowsProfile(string name,WindowsCaptureSelection selected,string? copyFromId=null)
+    {
+        if(selected.Source is not {Kind:1,WindowId:>0,ProcessId:>0}||selected.ThreadId==0||string.IsNullOrEmpty(selected.WindowClass)||string.IsNullOrWhiteSpace(selected.Source.ExecutablePath))
+            throw new InvalidDataException("Select an identified application window.");
+        if(WindowsProfileMatching.Find(Profiles,selected.Identity,false) is not null)throw new InvalidDataException("A profile for this application window already exists.");
+        var copy=copyFromId is null?null:Profiles.Single(p=>p.Id==copyFromId);
+        var profile=new ApplicationProfile {Name=name.Trim(),WindowsRule=new() {PathOrAumid=selected.Source.ExecutablePath,WindowClass=WindowsProfileMatching.NormalizeClass(selected.WindowClass)},
+            ExecutablePath=OperatingSystem.IsWindows()?selected.Source.ExecutablePath:"",Settings=(copy?.Settings??this).CopyForProfile(),Arguments=copy?.Arguments.ToList()??[]};
+        Profiles.Add(profile);
+        try {Save();}catch {Profiles.Remove(profile);throw;}
+        return profile;
+    }
     public void RenameProfile(string id,string name)
     {
         var profile=Profiles.Single(p=>p.Id==id);string previous=profile.Name;profile.Name=name.Trim();
@@ -200,7 +212,7 @@ internal sealed class RuntimeSettings
             if(profile.Settings is not null)profile.Settings.Modes=Modes;
             profile.Validate();
         }
-        if(Profiles.Select(p=>p.Id).Distinct().Count()!=Profiles.Count || Profiles.Select(p=>p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=Profiles.Count ||
+        if(Profiles.Select(p=>p.Id).Distinct().Count()!=Profiles.Count ||
             (ActiveProfileId is not null && Profiles.All(p=>p.Id!=ActiveProfileId)))throw new InvalidDataException("Duplicate or missing application profile.");
         ValidateOptions();
     }
