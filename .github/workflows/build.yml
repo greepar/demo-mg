@@ -2,25 +2,10 @@ name: build
 permissions:
   contents: read
 
+# The retained WinUI/wiki workflows are opt-in in this port repository.
+# Desktop builds and regressions are in desktop-port.yml.
 on:
-  push:
-    paths:
-      [
-        '.github/workflows/build.yml',
-        'Magpie.slnx',
-        '*.props',
-        'scripts/publish.py',
-        'src/**',
-      ]
-  pull_request:
-    paths:
-      [
-        '.github/workflows/build.yml',
-        'Magpie.slnx',
-        '*.props',
-        'scripts/publish.py',
-        'src/**',
-      ]
+  workflow_dispatch:
 
 jobs:
   build:

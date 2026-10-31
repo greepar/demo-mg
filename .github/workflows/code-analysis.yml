@@ -3,25 +3,9 @@ permissions:
   contents: read
   security-events: write
 
+# The retained WinUI/wiki workflows are opt-in in this port repository.
+# Desktop builds and regressions are in desktop-port.yml.
 on:
-  push:
-    paths:
-      [
-        '.github/workflows/code-analysis.yml',
-        'Magpie.slnx',
-        '*.props',
-        'scripts/code-analysis.py',
-        'src/**',
-      ]
-  pull_request:
-    paths:
-      [
-        '.github/workflows/code-analysis.yml',
-        'Magpie.slnx',
-        '*.props',
-        'scripts/code-analysis.py',
-        'src/**',
-      ]
   workflow_dispatch:
 
 jobs:

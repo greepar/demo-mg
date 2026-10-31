@@ -2,10 +2,10 @@ name: Publish wiki
 permissions:
   contents: write
 
+# The retained WinUI/wiki workflows are opt-in in this port repository.
+# Desktop builds and regressions are in desktop-port.yml.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/wiki.yml', 'docs/**', 'scripts/wiki.py']
+  workflow_dispatch:
 
 jobs:
   publish:
