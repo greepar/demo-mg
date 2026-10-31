@@ -28,7 +28,7 @@
 <!-- Profile_General_AutoScale -->
 <c:SettingsCard Name="AutoScaleCard" IsVisible="False" IsWrapEnabled="True" Header="{c:Loc Profile_General_AutoScale.Header}" Icon="Scale">
 
-<ComboBox SelectedIndex="0"><ComboBoxItem Content="Disabled" /><ComboBoxItem Content="Fullscreen scaling" /><ComboBoxItem Content="Windowed scaling" /></ComboBox>
+<ComboBox Name="AutoScaleSelector" SelectedIndex="0" SelectionChanged="AutoScale_SelectionChanged"><ComboBoxItem Content="{c:Loc Profile_General_AutoScale_Disabled.Content}" /><ComboBoxItem Content="{c:Loc Profile_General_AutoScale_Fullscreen.Content}" /><ComboBoxItem Content="{c:Loc Profile_General_AutoScale_Windowed.Content}" /></ComboBox>
 </c:SettingsCard>
 
 <!-- Profile_General_3DGameMode -->

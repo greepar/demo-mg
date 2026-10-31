@@ -246,6 +246,7 @@ internal sealed partial class ScalingSession
         try {return StageSnapshot.Read(engine)[0].Serial;}
         finally {_stageGate.Release();}
     }
+    internal bool HostedAutomaticMode(bool fullscreen)=>_output is {IsVisible:true}&&(_output.WindowState==WindowState.FullScreen)==fullscreen;
     internal static async Task VerifyHostedWindowsLifecycleAsync(MainWindow owner)
     {
         HostedWindowsLifecycle.Require();
@@ -265,9 +266,8 @@ internal sealed partial class ScalingSession
                 var settings=new RuntimeSettings {Effect=0,CaptureBackend=backend,FrameRateLimiterEnabled=true,MaximumFrameRate=60};
                 settings.ScreenshotDirectory=Path.Combine(HostedWindowsLifecycle.Output,backend+(fullscreen?"-fullscreen":"-windowed"));
                 settings.ScreenshotTemplate="source";
-                var session=new ScalingSession(settings) {_windowsPointerSuppressed=true};Task? run=null;string? failure=null;Process? source=null;
+                ScalingSession session=null!;Task? run=null;string? failure=null;Process? source=null;
                 void Phase(string value){evidence.Phase=value;Console.WriteLine("WINDOWS PRODUCTION PHASE: "+backend+" "+fullscreen+" "+value);Save();}
-                session.Finished+=message=>failure=message;
                 try
                 {
                     var launch=new ProcessStartInfo(HostedWindowsLifecycle.Fixture) {UseShellExecute=false,CreateNoWindow=true};
@@ -286,7 +286,10 @@ internal sealed partial class ScalingSession
                         await Task.Delay(100);
                     }
                     evidence.SourcePid=(uint)source.Id;evidence.SourceWindow=(ulong)window;
-                    Phase("initial production capture");run=session.RunAsync(owner,fullscreen,0);
+                    Phase("automatic profile selection and initial production capture");
+                    (session,run)=await owner.BeginHostedAutomaticCase(settings,fullscreen,(ulong)window,(uint)source.Id,
+                        (options,selected)=>new ScalingSession(options,selectedSource:selected) {_windowsPointerSuppressed=true});
+                    session.Finished+=message=>failure=message;
                     await WaitHosted(()=>session._bitmap is not null&&session._lastSourceSequence>0,run,()=>failure,"initial production bitmap",30);
                     if(session._lastSourceInfo.WindowId!=(ulong)window||session._lastSourceInfo.ProcessId!=(uint)source.Id)throw new InvalidOperationException("Production capture selected a foreign source.");
                     lock(session._captureLock)
@@ -295,6 +298,7 @@ internal sealed partial class ScalingSession
                     evidence.Device=Marshal.PtrToStringUTF8(NativeCore.DeviceName(engine))??"";
                     if(!evidence.Device.Contains("SwiftShader",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Expected the explicitly selected SwiftShader Vulkan test driver, got "+evidence.Device);
                     report.SoftwareVulkan=true;session.CheckHostedPixels();
+                    await owner.VerifyHostedAutomaticStable(session,fullscreen);evidence.NativeAutomaticChecks=3;
                     await Task.Delay(200);
                     if(FixtureForeground()!=window)throw new InvalidOperationException("Initial output stole foreground focus from its source.");
                     evidence.InitialForegroundPreserved=true;
@@ -365,6 +369,7 @@ internal sealed partial class ScalingSession
                 finally
                 {
                     if(run is not null&&!run.IsCompleted) {session.Stop();await run.WaitAsync(TimeSpan.FromSeconds(15));}
+                    owner.EndHostedAutomaticCase();
                     if(source is not null)
                     {
                         if(!source.HasExited)
@@ -384,6 +389,6 @@ internal sealed partial class ScalingSession
             if(!report.Passed)throw new InvalidOperationException("Incomplete production lifecycle matrix.");
             Console.WriteLine("WINDOWS PRODUCTION LIFECYCLE PASS: real owned Win32 source, native capture, SwiftShader Vulkan, Avalonia native output, initial/resumed keyboard, fresh layered repaint, scaled native mouse and actual XOR software cursor, minimize/hide/fresh restore, geometry, idle GPU, screenshot and cleanup; real-app/IME/game/multimonitor/hardware Vulkan coverage remains incomplete.");
         }
-        finally {RuntimeSettings.Current.DisableFP16=disable;RuntimeSettings.Current.KeepScreenOn=keepAwake;RuntimeSettings.Current.MinimumFrameRate=minimum;Save();}
+        finally {owner.EndHostedAutomaticCase();RuntimeSettings.Current.DisableFP16=disable;RuntimeSettings.Current.KeepScreenOn=keepAwake;RuntimeSettings.Current.MinimumFrameRate=minimum;Save();}
     }
 }

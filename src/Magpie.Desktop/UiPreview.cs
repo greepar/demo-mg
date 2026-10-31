@@ -61,6 +61,14 @@ internal static class UiPreview
             case "ToolbarActionsOutput":await Core.ScalingSession.VerifyToolbarActionsAsync(window);break;
             case "HomeMaximizedPolicy":await First<HomePage>().VerifyMaximizedPreferenceAsync();break;
             case "CountdownLifecycle":await window.VerifyCountdownAsync();break;
+            case "AutomaticScalingLifecycle":await window.VerifyAutomaticScalingAsync();break;
+            case "ProfileAutomaticPreference":
+            {
+                var migrated=Core.OriginalConfiguration.Parse(Core.OriginalConfigurationTests.Example);
+                var root=Core.RuntimeSettings.Current;root.Modes.AddRange(migrated.Settings.Modes);root.Profiles.AddRange(migrated.Settings.Profiles);root.Validate();
+                window.RefreshProfilesNavigation();page="Profile:"+root.Profiles[0].Id;window.Navigate(page);
+                await First<ProfilePage>().VerifyAutomaticPreferenceAsync();break;
+            }
             case "SourceMetadataOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifySourceScreenshotAsync(window);break;
             case "ProfileImportedConfiguration":
             {

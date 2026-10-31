@@ -9,6 +9,11 @@ internal sealed record WindowsWindowIdentity(bool Packaged,string PathOrAumid,st
 
 internal static class WindowsProfileMatching
 {
+    internal static bool SupportsDesktopRule(ApplicationProfile profile)
+        =>profile.OriginalProfile is {ValueKind:JsonValueKind.Object} rule&&
+            rule.TryGetProperty("packaged",out var packaged)&&packaged.ValueKind==JsonValueKind.False&&
+            rule.TryGetProperty("pathRule",out var path)&&path.ValueKind==JsonValueKind.String&&!string.IsNullOrEmpty(path.GetString())&&
+            rule.TryGetProperty("classNameRule",out var name)&&name.ValueKind==JsonValueKind.String;
     internal static string NormalizeClass(string value)
     {
         const string wpf="HwndWrapper[";

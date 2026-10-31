@@ -61,7 +61,15 @@ internal sealed partial class ScalingSession
     internal Func<bool> GlobalToolbarShortcutActive { get; set; }=()=>false;
     internal void ToggleToolbar()=>CycleToolbarState();
 
+    internal ulong SelectedWindowsWindow=>_selectedWindowsSource?.Source.WindowId??_lastSourceInfo.WindowId;
+    internal event Action? StopRequested;
     public void Stop()
+    {
+        if(_finished)return;
+        try {StopRequested?.Invoke();}finally {CancelCapture();}
+    }
+    internal void StopForAutomaticReplacement()=>CancelCapture();
+    private void CancelCapture()
     {
         if (_finished) return;
         _stop.Cancel();
@@ -85,7 +93,7 @@ internal sealed partial class ScalingSession
                 if(_previewLoop is {} preview)
                 {
                     if(RuntimeSettings.PersistenceEnabled)throw new InvalidOperationException("Synthetic capture requires isolated preview mode.");
-                    await preview(_stop.Token);return;
+                    _previewStartedMode?.Invoke(fullscreen);await preview(_stop.Token);return;
                 }
                 using var engine=NativeCore.CreateForSettings(_settings);
                 if(engine.IsInvalid)throw NativeCore.Error();
@@ -218,7 +226,7 @@ internal sealed partial class ScalingSession
                 {
                     _windowsFocusPoll?.Dispose();_windowsFocusPoll=null;
                     try {EndWindowsPointer();}catch(Exception cleanup) {failure??=cleanup.Message;WindowsCursorSpeedCleanup.Schedule(_windowsCursorSpeed);}
-                    try {Stop();}catch(Exception cleanup) {failure??=cleanup.Message;}
+                    try {CancelCapture();}catch(Exception cleanup) {failure??=cleanup.Message;}
                     // A failed/forbidden source must not leave an output over
                     // the desktop while a native WGC shutdown is still pending.
                     try {if(OperatingSystem.IsWindows()&&_output is {IsVisible:true} visible)visible.Hide();}

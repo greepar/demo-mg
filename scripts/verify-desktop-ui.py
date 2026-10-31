@@ -23,7 +23,7 @@ CASES = [
     "ToolbarMoveOutput",
     "ToolbarActionsOutput",
     "ProfileCapturePolicy", "NarrowProfileCapturePolicy", "NarrowProfileCaptureWarning", "NarrowProfileCapture",
-    "CountdownLifecycle", "NarrowCountdownLifecycle",
+    "CountdownLifecycle", "NarrowCountdownLifecycle", "AutomaticScalingLifecycle", "ProfileAutomaticPreference", "NarrowProfileAutomaticPreference",
     "SourceMetadataOutput",
     "ProfileImportedConfiguration", "NarrowProfileImportedConfiguration",
     "SettingsImportConfiguration", "NarrowSettingsImportConfiguration",

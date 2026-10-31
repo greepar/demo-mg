@@ -17,7 +17,7 @@ public partial class ProfilePage : UserControl
         _profile=profile;
         ProfileFrame.Icon = new SymbolIcon { Kind = "Window", Width = 24, Height = 24 };
         LaunchParametersCard.IsVisible = true;
-        ProfileFrame.Title = profile.Name; ProfileActions.IsVisible = true; AutoScaleCard.IsVisible = false;RefreshSettings();
+        ProfileFrame.Title = profile.Name; ProfileActions.IsVisible = true;RefreshSettings();
     }
     private void ProfileAction_Click(object? sender, RoutedEventArgs args)
     {
@@ -223,7 +223,7 @@ public partial class ProfilePage : UserControl
     }
     private void RefreshSettings()
     {
-        _initialized=false;RefreshToolbar();RefreshCaptureMethod();
+        _initialized=false;RefreshToolbar();RefreshCaptureMethod();RefreshAutomaticScaling();
         CrtSettingsButton.IsVisible=(Settings.Effect==12 || Core.GraphEffects.HasParameters(Settings.Effect)) && Settings.SelectedModeId is null;
         _initialized=false;
         RefreshDeviceChoices();
@@ -273,8 +273,8 @@ public partial class ProfilePage : UserControl
             string identity=original.GetProperty("pathRule").GetString()!;
             string arguments=original.TryGetProperty("launchParameters",out var rawArguments)&&rawArguments.ValueKind==System.Text.Json.JsonValueKind.String ? rawArguments.GetString()! : "";
             ImportedProfileNotice.Text=(Core.Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)
-                ? "原 Windows 应用规则已保留。请在更多菜单中选择本机程序，并按本机格式核对启动参数；自动匹配尚未迁移。原路径："
-                : "Original Windows rules are preserved. Select a local executable in More and review its arguments for this platform; automatic matching is not migrated. Original path: ")+identity+
+                ? "原 Windows 应用规则已保留。请在更多菜单中选择本机程序，并按本机格式核对启动参数。Windows 桌面规则已接匹配，其他平台和打包窗口仍待适配。原路径："
+                : "Original Windows rules are preserved. Select a local executable in More and review its arguments for this platform. Windows desktop rules are matched; other platforms and packaged windows still need adaptation. Original path: ")+identity+
                 (arguments.Length>0?"\n"+(Core.Localization.CurrentLanguage.StartsWith("zh",StringComparison.OrdinalIgnoreCase)?"原启动参数（尚未应用）：":"Original launch arguments (not applied): ")+arguments:"");
         }
         LaunchArgumentsInput.Text=_profile is null ? "" : string.Join('\n',_profile.Arguments);

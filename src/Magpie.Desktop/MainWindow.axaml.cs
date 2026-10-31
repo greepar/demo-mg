@@ -9,9 +9,10 @@ namespace Magpie.Desktop;
 public partial class MainWindow : Window
 {
     private Core.ScalingSession? _scalingSession;
+    private Task? _scalingRun;
     internal Core.DesktopIntegration? DesktopIntegration { get; set; }
     internal bool CanImportConfiguration=>_scalingSession is null&&!GlobalShortcutsBusy;
-    internal void StopScaling() { CancelCountdown();_scalingSession?.Stop(); }
+    internal void StopScaling() { CancelAutomaticRequest();CancelCountdown();_scalingSession?.Stop(); }
     private bool _paneOpen;
     private bool _compact;
     private string _page = "Home";
@@ -23,11 +24,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Closing += (_, args) => { if(DesktopIntegration?.TryHide(args)!=true)StopScaling(); };
-        Closed += async (_,_)=> { DesktopIntegration?.Dispose();try { await DisableGlobalShortcutsAsync(); }catch(Exception error) { Console.Error.WriteLine(error.Message); } };
+        Closed += async (_,_)=> { _automaticClosed=true;_automaticTimer?.Stop();CancelAutomaticRequest();DesktopIntegration?.Dispose();try { await DisableGlobalShortcutsAsync(); }catch(Exception error) { Console.Error.WriteLine(error.Message); } };
         RootLayout.SizeChanged += (_, _) => UpdateNavigationLayout();
         _pages["Home"] = (Control)ContentFrame.Content!;
         InitializeProfiles();
-        Opened += (_, _) => RefreshNavigation();
+        Opened += (_, _) => { RefreshNavigation();StartAutomaticScaling(); };
         DialogShell.Confirmed += async (_, _) =>
         {
             if (_shortcutOwner is not null && _shortcutContent is { IsValid: true } content)
@@ -42,10 +43,20 @@ public partial class MainWindow : Window
     internal void StartScaling(bool fullscreen, int delaySeconds)
     {
         if(delaySeconds is <0 or >5)throw new ArgumentOutOfRangeException(nameof(delaySeconds));
+        CancelAutomaticRequest();
         if (_scalingSession is not null) { _scalingSession.Stop(); return; }
         if(delaySeconds>0){StartCountdown(fullscreen,delaySeconds);return;}
         CancelCountdown();
-        var session=CreateScalingSession();session.GlobalToolbarShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="toolbar")==true;
+        StartScalingSession(CreateScalingSession(),fullscreen);
+    }
+    private void StartScalingSession(Core.ScalingSession session,bool fullscreen)
+    {
+        session.StopRequested+=()=>
+        {
+            void Cancel(){if(ReferenceEquals(_scalingSession,session))CancelAutomaticRequest();}
+            if(Avalonia.Threading.Dispatcher.UIThread.CheckAccess())Cancel();else Avalonia.Threading.Dispatcher.UIThread.Post(Cancel);
+        };
+        session.GlobalToolbarShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="toolbar")==true;
         session.GlobalScreenshotShortcutActive=()=>_globalShortcuts?.Bound.Any(binding=>binding.Id=="screenshot")==true;
         _scalingSession = session;
         ((HomePage)_pages["Home"]).SetRunning(true);
@@ -54,10 +65,12 @@ public partial class MainWindow : Window
         {
             if(!ReferenceEquals(_scalingSession,session))return;
             _scalingSession = null;
+            _scalingRun = null;
             ((HomePage)_pages["Home"]).SetRunning(false);
             if (failure is not null) ShowToast("Scaling could not start", failure);
+            AutomaticSessionStopped(session);
         };
-        _ = session.RunAsync(this, fullscreen, 0);
+        _scalingRun=session.RunAsync(this, fullscreen, 0);
     }
     public void ShowShortcutDialog(ShortcutControl shortcut)
     {
