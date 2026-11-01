@@ -27,14 +27,14 @@ HICON windowIcon(HWND window,uint32_t preferred) {
     // Keep the original small/big/class/owner order, but bound queries to an
     // unresponsive application. These requests run off the UI thread.
     for(int depth=0;window&&depth<256;window=GetWindow(window,GW_OWNER),++depth) {
-        DWORD_PTR reply{};HICON small{};
+        DWORD_PTR reply{};HICON candidateSmallIcon{};
         if(SendMessageTimeoutW(window,WM_GETICON,ICON_SMALL,0,SMTO_ERRORONEXIT,500,&reply)&&reply) {
-            small=reinterpret_cast<HICON>(reply);if(dimensions(small).cx>=LONG(preferred))return CopyIcon(small);
+            candidateSmallIcon=reinterpret_cast<HICON>(reply);if(dimensions(candidateSmallIcon).cx>=LONG(preferred))return CopyIcon(candidateSmallIcon);
         }
         reply=0;if(SendMessageTimeoutW(window,WM_GETICON,ICON_BIG,0,SMTO_ERRORONEXIT,500,&reply)&&reply)return CopyIcon(reinterpret_cast<HICON>(reply));
-        if(!small) {small=reinterpret_cast<HICON>(GetClassLongPtrW(window,GCLP_HICONSM));if(small&&dimensions(small).cx>=LONG(preferred))return CopyIcon(small);}
+        if(!candidateSmallIcon) {candidateSmallIcon=reinterpret_cast<HICON>(GetClassLongPtrW(window,GCLP_HICONSM));if(candidateSmallIcon&&dimensions(candidateSmallIcon).cx>=LONG(preferred))return CopyIcon(candidateSmallIcon);}
         if(HICON big=reinterpret_cast<HICON>(GetClassLongPtrW(window,GCLP_HICON)))return CopyIcon(big);
-        if(small)return CopyIcon(small);
+        if(candidateSmallIcon)return CopyIcon(candidateSmallIcon);
     }
     return nullptr;
 }

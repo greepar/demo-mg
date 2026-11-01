@@ -2,6 +2,8 @@
 
 核对日期：2026-10-31（各阶段历史记录保留原验收范围）。范围为本仓库 `Magpie.Desktop` 跨平台移植实现，对照原版 `HomeViewModel`、`ProfileViewModel`、`SettingsViewModel`、`AboutViewModel`、`CursorManager` 和当前 Avalonia 页面/会话代码。以下是当前源码审计确认的已知缺口，不把截图、构建成功或替身测试当作真实交互验收，也不承诺未实测场景不存在其他问题。
 
+2026-11-02：`c1f120ee` 的 Windows SDK 原生编译被图标局部名 small 与 RPC 宏冲突阻断，真实图标/候选和本轮 Windows AOT 尚未验收。已用同宏环境复现并重命名修复，新增保留完整步骤的手动 Windows 单平台验收入口，减少无变化平台重复运行。其他 host 仍按原 run 独立观察；不把本地 UI 或宏探针算作 Windows 通过。
+
 2026-10-31 后续：`5b2dca4c` 的 [四 job Desktop CI](https://github.com/greepar/demo-mg/actions/runs/41203808960) 均成功，Windows 四例实际自动入口各 NativeAutomaticChecks=3，三个原生 fixture 各 profile_selection_checks=4；同 head 只触发一套 Desktop workflow。当前本地已接 Windows 新建配置选窗、独立类型化窗口规则、同名配置与六项隔离 UI，真实枚举待下一批验收。见 [目标范围](application-matching.md#5b2dca4c-目标结果)。
 
 2026-10-31：`74aa4c75` 的 [Desktop 四 job CI](https://github.com/greepar/demo-mg/actions/runs/41047751747) 全部成功。已核对 Windows 三种原生 fixture 每例 5 项最大化、4 项无边框规则及 16 轮恢复，四条生产 UI 路径也通过。当前本地已继续接原版 Windows 桌面身份匹配、自动监听/启动与串行交接、停止抑制和配置控制；本机 AOT/隔离生命周期通过，真实 Windows 待集中验收。打包窗口身份、新建配置选窗及其他平台识别仍未完成。详见 [配置匹配](application-matching.md)。

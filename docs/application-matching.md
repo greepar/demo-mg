@@ -69,3 +69,10 @@ Windows 桌面配置的侧栏和应用页标题现已接可执行文件图标：
 UI 为侧栏/标题创建不同 Image 控件，共享单次读取的只读位图；刷新或真实关窗先移除图片引用，再释放旧位图。异步完成时复核刷新代次、配置仍存在、当前身份路径及导航控件归属，删除/重排/路径更改/关闭后的晚到结果不创建位图，不覆盖新的控件。窗口 DPI scaling 变化会刷新图标尺寸；实际跨屏/DPI 仍未验收。图片转换复用与候选相同的预乘 RGBA 帮助方法，先核对尺寸和字节数，分配失败时释放资源。
 
 本地 NativeAOT/单文件/六项原生模型通过；四项私有 Wayland UI 覆盖侧栏/标题宽窄、候选名称菜单和窄窗口下拉回归，已查看截图。UI 使用合成图标验证真实控件、不同 Image/共享 Bitmap、读取失败、过期刷新、删除与关闭后结果拒绝，不证明 Shell 图标或三平台图标已完成。证据日志 `artifacts/desktop/profile-icons-platform.log`、`profile-icons-ui.log`；本批将与前两批选窗/图标一起推送一次集中目标验收。真实 Windows 新增图标/候选门尚待对应结果；AppX/UWP、macOS bundle、Wayland 应用身份与图标及全交互目标继续未完成。
+
+
+## c1f120ee Windows SDK 编译失败与修复
+
+[Windows job 124918316994](https://github.com/greepar/demo-mg/actions/runs/41330143878/job/124918316994) 在自有原生核心编译时失败，尚未进入 SDK/AOT/真实图标或候选门；不能记为这些 Windows 功能验收通过。原始错误保留为 `artifacts/desktop/profile-icons-windows-target.log`。图标代码的局部名 `small` 与 Windows SDK/RPC 兼容宏冲突，被展开为 `char`。修复将变量改为 candidateSmallIcon，不更改图标顺序、像素、捕获或超时条件。本机强制同一 small=char 环境后，已复现旧提交编译失败、重命名版本严格编译通过；普通 MinGW 头未暴露同一宏，之前的语法成功不足以证明 MSVC 成功。
+
+Desktop workflow 增加手动 `target=windows` 入口：普通 main 推送仍验收四个原生 host，手动默认也为 all；明确选 Windows 时只跑原 Windows job，其步骤/断言完整保留。为避免这个 Windows 局部重命名重复启动无变化的 Linux/macOS 任务，修复提交的自动 push 由提交标记跳过，再显式发起一次 Windows 验收。不同 target 的并发组分开，不取消仍在运行的原四平台证据。修复的目标结果仍待运行；AppX 身份解析只保存为本地未接入草稿，不随修复推送。

@@ -11,26 +11,25 @@ on:
       - 'scripts/**'
       - 'tests/fixtures/**'
   workflow_dispatch:
+    inputs:
+      target:
+        description: Native hosts to verify (pushes always run all hosts)
+        type: choice
+        required: true
+        default: all
+        options: [all, windows]
 permissions:
   contents: read
 concurrency:
   # Keep ongoing numerical evidence when a follow-up revision repairs a native compiler error.
-  group: desktop-native-${{ github.ref }}-${{ github.sha }}
+  group: desktop-native-${{ github.ref }}-${{ github.sha }}-${{ inputs.target || 'all' }}
   cancel-in-progress: true
 jobs:
   native:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - rid: linux-x64
-            runner: ubuntu-24.04
-          - rid: win-x64
-            runner: windows-2022
-          - rid: osx-arm64
-            runner: macos-15
-          - rid: osx-x64
-            runner: macos-15-intel
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.target == 'windows' && '[{"rid":"win-x64","runner":"windows-2022"}]' || '[{"rid":"linux-x64","runner":"ubuntu-24.04"},{"rid":"win-x64","runner":"windows-2022"},{"rid":"osx-arm64","runner":"macos-15"},{"rid":"osx-x64","runner":"macos-15-intel"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     steps:
