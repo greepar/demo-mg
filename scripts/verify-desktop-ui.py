@@ -23,7 +23,7 @@ CASES = [
     "ToolbarMoveOutput",
     "ToolbarActionsOutput",
     "ProfileCapturePolicy", "NarrowProfileCapturePolicy", "NarrowProfileCaptureWarning", "NarrowProfileCapture",
-    "CountdownLifecycle", "NarrowCountdownLifecycle", "AutomaticScalingLifecycle", "NewProfileNameMenu", "NarrowNewProfileNameMenu", "NewProfileWindowPicker", "NewProfileWindowMenu", "NarrowNewProfileWindowPicker", "NarrowNewProfileWindowMenu", "ProfileAutomaticPreference", "NarrowProfileAutomaticPreference",
+    "CountdownLifecycle", "NarrowCountdownLifecycle", "AutomaticScalingLifecycle", "NewProfileNameMenu", "NarrowNewProfileNameMenu", "NewProfileWindowPicker", "NewProfileWindowMenu", "NarrowNewProfileWindowPicker", "NarrowNewProfileWindowMenu", "ProfileApplicationIcons", "NarrowProfileApplicationIcons", "ProfileAutomaticPreference", "NarrowProfileAutomaticPreference",
     "SourceMetadataOutput",
     "ProfileImportedConfiguration", "NarrowProfileImportedConfiguration",
     "SettingsImportConfiguration", "NarrowSettingsImportConfiguration",

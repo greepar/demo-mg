@@ -49,6 +49,7 @@ internal static class UiPreview
         }
         switch (scenario)
         {
+            case "ProfileApplicationIcons":page="Profile:"+await window.VerifyProfileIconsAsync();break;
             case "GpuTimelineOutput":await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyGpuTimelineAsync(window,narrow);break;
             case "StageExportOutput":case "PassExportOutput":popups.AddRange(await new Core.ScalingSession(new Core.RuntimeSettings()).VerifyStageExportAsync(window,scenario=="PassExportOutput"));break;
             case "ScreenshotShortcutEdit":await window.VerifyScreenshotShortcutEditingAsync();break;

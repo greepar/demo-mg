@@ -12,6 +12,11 @@ public partial class ProfilePage : UserControl
     public Control? ActiveFlyoutContent { get; private set; }
     private Core.ApplicationProfile? _profile;
     private Core.RuntimeSettings Settings => _profile?.Settings ?? Core.RuntimeSettings.Current;
+    internal void SetApplicationIcon(Avalonia.Media.Imaging.Bitmap? bitmap)
+    {
+        if(_profile is null)return;
+        ProfileFrame.Icon=bitmap is null?new SymbolIcon {Kind="Window",Width=24,Height=24}:new Image {Source=bitmap,Width=24,Height=24};
+    }
     internal void ConfigureProfile(Core.ApplicationProfile profile)
     {
         _profile=profile;

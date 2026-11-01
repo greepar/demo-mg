@@ -1,8 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using System.Runtime.InteropServices;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -67,9 +65,7 @@ public partial class NewProfileFlyoutContent : UserControl
     private Control CandidateImage(WindowsApplicationIcon? icon)
     {
         if(icon is null)return new SymbolIcon {Kind="Window",Width=16,Height=16};
-        var bitmap=new WriteableBitmap(new PixelSize((int)icon.Width,(int)icon.Height),new Vector(96,96),PixelFormat.Rgba8888,AlphaFormat.Premul);
-        using(var pixels=bitmap.Lock())
-            for(int y=0;y<(int)icon.Height;y++)Marshal.Copy(icon.Pixels,y*(int)icon.Width*4,pixels.Address+y*pixels.RowBytes,(int)icon.Width*4);
+        var bitmap=ApplicationIconImage.Create(icon);
         _candidateImages.Add(bitmap);return new Image {Source=bitmap,Width=16,Height=16};
     }
     private void Refresh_Click(object? sender,RoutedEventArgs args)=>RefreshSources();

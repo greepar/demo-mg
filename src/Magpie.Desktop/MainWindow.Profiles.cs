@@ -18,6 +18,7 @@ public partial class MainWindow
     internal void RefreshProfilesNavigation()
     {
         ProfilesNavItems.Children.Clear();
+        ClearProfileIcons();
         var profiles=RuntimeSettings.Current.Profiles;
         foreach(string key in _pages.Keys.Where(k=>k.StartsWith("Profile:") && profiles.All(p=>k!="Profile:"+p.Id)).ToArray())_pages.Remove(key);
         foreach(var profile in profiles)
@@ -40,6 +41,7 @@ public partial class MainWindow
             var context=new MenuFlyout { Items={launch,location,delete} };
             button.ContextFlyout=context;PopupAlignment.Track(button,context);
             ProfilesNavItems.Children.Add(button);
+            _profileIconLoads.Add(LoadProfileIconAsync(profile,(StackPanel)button.Content!,page));
         }
         ProfilesNavItems.IsVisible=profiles.Count>0;
         if(_pages["Home"] is HomePage home)home.RefreshProfiles();

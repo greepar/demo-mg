@@ -24,10 +24,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Closing += (_, args) => { if(DesktopIntegration?.TryHide(args)!=true)StopScaling(); };
-        Closed += async (_,_)=> { _automaticClosed=true;_automaticTimer?.Stop();CancelAutomaticRequest();DesktopIntegration?.Dispose();try { await DisableGlobalShortcutsAsync(); }catch(Exception error) { Console.Error.WriteLine(error.Message); } };
+        Closed += async (_,_)=> { _profileIconsClosed=true;ClearProfileIcons();_automaticClosed=true;_automaticTimer?.Stop();CancelAutomaticRequest();DesktopIntegration?.Dispose();try { await DisableGlobalShortcutsAsync(); }catch(Exception error) { Console.Error.WriteLine(error.Message); } };
         RootLayout.SizeChanged += (_, _) => UpdateNavigationLayout();
         _pages["Home"] = (Control)ContentFrame.Content!;
         InitializeProfiles();
+        ScalingChanged+=(_,_)=> {if(!_profileIconsClosed)RefreshProfilesNavigation();};
         Opened += (_, _) => { RefreshNavigation();StartAutomaticScaling(); };
         DialogShell.Confirmed += async (_, _) =>
         {
