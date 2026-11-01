@@ -1,4 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using System.Runtime.InteropServices;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -15,7 +19,7 @@ public partial class NewProfileFlyoutContent : UserControl
     private bool WindowsPicker=>OperatingSystem.IsWindows()||_candidateFixture is not null;
     public NewProfileFlyoutContent()
     {
-        InitializeComponent();DetachedFromVisualTree+=(_,_)=>++_refreshGeneration;
+        InitializeComponent();InitializeNameMenu();DetachedFromVisualTree+=(_,_)=>{++_refreshGeneration;ClearCandidateImages();};
     }
     internal void SetCandidateFixture(Func<Task<IReadOnlyList<WindowsProfileCandidate>>> reader)
     {
@@ -32,19 +36,20 @@ public partial class NewProfileFlyoutContent : UserControl
         WindowsSources.IsVisible=WindowsPicker;ExecutableFields.IsVisible=!WindowsPicker;ProfileFields.IsVisible=!WindowsPicker;
         ErrorText.IsVisible=false;
         if(!WindowsPicker){UpdateConfirm();return;}
-        _loading=true;_selectedWindow=null;CandidateWindows.Items.Clear();NameInput.Text="";
+        _loading=true;_selectedWindow=null;CandidateWindows.Items.Clear();ClearCandidateImages();NameInput.Text="";
         CandidatesLoading.IsVisible=true;NoCandidates.IsVisible=false;UpdateConfirm();
         try
         {
             // Generic visual previews never enumerate a real desktop. The
             // hosted fixture supplies an explicitly guarded reader itself.
+            uint iconSize=(uint)Math.Clamp(Math.Round(16*(TopLevel.GetTopLevel(this)?.RenderScaling??1)),1,512);
             IReadOnlyList<WindowsProfileCandidate> rows=_candidateFixture is {} fixture?await fixture():
-                RuntimeSettings.PersistenceEnabled?await Task.Run(WindowsProfileCandidates.Read):[];
+                RuntimeSettings.PersistenceEnabled?await Task.Run(()=>WindowsProfileCandidates.Read(iconSize)):[];
             if(generation!=_refreshGeneration)return;
             var available=WindowsProfileCandidates.Available(rows,RuntimeSettings.Current);
             foreach(var row in available)
                 CandidateWindows.Items.Add(new ComboBoxItem {Tag=row,Content=new StackPanel {Orientation=Orientation.Horizontal,Spacing=10,
-                    Children={new SymbolIcon {Kind="Window",Width=16,Height=16},new TextBlock {Text=row.Title,MaxWidth=190,TextTrimming=TextTrimming.CharacterEllipsis}}}});
+                    Children={CandidateImage(row.Icon),new TextBlock {Text=row.Title,MaxWidth=190,TextTrimming=TextTrimming.CharacterEllipsis}}}});
             NoCandidates.IsVisible=available.Count==0;ProfileFields.IsVisible=available.Count>0;
             CandidateWindows.SelectedIndex=available.Count==1?0:-1;
         }
@@ -53,6 +58,19 @@ public partial class NewProfileFlyoutContent : UserControl
             if(generation==_refreshGeneration){ErrorText.Text=error.Message;ErrorText.IsVisible=true;}
         }
         finally {if(generation==_refreshGeneration){_loading=false;CandidatesLoading.IsVisible=false;UpdateConfirm();}}
+    }
+    private readonly List<WriteableBitmap> _candidateImages=[];
+    private void ClearCandidateImages()
+    {
+        foreach(var bitmap in _candidateImages)bitmap.Dispose();_candidateImages.Clear();
+    }
+    private Control CandidateImage(WindowsApplicationIcon? icon)
+    {
+        if(icon is null)return new SymbolIcon {Kind="Window",Width=16,Height=16};
+        var bitmap=new WriteableBitmap(new PixelSize((int)icon.Width,(int)icon.Height),new Vector(96,96),PixelFormat.Rgba8888,AlphaFormat.Premul);
+        using(var pixels=bitmap.Lock())
+            for(int y=0;y<(int)icon.Height;y++)Marshal.Copy(icon.Pixels,y*(int)icon.Width*4,pixels.Address+y*pixels.RowBytes,(int)icon.Width*4);
+        _candidateImages.Add(bitmap);return new Image {Source=bitmap,Width=16,Height=16};
     }
     private void Refresh_Click(object? sender,RoutedEventArgs args)=>RefreshSources();
     private void Window_SelectionChanged(object? sender,SelectionChangedEventArgs args)

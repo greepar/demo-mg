@@ -158,6 +158,13 @@ void* mp_windows_candidates_create(void);
 void mp_windows_candidates_destroy(void* list);
 uint32_t mp_windows_candidates_count(void* list);
 int mp_windows_candidates_get(void* list,uint32_t index,mp_capture_source_info* info,uint32_t size,char* window_class,uint32_t capacity,uint32_t* thread);
+// Optional owned icon pixels. Requests run off the UI thread; no activation or
+// input. Null means unavailable. Source HWND must still match PID/TID. Pixels
+// are premultiplied RGBA, valid until destroy; unsupported hosts return null/0.
+void* mp_windows_window_icon(uint64_t window,uint32_t process,uint32_t thread,uint32_t preferred_pixels);
+void* mp_windows_executable_icon(const char* utf8_path,uint32_t preferred_pixels);
+int mp_windows_icon_pixels(void* icon,const uint8_t** rgba,uint32_t* width,uint32_t* height);
+void mp_windows_icon_destroy(void* icon);
 // Starts the selected HWND only if its PID/TID still match. Windows only;
 // unsupported hosts return 0. Does not choose a newer foreground window.
 int mp_capture_start_window(void* capture,uint64_t window,uint32_t process,uint32_t thread);

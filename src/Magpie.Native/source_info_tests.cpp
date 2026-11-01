@@ -10,6 +10,8 @@ void require(bool value,const char* message) { if(!value)throw std::runtime_erro
 int main() {
     try {
         static_assert(sizeof(mp_pointer_rect)==16&&sizeof(mp_cursor_shape)==24);
+        require(mp_windows_window_icon(0,0,0,16)==nullptr&&mp_windows_executable_icon(nullptr,16)==nullptr,"Invalid application icon request succeeded");
+        mp_windows_icon_destroy(nullptr);
         mp_capture_source_info foreground=magpie::emptySource();char windowClass[1024]={'k'};uint32_t foregroundThread=123;
 #ifdef _WIN32
         require(mp_windows_foreground_source(nullptr,sizeof(foreground),windowClass,sizeof(windowClass),&foregroundThread)==-1,"Invalid foreground query reached window lookup");

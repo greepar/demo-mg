@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 namespace Magpie.Desktop.Core;
 
-internal sealed record WindowsProfileCandidate(WindowsCaptureSelection Window,string DefaultName)
+internal sealed record WindowsProfileCandidate(WindowsCaptureSelection Window,string DefaultName,WindowsApplicationIcon? Icon=null)
 {
     internal string Title=>Window.Source.Title;
 }
@@ -20,7 +20,7 @@ internal static class WindowsProfileCandidates
     [DllImport("magpie_native",EntryPoint="mp_windows_candidates_count")] private static extern uint Count(ListHandle list);
     [DllImport("magpie_native",EntryPoint="mp_windows_candidates_get")] private static extern unsafe int Get(ListHandle list,uint index,out NativeCaptureSource source,uint size,byte* windowClass,uint capacity,out uint thread);
     [DllImport("kernel32",CharSet=CharSet.Unicode)] private static extern int CompareStringEx(string? locale,uint flags,string first,int firstLength,string second,int secondLength,nint version,nint reserved,nint parameter);
-    internal static unsafe IReadOnlyList<WindowsProfileCandidate> Read()
+    internal static unsafe IReadOnlyList<WindowsProfileCandidate> Read(uint preferred=16)
     {
         if(!OperatingSystem.IsWindows())return [];
         using var list=Create();if(list.IsInvalid)throw NativeCore.Error();
@@ -32,7 +32,7 @@ internal static class WindowsProfileCandidates
             string name=selected.Source.Title;
             try {string? description=FileVersionInfo.GetVersionInfo(selected.Source.ExecutablePath).FileDescription?.Trim();if(!string.IsNullOrEmpty(description))name=description;}
             catch(Exception error) when(error is IOException or UnauthorizedAccessException or ArgumentException or System.ComponentModel.Win32Exception) { }
-            rows.Add(new(selected,name));
+            rows.Add(new(selected,name,WindowsApplicationIcon.Read(selected,preferred)));
         }
         return rows;
     }

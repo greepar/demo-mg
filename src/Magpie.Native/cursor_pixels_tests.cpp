@@ -1,8 +1,14 @@
 #include "cursor_pixels.h"
+#include "icon_pixels.h"
 #include <iostream>
 static void require(bool ok,const char* message) {if(!ok)throw std::runtime_error(message);}
 int main() {
     try {
+        require(magpie::iconPixels(std::vector<uint8_t>{3,5,255,128,1,2,3,0},{})==
+            std::vector<uint8_t>({128,3,2,128,0,0,0,0}),"Original icon alpha premultiplication or RGBA channel order differs");
+        require(magpie::iconPixels(std::vector<uint8_t>{0,0,0,0,3,2,1,0},std::vector<uint8_t>{255,255,255,0,255,255,255,0})==
+            std::vector<uint8_t>({0,0,0,0,1,2,3,255}),"Original masked-color icon transparency differs");
+        require(magpie::iconPixels(std::vector<uint8_t>{3,2,1,0},{})==std::vector<uint8_t>({1,2,3,255}),"Opaque unmasked icon fallback differs");
         std::vector<uint8_t> mask(8),color{0,0,255,128,0,255,0,255};
         magpie::CursorPixels alpha(2,1,color,mask);
         auto blue=[](size_t count) {std::vector<uint8_t> result(count*4);for(size_t i=0;i<count;++i){result[i*4+2]=255;result[i*4+3]=255;}return result;};

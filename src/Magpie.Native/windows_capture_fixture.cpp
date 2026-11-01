@@ -116,6 +116,15 @@ void verifyProfileSelection(HWND source,uint32_t backend,bool titleBar) {
         selected.process_id==process&&thread==actualThread,"Profile query selected a different window/process/thread");
     require(std::string(className)=="MagpieGdiDisposableSource"&&(selected.flags&MP_SOURCE_EXECUTABLE),"Profile query lost actual window class/executable");
     {
+        std::unique_ptr<void,decltype(&mp_windows_icon_destroy)> icon(mp_windows_window_icon(selected.window_id,process,thread,16),mp_windows_icon_destroy);
+        require(bool(icon),"Actual window icon could not be read");const uint8_t* rgba{};uint32_t width{},height{};
+        require(mp_windows_icon_pixels(icon.get(),&rgba,&width,&height)==1&&rgba&&width==2&&height==2,"Window icon geometry differs from independent fixture");
+        const uint8_t expected[]{128,0,0,128,0,255,0,255,0,0,255,255,255,255,255,255};
+        require(std::memcmp(rgba,expected,sizeof(expected))==0,"Actual window icon premultiplication/channel order differs");
+        require(mp_windows_window_icon(selected.window_id,process+1,thread,16)==nullptr,"Window icon accepted wrong process identity");
+        std::cout<<"WINDOWS APPLICATION ICON PASS: actual child class icon, independent 2x2 alpha pixels and wrong-process rejection.\n";
+    }
+    {
         std::unique_ptr<void,decltype(&mp_windows_candidates_destroy)> candidates(mp_windows_candidates_create(),mp_windows_candidates_destroy);
         native(bool(candidates),"Enumerate actual desktop profile candidates");bool found=false;
         for(uint32_t i=0;i<mp_windows_candidates_count(candidates.get());++i) {
@@ -308,6 +317,14 @@ int child(DWORD parent) {
     std::unique_ptr<void,decltype(&CloseHandle)> owner(OpenProcess(SYNCHRONIZE,FALSE,parent),CloseHandle);
     require(bool(owner),"Fixture parent is not alive");
     HINSTANCE instance=GetModuleHandleW(nullptr);
+    BITMAPINFO iconFormat{};iconFormat.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);iconFormat.bmiHeader.biWidth=2;iconFormat.bmiHeader.biHeight=-2;
+    iconFormat.bmiHeader.biPlanes=1;iconFormat.bmiHeader.biBitCount=32;iconFormat.bmiHeader.biCompression=BI_RGB;
+    void* iconBits{};HBITMAP iconColor=CreateDIBSection(nullptr,&iconFormat,DIB_RGB_COLORS,&iconBits,nullptr,0);
+    const uint8_t iconColors[]{0,0,255,128,0,255,0,255,255,0,0,255,255,255,255,255},iconMaskBytes[4]{};
+    HBITMAP iconMask=CreateBitmap(2,2,1,1,iconMaskBytes);require(iconColor&&iconBits&&iconMask,"Cannot create independent application icon bitmaps");
+    std::memcpy(iconBits,iconColors,sizeof(iconColors));ICONINFO applicationIcon{};applicationIcon.fIcon=TRUE;applicationIcon.hbmColor=iconColor;applicationIcon.hbmMask=iconMask;
+    struct ApplicationIcon {HICON value{};~ApplicationIcon(){if(value)DestroyIcon(value);}} icon{CreateIconIndirect(&applicationIcon)};
+    DeleteObject(iconColor);DeleteObject(iconMask);require(icon.value!=nullptr,"Cannot create independent alpha application icon");
     // Genuine native AND/XOR cursor: transparent except an inversion cross at
     // its hotspot. Desktop GetPixel excludes the OS pointer, so the production
     // test can independently prove its software cursor is actually composed.
@@ -317,6 +334,7 @@ int child(DWORD parent) {
     require(cursor!=nullptr,"Cannot create native inversion cursor fixture");
     WNDCLASSW cls{};cls.lpfnWndProc=sourceProc;cls.hInstance=instance;cls.lpszClassName=L"MagpieGdiDisposableSource";
     cls.hCursor=cursor;
+    cls.hIcon=icon.value;
     require(RegisterClassW(&cls)!=0,"Cannot register source fixture class");
     HWND window=CreateWindowW(cls.lpszClassName,title(parent).c_str(),WS_OVERLAPPEDWINDOW,100,100,300,240,nullptr,nullptr,instance,nullptr);
     require(window!=nullptr,"Cannot create source fixture window");

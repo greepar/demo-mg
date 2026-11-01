@@ -15,6 +15,10 @@
 
 namespace magpie { thread_local std::string error; }
 #ifndef _WIN32
+extern "C" void* mp_windows_window_icon(uint64_t,uint32_t,uint32_t,uint32_t) {return nullptr;}
+extern "C" void* mp_windows_executable_icon(const char*,uint32_t) {return nullptr;}
+extern "C" int mp_windows_icon_pixels(void*,const uint8_t**,uint32_t*,uint32_t*) {return 0;}
+extern "C" void mp_windows_icon_destroy(void*) {}
 extern "C" void* mp_windows_candidates_create() {return nullptr;}
 extern "C" void mp_windows_candidates_destroy(void*) {}
 extern "C" uint32_t mp_windows_candidates_count(void*) {return 0;}

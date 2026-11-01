@@ -23,7 +23,7 @@ CASES = [
     "ToolbarMoveOutput",
     "ToolbarActionsOutput",
     "ProfileCapturePolicy", "NarrowProfileCapturePolicy", "NarrowProfileCaptureWarning", "NarrowProfileCapture",
-    "CountdownLifecycle", "NarrowCountdownLifecycle", "AutomaticScalingLifecycle", "NewProfileWindowPicker", "NewProfileWindowMenu", "NarrowNewProfileWindowPicker", "NarrowNewProfileWindowMenu", "ProfileAutomaticPreference", "NarrowProfileAutomaticPreference",
+    "CountdownLifecycle", "NarrowCountdownLifecycle", "AutomaticScalingLifecycle", "NewProfileNameMenu", "NarrowNewProfileNameMenu", "NewProfileWindowPicker", "NewProfileWindowMenu", "NarrowNewProfileWindowPicker", "NarrowNewProfileWindowMenu", "ProfileAutomaticPreference", "NarrowProfileAutomaticPreference",
     "SourceMetadataOutput",
     "ProfileImportedConfiguration", "NarrowProfileImportedConfiguration",
     "SettingsImportConfiguration", "NarrowSettingsImportConfiguration",
@@ -52,7 +52,7 @@ CASES = [
     'TouchInfo', 'ExclusiveWarning', 'Toast',
     'NarrowModeImport', 'NarrowModeImportedUnavailable', 'NarrowHome', 'NarrowHomeDuplicateMenu', 'NarrowHomeMinimumMenu', 'NarrowModeCrtChain', 'NarrowModeCunnyChain', 'NarrowModeFsrcnnxChain', 'NarrowModeAnimeChain', 'NarrowModeNnedi3Chain', 'NarrowProfileNnedi3', 'NarrowProfileSsim', 'NarrowProfileAnimeExpanded', 'NarrowProfileRavu', 'NarrowModeRavuChain', 'NarrowModeAnimeExpanded', 'NarrowModeSsimChain', 'NarrowDefaults', 'NarrowProfileCropping', 'NarrowProfileWindowSizing', 'NarrowProfileWindowScaleMenu', 'NarrowProfileOutputAlignment', 'NarrowProfileGraphicsDeviceMenu', 'NarrowProfileScreenshot', 'NarrowProfileLimiter', 'NarrowSettings', 'NarrowPane', 'NarrowShortcut',
 ]
-POPUPS = {'NewProfileWindowPicker','NewProfileWindowMenu','NarrowNewProfileWindowPicker','NarrowNewProfileWindowMenu','ProfileCatalog','ProfileCatalogParameters','NarrowProfileCatalog','NarrowProfileCatalogParameters','ModeFilterChain','NarrowModeFilterChain','ProfileJincParameters','ProfileBilateralParameters','NarrowProfileJincParameters','NarrowProfileBilateralParameters','ModeSsimChain', 'NarrowModeSsimChain','ProfileWindowScaleMenu', 'ProfileOutputAlignment', 'ModeImportedParameters', 'ProfileImportedMode', 'HomeDuplicateMenu', 'HomeMinimumMenu', 'ProfileGraphicsDeviceMenu', 'ModeCrtParameters', 'ProfileCrtParameters', 'ProfileCapture', 'Toast', 'ToolbarMenu', 'NewProfile', 'NewProfileForm', 'ModeRename', 'ModeMore',
+POPUPS = {'NewProfileNameMenu','NarrowNewProfileNameMenu','NewProfileWindowPicker','NewProfileWindowMenu','NarrowNewProfileWindowPicker','NarrowNewProfileWindowMenu','ProfileCatalog','ProfileCatalogParameters','NarrowProfileCatalog','NarrowProfileCatalogParameters','ModeFilterChain','NarrowModeFilterChain','ProfileJincParameters','ProfileBilateralParameters','NarrowProfileJincParameters','NarrowProfileBilateralParameters','ModeSsimChain', 'NarrowModeSsimChain','ProfileWindowScaleMenu', 'ProfileOutputAlignment', 'ModeImportedParameters', 'ProfileImportedMode', 'HomeDuplicateMenu', 'HomeMinimumMenu', 'ProfileGraphicsDeviceMenu', 'ModeCrtParameters', 'ProfileCrtParameters', 'ProfileCapture', 'Toast', 'ToolbarMenu', 'NewProfile', 'NewProfileForm', 'ModeRename', 'ModeMore',
           'ModeDelete', 'ModeScale', 'ModeTypes', 'ModeParameters', 'ModeNew',
           'ProfileMode', 'ProfileTip', 'SettingsLanguage', 'SettingsTheme',
           'ProfileMore', 'ProfileRename', 'ProfileReorder', 'ProfileDelete', 'ProfileContext'}
@@ -93,7 +93,7 @@ def main():
                 raise SystemExit(f'{case}: source lifecycle handler/output evidence is missing.')
         if case in POPUPS and 'POPUP:' not in result.stdout:
             raise SystemExit(f'{case}: no visible native popup was captured.')
-        if case in ('ModeTypes','NewProfileWindowMenu','NarrowNewProfileWindowMenu') and result.stdout.count('POPUP:') != 2:
+        if case in ('ModeTypes','NewProfileWindowMenu','NarrowNewProfileWindowMenu','NewProfileNameMenu','NarrowNewProfileNameMenu') and result.stdout.count('POPUP:') != 2:
             raise SystemExit(f'{case}: nested dropdown did not render both popup layers.')
         proof=None
         output_proof=None
